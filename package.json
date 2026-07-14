@@ -1,0 +1,27 @@
+{
+  "name": "booknerd-reading-club",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vinext dev --hostname 0.0.0.0",
+    "build": "vinext build && mkdir -p dist/.openai && cp .openai/hosting.json dist/.openai/hosting.json && if [ -d .openai/drizzle ]; then cp -R .openai/drizzle dist/.openai/drizzle; fi",
+    "start": "vinext start",
+    "db:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "@mdx-js/rollup": "latest",
+    "@vitejs/plugin-react": "latest",
+    "@vitejs/plugin-rsc": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "react-server-dom-webpack": "latest",
+    "drizzle-orm": "0.45.2",
+    "lucide-react": "latest",
+    "vinext": "latest",
+    "vite": "latest"
+  },
+  "devDependencies": {
+    "drizzle-kit": "0.31.10"
+  }
+}
