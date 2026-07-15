@@ -54,6 +54,55 @@ async function api(url, options) {
   return data;
 }
 
+function canvasToBlob(canvas, type, quality) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Не удалось подготовить изображение.')), type, quality);
+  });
+}
+
+async function prepareCover(file) {
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+    throw new Error('Поддерживаются JPG, PNG и WEBP.');
+  }
+  if (file.size > 20 * 1024 * 1024) {
+    throw new Error('Исходное изображение должно быть меньше 20 МБ.');
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = new Image();
+    await new Promise((resolve, reject) => {
+      image.onload = resolve;
+      image.onerror = () => reject(new Error('Не удалось прочитать изображение.'));
+      image.src = objectUrl;
+    });
+
+    const attempts = [
+      { width: 1200, height: 1800, quality: 0.84 },
+      { width: 1000, height: 1500, quality: 0.76 },
+      { width: 800, height: 1200, quality: 0.68 },
+    ];
+
+    for (const attempt of attempts) {
+      const scale = Math.min(1, attempt.width / image.naturalWidth, attempt.height / image.naturalHeight);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      const context = canvas.getContext('2d');
+      context.imageSmoothingEnabled = true;
+      context.imageSmoothingQuality = 'high';
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const blob = await canvasToBlob(canvas, 'image/webp', attempt.quality);
+      if (blob.size <= 1_500_000) {
+        return new File([blob], `booknerd-cover-${Date.now()}.webp`, { type: 'image/webp' });
+      }
+    }
+    throw new Error('Не удалось уменьшить обложку. Выберите изображение поменьше.');
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 function Brand() {
   return (
     <a className="admin-brand" href="/">
@@ -187,11 +236,12 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
     if (!file) return;
     setUploading(true);
     try {
+      const preparedFile = await prepareCover(file);
       const formData = new FormData();
-      formData.append('cover', file);
+      formData.append('cover', preparedFile, preparedFile.name);
       const data = await api('/api/admin/covers', { method: 'POST', body: formData });
       setBookForm((current) => ({ ...current, coverKey: data.key, coverUrl: data.coverUrl }));
-      flash('Обложка загружена. Сохраните книгу.');
+      flash('Обложка подготовлена и сохранена. Теперь сохраните книгу.');
     } catch (error) {
       flash(error.message, 'error');
     } finally {
@@ -433,7 +483,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
 
               <aside className="admin-form-side">
                 <section className="admin-form-card admin-cover-card">
-                  <div className="admin-card-title compact"><span>02</span><div><h2>Обложка</h2><p>JPG, PNG или WEBP до 8 МБ.</p></div></div>
+                  <div className="admin-card-title compact"><span>02</span><div><h2>Обложка</h2><p>JPG, PNG или WEBP. Сайт сам уменьшит изображение.</p></div></div>
                   <div className="admin-cover-preview">
                     {bookForm.coverUrl ? <img src={bookForm.coverUrl} alt="Обложка книги" /> : <><ImagePlus size={38} /><strong>{bookForm.title || 'Обложка книги'}</strong><small>BOOKNERD EDITION</small></>}
                   </div>

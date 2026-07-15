@@ -1,11 +1,8 @@
 import { authorizeAdminRequest } from '../../../../lib/admin-auth.js';
-import { requireBucket } from '../../../../lib/runtime.js';
+import { ensureDb } from '../../../../lib/runtime.js';
 
-const allowedTypes = new Map([
-  ['image/jpeg', 'jpg'],
-  ['image/png', 'png'],
-  ['image/webp', 'webp'],
-]);
+const allowedTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const maxCoverBytes = 1_500_000;
 
 export async function POST(request) {
   const auth = await authorizeAdminRequest(request);
@@ -19,16 +16,15 @@ export async function POST(request) {
     if (!allowedTypes.has(file.type)) {
       return Response.json({ error: 'Поддерживаются JPG, PNG и WEBP.' }, { status: 400 });
     }
-    if (file.size > 8 * 1024 * 1024) {
-      return Response.json({ error: 'Обложка должна быть меньше 8 МБ.' }, { status: 400 });
+    if (file.size > maxCoverBytes) {
+      return Response.json({ error: 'Не удалось уменьшить обложку. Выберите изображение поменьше.' }, { status: 400 });
     }
 
-    const extension = allowedTypes.get(file.type);
+    const extension = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
     const key = `covers/${crypto.randomUUID()}.${extension}`;
-    await requireBucket().put(key, await file.arrayBuffer(), {
-      httpMetadata: { contentType: file.type, cacheControl: 'public, max-age=31536000, immutable' },
-      customMetadata: { uploadedBy: auth.email },
-    });
+    await (await ensureDb()).prepare(
+      `INSERT INTO book_covers (key, content_type, data, created_at, uploaded_by) VALUES (?, ?, ?, ?, ?)`
+    ).bind(key, file.type, await file.arrayBuffer(), new Date().toISOString(), auth.email).run();
     const coverUrl = `/api/covers/${key.split('/').map(encodeURIComponent).join('/')}`;
     return Response.json({ key, coverUrl }, { status: 201 });
   } catch (error) {

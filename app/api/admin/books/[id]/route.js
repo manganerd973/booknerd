@@ -1,6 +1,6 @@
 import { authorizeAdminRequest } from '../../../../../lib/admin-auth.js';
 import { slugify } from '../../../../../lib/books.js';
-import { ensureDb, requireBucket } from '../../../../../lib/runtime.js';
+import { ensureDb } from '../../../../../lib/runtime.js';
 
 function normalizePayload(payload = {}) {
   const genres = Array.isArray(payload.genres)
@@ -32,7 +32,7 @@ export async function PUT(request, { params }) {
       return Response.json({ error: 'Укажите название книги и автора.' }, { status: 400 });
     }
     const db = await ensureDb();
-    const current = await db.prepare(`SELECT id FROM books WHERE id = ? LIMIT 1`).bind(id).first();
+    const current = await db.prepare(`SELECT id, cover_key FROM books WHERE id = ? LIMIT 1`).bind(id).first();
     if (!current) return Response.json({ error: 'Книга не найдена.' }, { status: 404 });
 
     let slug = slugify(payload.requestedSlug || payload.title);
@@ -47,6 +47,9 @@ export async function PUT(request, { params }) {
       JSON.stringify(payload.genres), payload.status, payload.progress, payload.coverKey,
       payload.published ? 1 : 0, new Date().toISOString(), id,
     ).run();
+    if (current.cover_key && current.cover_key !== payload.coverKey) {
+      await db.prepare(`DELETE FROM book_covers WHERE key = ?`).bind(current.cover_key).run();
+    }
     return Response.json({ id, slug });
   } catch (error) {
     return Response.json({ error: error.message || 'Не удалось сохранить книгу.' }, { status: 500 });
@@ -63,7 +66,7 @@ export async function DELETE(request, { params }) {
     if (!book) return Response.json({ error: 'Книга не найдена.' }, { status: 404 });
     await db.prepare(`DELETE FROM books WHERE id = ?`).bind(id).run();
     if (book.cover_key) {
-      try { await requireBucket().delete(book.cover_key); } catch { /* book deletion remains valid */ }
+      await db.prepare(`DELETE FROM book_covers WHERE key = ?`).bind(book.cover_key).run();
     }
     return Response.json({ ok: true });
   } catch (error) {
