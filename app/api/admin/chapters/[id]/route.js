@@ -1,5 +1,5 @@
 import { authorizeAdminRequest } from '../../../../../lib/admin-auth.js';
-import { requireDb } from '../../../../../lib/runtime.js';
+import { ensureDb } from '../../../../../lib/runtime.js';
 
 function normalizeChapter(payload = {}) {
   return {
@@ -17,7 +17,7 @@ export async function PUT(request, { params }) {
     const { id } = await params;
     const payload = normalizeChapter(await request.json());
     if (!payload.title) return Response.json({ error: 'Укажите название главы.' }, { status: 400 });
-    const db = requireDb();
+    const db = await ensureDb();
     const current = await db.prepare(`SELECT status FROM chapters WHERE id = ? LIMIT 1`).bind(id).first();
     if (!current) return Response.json({ error: 'Глава не найдена.' }, { status: 404 });
     const now = new Date().toISOString();
@@ -47,7 +47,7 @@ export async function DELETE(request, { params }) {
   if (auth.response) return auth.response;
   try {
     const { id } = await params;
-    await requireDb().prepare(`DELETE FROM chapters WHERE id = ?`).bind(id).run();
+    await (await ensureDb()).prepare(`DELETE FROM chapters WHERE id = ?`).bind(id).run();
     return Response.json({ ok: true });
   } catch (error) {
     return Response.json({ error: error.message || 'Не удалось удалить главу.' }, { status: 500 });

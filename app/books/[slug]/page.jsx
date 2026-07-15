@@ -28,6 +28,7 @@ export default async function BookPage({ params }) {
           <h1>{book.title}</h1>
           <p className="book-detail-author">{book.author}</p>
           {book.originalTitle && <p className="book-original-title">Оригинальное название: {book.originalTitle}</p>}
+          {book.seriesTitle && <p className="book-series">Серия «{book.seriesTitle}»{book.seriesNumber ? ` · книга ${book.seriesNumber}` : ''}</p>}
           <div className="book-detail-progress">
             <div><span>Готовность перевода</span><strong>{book.progress}%</strong></div>
             <div><i style={{ width: `${book.progress}%` }} /></div>

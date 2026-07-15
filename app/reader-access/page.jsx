@@ -4,11 +4,12 @@ export const metadata = {
   title: 'Вход для читателей — BOOKNERD',
 };
 
-export default function ReaderAccessPage({ searchParams }) {
-  const next = typeof searchParams?.next === 'string' && searchParams.next.startsWith('/')
-    ? searchParams.next
+export default async function ReaderAccessPage({ searchParams }) {
+  const params = await searchParams;
+  const next = typeof params?.next === 'string' && params.next.startsWith('/')
+    ? params.next
     : '/';
-  const hasError = searchParams?.error === '1';
+  const hasError = params?.error === '1';
 
   return (
     <main className="reader-access-page">

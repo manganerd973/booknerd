@@ -11,16 +11,14 @@ import {
   Menu,
   MessageCircle,
   Search,
-  Send,
   Sparkles,
   Star,
   X,
 } from 'lucide-react';
-import { fallbackBooks } from './data.js';
 
 function Logo() {
   return (
-    <a className="logo" href="#top" aria-label="BOOKNERD — на главную">
+    <a className="logo" href="/" aria-label="BOOKNERD — на главную">
       <span className="logo-mark" aria-hidden="true">
         <span>B</span>
         <Sparkles size={13} strokeWidth={2.5} />
@@ -119,7 +117,7 @@ function BookCard({ book, saved, onSave, onOpen }) {
 }
 
 function App({ initialBooks = [] }) {
-  const books = initialBooks.length ? initialBooks : fallbackBooks;
+  const books = initialBooks;
   const filters = useMemo(() => ['Все', ...new Set(books.flatMap((book) => book.genres?.length ? book.genres : [book.genre]).filter(Boolean))], [books]);
   const [activeFilter, setActiveFilter] = useState('Все');
   const [query, setQuery] = useState('');
@@ -127,8 +125,6 @@ function App({ initialBooks = [] }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectedBook, setSelectedBook] = useState(null);
   const [notice, setNotice] = useState('');
-  const [email, setEmail] = useState('');
-  const [subscribed, setSubscribed] = useState(false);
   const [saved, setSaved] = useState(() => {
     if (typeof window === 'undefined') return new Set();
     try {
@@ -176,13 +172,6 @@ function App({ initialBooks = [] }) {
     });
   };
 
-  const submitEmail = (event) => {
-    event.preventDefault();
-    if (!email.trim()) return;
-    setSubscribed(true);
-    setEmail('');
-  };
-
   return (
     <>
       <div className="site-shell" id="top">
@@ -195,16 +184,16 @@ function App({ initialBooks = [] }) {
         <header className="header">
           <Logo />
           <nav className="desktop-nav" aria-label="Главная навигация">
-            <a href="#catalog">Переводы</a>
-            <a href="#about">О проекте</a>
-            <a href="#team">Команда</a>
+            <a href="/translations">Переводы</a>
+            <a href="/about">О проекте</a>
+            <a href="/team">Команда</a>
           </nav>
           <div className="header-actions">
             <button className="icon-button" onClick={() => setSearchOpen(true)} aria-label="Открыть поиск">
               <Search size={19} />
             </button>
-            <a className="telegram-button" href="#join">
-              Наш Telegram <ArrowRight size={17} />
+            <a className="telegram-button" href="/translations">
+              Читать сейчас <ArrowRight size={17} />
             </a>
             <button className="menu-button" onClick={() => setMenuOpen(true)} aria-label="Открыть меню">
               <Menu size={22} />
@@ -222,7 +211,7 @@ function App({ initialBooks = [] }) {
                 из-за которого невозможно остановиться на одной главе.
               </p>
               <div className="hero-actions">
-                <a className="primary-button" href="#catalog">
+                <a className="primary-button" href="/translations">
                   Смотреть переводы <ArrowDownRight size={19} />
                 </a>
                   <button className="text-button" onClick={() => setSelectedBook(books[0])}>
@@ -306,7 +295,7 @@ function App({ initialBooks = [] }) {
                   Сохраняем голос автора, спорим о каждой интонации и не выпускаем главу,
                   пока она не зазвучит по‑настоящему.
                 </p>
-                <a href="#team">Познакомиться с командой <ArrowRight size={18} /></a>
+                <a href="/team">Познакомиться с командой <ArrowRight size={18} /></a>
               </div>
             </div>
 
@@ -337,26 +326,11 @@ function App({ initialBooks = [] }) {
               <span>BOOK</span><span>NERD</span>
             </div>
             <div className="join-content">
-              <span className="section-number">03 / ОСТАВАЙСЯ С НАМИ</span>
+              <span className="section-number">03 / ЧИТАТЬ ДАЛЬШЕ</span>
               <h2>Новая глава уже<br /><em>на подходе.</em></h2>
-              <p>Получай уведомления о новых главах, переводах и книжных голосованиях.</p>
-              {subscribed ? (
-                <div className="success-message"><Check size={19} /> Ты в книжном списке!</div>
-              ) : (
-                <form className="join-form" onSubmit={submitEmail}>
-                  <label className="sr-only" htmlFor="email">Email</label>
-                  <input
-                    id="email"
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    placeholder="Твой email"
-                  />
-                  <button type="submit" aria-label="Подписаться"><Send size={19} /></button>
-                </form>
-              )}
-              <small>Только важное. Никакого спама — мы заняты книгами.</small>
+              <p>Следи за новыми переводами и продолжай чтение прямо на сайте.</p>
+              <a className="join-library-link" href="/translations">Открыть библиотеку <ArrowRight size={19} /></a>
+              <small>Все опубликованные главы появляются в онлайн-читалке.</small>
             </div>
           </section>
         </main>
@@ -364,7 +338,7 @@ function App({ initialBooks = [] }) {
         <footer>
           <Logo />
           <p>Книжная команда переводов · сделано читателями для читателей</p>
-          <div><a href="#catalog">Переводы</a><a href="#about">О нас</a><a href="#join">Связаться</a></div>
+          <div><a href="/translations">Переводы</a><a href="/about">О нас</a><a href="/team">Команда</a></div>
           <span>© 2026 BOOKNERD</span>
         </footer>
       </div>
@@ -403,10 +377,10 @@ function App({ initialBooks = [] }) {
         <div className="mobile-drawer">
           <div className="drawer-head"><Logo /><button onClick={() => setMenuOpen(false)}><X /></button></div>
           <nav>
-            <a href="#catalog" onClick={() => setMenuOpen(false)}><span>01</span>Переводы</a>
-            <a href="#about" onClick={() => setMenuOpen(false)}><span>02</span>О проекте</a>
-            <a href="#team" onClick={() => setMenuOpen(false)}><span>03</span>Команда</a>
-            <a href="#join" onClick={() => setMenuOpen(false)}><span>04</span>Присоединиться</a>
+            <a href="/translations" onClick={() => setMenuOpen(false)}><span>01</span>Переводы</a>
+            <a href="/about" onClick={() => setMenuOpen(false)}><span>02</span>О проекте</a>
+            <a href="/team" onClick={() => setMenuOpen(false)}><span>03</span>Команда</a>
+            <a href="/admin" onClick={() => setMenuOpen(false)}><span>04</span>Редакционная</a>
           </nav>
           <p>Истории, которые мы хотели прочитать сами.</p>
         </div>

@@ -1,6 +1,6 @@
 import { authorizeAdminRequest } from '../../../../lib/admin-auth.js';
 import { listAllBooks, slugify } from '../../../../lib/books.js';
-import { requireDb } from '../../../../lib/runtime.js';
+import { ensureDb } from '../../../../lib/runtime.js';
 
 function normalizeBookPayload(payload = {}) {
   const genres = Array.isArray(payload.genres)
@@ -9,6 +9,8 @@ function normalizeBookPayload(payload = {}) {
   return {
     title: String(payload.title || '').trim().slice(0, 180),
     originalTitle: String(payload.originalTitle || '').trim().slice(0, 180),
+    seriesTitle: String(payload.seriesTitle || '').trim().slice(0, 180),
+    seriesNumber: payload.seriesNumber ? Math.max(1, Math.floor(Number(payload.seriesNumber))) : null,
     author: String(payload.author || '').trim().slice(0, 140),
     synopsis: String(payload.synopsis || '').trim().slice(0, 12000),
     genres,
@@ -49,16 +51,16 @@ export async function POST(request) {
       return Response.json({ error: 'Укажите название книги и автора.' }, { status: 400 });
     }
 
-    const db = requireDb();
+    const db = await ensureDb();
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     const slug = await uniqueSlug(db, slugify(payload.requestedSlug || payload.title));
     await db.prepare(
       `INSERT INTO books
-       (id, slug, title, original_title, author, synopsis, genres, status, progress, cover_key, published, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (id, slug, title, original_title, series_title, series_number, author, synopsis, genres, status, progress, cover_key, published, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
-      id, slug, payload.title, payload.originalTitle, payload.author, payload.synopsis,
+      id, slug, payload.title, payload.originalTitle, payload.seriesTitle, payload.seriesNumber, payload.author, payload.synopsis,
       JSON.stringify(payload.genres), payload.status, payload.progress, payload.coverKey,
       payload.published ? 1 : 0, now, now,
     ).run();

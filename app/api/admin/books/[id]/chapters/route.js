@@ -1,6 +1,6 @@
 import { authorizeAdminRequest } from '../../../../../../lib/admin-auth.js';
 import { listChapters } from '../../../../../../lib/books.js';
-import { requireDb } from '../../../../../../lib/runtime.js';
+import { ensureDb } from '../../../../../../lib/runtime.js';
 
 function normalizeChapter(payload = {}) {
   const status = payload.status === 'published' ? 'published' : 'draft';
@@ -30,7 +30,7 @@ export async function POST(request, { params }) {
     const { id: bookId } = await params;
     const payload = normalizeChapter(await request.json());
     if (!payload.title) return Response.json({ error: 'Укажите название главы.' }, { status: 400 });
-    const db = requireDb();
+    const db = await ensureDb();
     const book = await db.prepare(`SELECT id FROM books WHERE id = ? LIMIT 1`).bind(bookId).first();
     if (!book) return Response.json({ error: 'Книга не найдена.' }, { status: 404 });
     const id = crypto.randomUUID();

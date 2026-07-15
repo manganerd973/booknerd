@@ -27,6 +27,8 @@ const blankBook = {
   slug: '',
   title: '',
   originalTitle: '',
+  seriesTitle: '',
+  seriesNumber: '',
   author: '',
   synopsis: '',
   genres: [],
@@ -334,7 +336,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
         </div>
         <div className="admin-user">
           <div className="admin-avatar">{currentUser.displayName.slice(0, 1).toUpperCase()}</div>
-          <div><strong>{currentUser.role === 'owner' ? 'Создатель' : 'Участник команды'}</strong><span>{currentUser.email}</span></div>
+          <div><strong>{currentUser.role === 'owner' ? 'Владелица' : 'Участник команды'}</strong><span>{currentUser.role === 'owner' ? 'Полный доступ' : currentUser.email}</span></div>
           <a href={signOutHref} aria-label="Выйти"><LogOut size={18} /></a>
         </div>
       </aside>
@@ -416,6 +418,8 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                     <label><span>Автор *</span><input value={bookForm.author} onChange={(event) => setBookForm({ ...bookForm, author: event.target.value })} placeholder="Имя автора" /></label>
                     <label><span>Оригинальное название</span><input value={bookForm.originalTitle} onChange={(event) => setBookForm({ ...bookForm, originalTitle: event.target.value })} placeholder="Название на языке оригинала" /></label>
                     <label><span>Адрес страницы</span><input value={bookForm.slug} onChange={(event) => setBookForm({ ...bookForm, slug: event.target.value })} placeholder="sozdayotsya-avtomaticheski" /></label>
+                    <label><span>Название серии</span><input value={bookForm.seriesTitle || ''} onChange={(event) => setBookForm({ ...bookForm, seriesTitle: event.target.value })} placeholder="Например, Хроники Севера" /></label>
+                    <label><span>Номер книги в серии</span><input type="number" min="1" value={bookForm.seriesNumber || ''} onChange={(event) => setBookForm({ ...bookForm, seriesNumber: event.target.value ? Number(event.target.value) : '' })} placeholder="1" /></label>
                   </div>
                   <label className="admin-full-field"><span>Аннотация</span><textarea value={bookForm.synopsis} onChange={(event) => setBookForm({ ...bookForm, synopsis: event.target.value })} placeholder="Расскажите читателю, о чём эта история…" rows={7} /><small>{bookForm.synopsis.length} / 12 000</small></label>
                   <div className="admin-fields two-columns">
@@ -483,7 +487,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
               <form className="admin-invite-card" onSubmit={addTeamMember}>
                 <Users size={30} />
                 <h2>Добавить участника</h2>
-                <p>Введите email, который участник использует в ChatGPT. После этого он сможет войти в панель.</p>
+                <p>Введите email участника. После этого он сможет войти по этому email и отдельному командному паролю.</p>
                 <label><span>Email участника</span><input type="email" value={teamEmail} onChange={(event) => setTeamEmail(event.target.value)} placeholder="name@example.com" required /></label>
                 <button className="admin-primary" type="submit"><Plus size={18} /> Открыть доступ</button>
               </form>
@@ -492,7 +496,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                 {team.map((member) => (
                   <article key={member.email}>
                     <div className="admin-avatar">{member.email.slice(0, 1).toUpperCase()}</div>
-                    <div><strong>{member.role === 'owner' ? 'Создатель BOOKNERD' : 'Участник команды'}</strong><span>{member.email}</span></div>
+                    <div><strong>{member.role === 'owner' ? 'Владелица BOOKNERD' : 'Участник команды'}</strong><span>{member.displayName || member.email}</span></div>
                     <b>{member.role === 'owner' ? 'Полный доступ' : 'Книги и главы'}</b>
                     {member.role !== 'owner' && <button onClick={() => removeTeamMember(member.email)} aria-label={`Закрыть доступ для ${member.email}`}><Trash2 size={17} /></button>}
                   </article>

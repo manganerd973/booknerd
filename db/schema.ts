@@ -5,6 +5,8 @@ export const books = sqliteTable('books', {
   slug: text('slug').notNull(),
   title: text('title').notNull(),
   originalTitle: text('original_title').notNull().default(''),
+  seriesTitle: text('series_title').notNull().default(''),
+  seriesNumber: integer('series_number'),
   author: text('author').notNull(),
   synopsis: text('synopsis').notNull().default(''),
   genres: text('genres').notNull().default('[]'),
