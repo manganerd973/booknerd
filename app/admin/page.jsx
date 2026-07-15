@@ -1,10 +1,12 @@
 import { requireChatGPTUser, signOutPath } from '../chatgpt-auth.js';
 import { getAdminRole } from '../../lib/admin-auth.js';
+import { requireReaderAccess } from '../../lib/reader-access.js';
 import AdminDashboard from '../../src/admin.jsx';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminPage() {
+  await requireReaderAccess('/admin');
   const user = await requireChatGPTUser('/admin');
   const role = await getAdminRole(user.email);
 

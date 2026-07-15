@@ -1,11 +1,13 @@
 import { ArrowLeft, ArrowRight, BookOpen, Clock3, FileText } from 'lucide-react';
 import { notFound } from 'next/navigation';
 import { getBookBySlug, listChapters } from '../../../lib/books.js';
+import { requireReaderAccess } from '../../../lib/reader-access.js';
 
 export const dynamic = 'force-dynamic';
 
 export default async function BookPage({ params }) {
   const { slug } = await params;
+  await requireReaderAccess(`/books/${slug}`);
   const book = await getBookBySlug(slug);
   if (!book) notFound();
   const chapters = await listChapters(book.id);
