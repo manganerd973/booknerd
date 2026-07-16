@@ -35,6 +35,7 @@ const BOOKMARKS_KEY = 'booknerd-reader-bookmarks-v2';
 
 const DEFAULT_SETTINGS = {
   theme: 'paper',
+  motion: 'slide',
   fontSize: 20,
   fontFamily: 'Georgia',
   lineHeight: 1.72,
@@ -42,6 +43,13 @@ const DEFAULT_SETTINGS = {
   align: 'left',
   brightness: 100,
 };
+
+const READING_MODE_OPTIONS = [
+  { id: 'slide', name: 'Сдвиг', description: 'Страницы плавно двигаются в сторону' },
+  { id: 'curl', name: 'Перелистывание', description: 'Эффект переворачивания бумажной страницы' },
+  { id: 'fade', name: 'Быстрое затухание', description: 'Новая страница появляется без движения' },
+  { id: 'scroll', name: 'Прокрутка', description: 'Непрерывный текст сверху вниз' },
+];
 
 const THEME_OPTIONS = [
   { id: 'original', name: 'Оригинал', sample: 'Aa' },
@@ -109,6 +117,13 @@ function ReaderSheet({ title, eyebrow, onClose, children, wide = false }) {
   );
 }
 
+function ReadingModeIcon({ mode, size = 22 }) {
+  if (mode === 'curl') return <BookOpen size={size} />;
+  if (mode === 'fade') return <Sun size={size} />;
+  if (mode === 'scroll') return <AlignJustify size={size} />;
+  return <ArrowRight size={size} />;
+}
+
 export default function ReaderView({ book, chapter, chapters = [], previous, next }) {
   const chapterList = useMemo(() => chapters.length ? chapters : [chapter], [chapters, chapter]);
   const chapterIndex = Math.max(0, chapterList.findIndex((item) => item.id === chapter.id));
@@ -137,11 +152,13 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
       const fontExists = FONT_OPTIONS.some((font) => font.id === saved.fontFamily);
       const themeExists = THEME_OPTIONS.some((theme) => theme.id === saved.theme);
+      const motionExists = READING_MODE_OPTIONS.some((mode) => mode.id === saved.motion);
       setSettings({
         ...DEFAULT_SETTINGS,
         ...saved,
         fontFamily: fontExists ? saved.fontFamily : DEFAULT_SETTINGS.fontFamily,
         theme: themeExists ? saved.theme : DEFAULT_SETTINGS.theme,
+        motion: motionExists ? saved.motion : DEFAULT_SETTINGS.motion,
         fontSize: clamp(Number(saved.fontSize) || DEFAULT_SETTINGS.fontSize, 16, 30),
         lineHeight: clamp(Number(saved.lineHeight) || DEFAULT_SETTINGS.lineHeight, 1.35, 2.1),
         brightness: clamp(Number(saved.brightness) || DEFAULT_SETTINGS.brightness, 35, 100),
@@ -258,21 +275,58 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
   const isBookmarked = bookmarks.includes(bookmarkId);
 
   const goBackward = useCallback(() => {
+    if (settings.motion === 'scroll') {
+      const node = viewportRef.current;
+      if (node && node.scrollTop > 4) {
+        node.scrollBy({ top: -Math.max(240, node.clientHeight * .88), behavior: 'smooth' });
+        return;
+      }
+    }
     if (page > 0) {
       setPage((current) => current - 1);
       return;
     }
     if (previous) window.location.href = `/books/${book.slug}/chapters/${previous.id}?page=last`;
-  }, [book.slug, page, previous]);
+  }, [book.slug, page, previous, settings.motion]);
 
   const goForward = useCallback(() => {
+    if (settings.motion === 'scroll') {
+      const node = viewportRef.current;
+      if (node && node.scrollTop < node.scrollHeight - node.clientHeight - 4) {
+        node.scrollBy({ top: Math.max(240, node.clientHeight * .88), behavior: 'smooth' });
+        return;
+      }
+    }
     if (page < currentChapterPages - 1) {
       setPage((current) => current + 1);
       return;
     }
     if (next) window.location.href = `/books/${book.slug}/chapters/${next.id}`;
     else window.location.href = `/books/${book.slug}`;
-  }, [book.slug, currentChapterPages, next, page]);
+  }, [book.slug, currentChapterPages, next, page, settings.motion]);
+
+  useEffect(() => {
+    const node = viewportRef.current;
+    if (!node || !measurementReady) return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      if (settings.motion === 'scroll') {
+        const maximum = Math.max(0, node.scrollHeight - node.clientHeight);
+        node.scrollTop = currentChapterPages > 1 ? (page / (currentChapterPages - 1)) * maximum : 0;
+      } else {
+        node.scrollTop = 0;
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [chapter.id, currentChapterPages, measurementReady, settings.motion]);
+
+  const handleReaderScroll = useCallback((event) => {
+    if (settings.motion !== 'scroll') return;
+    const node = event.currentTarget;
+    const maximum = node.scrollHeight - node.clientHeight;
+    const ratio = maximum > 0 ? node.scrollTop / maximum : 0;
+    const visiblePage = Math.round(ratio * Math.max(0, currentChapterPages - 1));
+    setPage((current) => current === visiblePage ? current : visiblePage);
+  }, [currentChapterPages, settings.motion]);
 
   useEffect(() => {
     const onKeyDown = (event) => {
@@ -359,9 +413,13 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
     columnFill: 'auto',
   } : undefined;
 
+  const motionKey = settings.motion === 'fade' || settings.motion === 'curl'
+    ? `${chapter.id}-${settings.motion}-${page}`
+    : `${chapter.id}-${settings.motion}`;
+
   return (
     <main className="reader-page reader-modern" data-reader-theme={settings.theme} style={fontStyle}>
-      <section className="reader-experience" aria-label={`Читалка: ${book.title}`}>
+      <section className="reader-experience" data-reading-mode={settings.motion} aria-label={`Читалка: ${book.title}`}>
         <header className="reader-book-header">
           <a className="reader-book-brand" href="/"><span>B</span><strong>BOOKNERD</strong></a>
           <div className="reader-book-progress" aria-label={`Прочитано ${percent}%`}>
@@ -387,7 +445,8 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
           <div
             className="reader-page-window"
             ref={viewportRef}
-            onTouchStart={(event) => { touchStart.current = event.touches[0]?.clientX ?? null; }}
+            onScroll={handleReaderScroll}
+            onTouchStart={(event) => { touchStart.current = settings.motion === 'scroll' ? null : (event.touches[0]?.clientX ?? null); }}
             onTouchEnd={(event) => {
               if (touchStart.current == null) return;
               const finish = event.changedTouches[0]?.clientX ?? touchStart.current;
@@ -397,8 +456,10 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
               if (distance > 0) goBackward(); else goForward();
             }}
           >
-            <div className="reader-column-flow" style={{ ...flowStyle, transform: `translate3d(-${page * dimensions.width}px, 0, 0)` }}>
-              <ChapterFlow book={book} chapter={chapter} showDriveLink />
+            <div className={`reader-motion-surface reader-motion-${settings.motion}`} key={motionKey}>
+              <div className="reader-column-flow reader-visible-flow" style={{ ...flowStyle, transform: `translate3d(-${page * dimensions.width}px, 0, 0)` }}>
+                <ChapterFlow book={book} chapter={chapter} showDriveLink />
+              </div>
             </div>
           </div>
           <button type="button" className="reader-page-arrow reader-page-arrow-right" onClick={goForward} aria-label="Следующая страница"><ArrowRight size={22} /></button>
@@ -487,6 +548,11 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
 
       {panel === 'settings' ? (
         <ReaderSheet title="Темы и настройки" eyebrow="Читалка BOOKNERD" onClose={() => setPanel(null)} wide>
+          <button className="reader-mode-selector" type="button" onClick={() => setPanel('reading-mode')}>
+            <ReadingModeIcon mode={settings.motion} size={24} />
+            <span><small>Способ чтения</small><strong>{READING_MODE_OPTIONS.find((mode) => mode.id === settings.motion)?.name}</strong></span>
+            <ChevronRight size={20} />
+          </button>
           <section className="reader-settings-block">
             <div className="reader-setting-stepper">
               <button type="button" onClick={() => updateSetting('fontSize', clamp(settings.fontSize - 1, 16, 30))}>A−</button>
@@ -514,6 +580,25 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
             <button type="button" className={settings.bold ? 'is-active' : ''} onClick={() => updateSetting('bold', !settings.bold)}><BoldIcon size={22} /><span><small>Начертание</small><strong>Жирный текст</strong></span><i aria-hidden="true" /></button>
           </section>
           <button className="reader-reset-button" type="button" onClick={() => setSettings(DEFAULT_SETTINGS)}><RotateCcw size={19} /> Сбросить настройки</button>
+        </ReaderSheet>
+      ) : null}
+
+      {panel === 'reading-mode' ? (
+        <ReaderSheet title="Способ чтения" eyebrow="Как будут меняться страницы" onClose={() => setPanel('settings')}>
+          <div className="reader-reading-mode-list">
+            {READING_MODE_OPTIONS.map((mode) => (
+              <button
+                type="button"
+                className={settings.motion === mode.id ? 'is-active' : ''}
+                onClick={() => { updateSetting('motion', mode.id); setPanel('settings'); }}
+                key={mode.id}
+              >
+                <ReadingModeIcon mode={mode.id} size={24} />
+                <span><strong>{mode.name}</strong><small>{mode.description}</small></span>
+                {settings.motion === mode.id ? <Check size={22} /> : null}
+              </button>
+            ))}
+          </div>
         </ReaderSheet>
       ) : null}
 

@@ -23,6 +23,7 @@ function formatDate(value) {
 export default function CommentsSection({ bookId, chapterId = null }) {
   const [comments, setComments] = useState([]);
   const [authorName, setAuthorName] = useState('');
+  const [savedAuthorName, setSavedAuthorName] = useState('');
   const [body, setBody] = useState('');
   const [website, setWebsite] = useState('');
   const [loading, setLoading] = useState(true);
@@ -46,9 +47,31 @@ export default function CommentsSection({ bookId, chapterId = null }) {
   }, [bookId, chapterId]);
 
   useEffect(() => {
-    try { setAuthorName(localStorage.getItem('booknerd-comment-name') || ''); } catch { /* optional */ }
+    try {
+      const savedName = String(localStorage.getItem('booknerd-comment-name') || '').trim();
+      if (savedName.length >= 2) {
+        setAuthorName(savedName);
+        setSavedAuthorName(savedName);
+      }
+    } catch { /* optional */ }
     loadComments();
   }, [loadComments]);
+
+  const rememberAuthor = (value = authorName) => {
+    const normalizedName = String(value || '').trim().replace(/\s+/g, ' ').slice(0, 60);
+    if (normalizedName.length < 2) return false;
+    setAuthorName(normalizedName);
+    setSavedAuthorName(normalizedName);
+    try { localStorage.setItem('booknerd-comment-name', normalizedName); } catch { /* optional */ }
+    return true;
+  };
+
+  const changeAuthor = () => {
+    setSavedAuthorName('');
+    setAuthorName('');
+    setNotice('');
+    try { localStorage.removeItem('booknerd-comment-name'); } catch { /* optional */ }
+  };
 
   const submit = async (event) => {
     event.preventDefault();
@@ -61,7 +84,7 @@ export default function CommentsSection({ bookId, chapterId = null }) {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ bookId, chapterId, authorName, body, website }),
       });
-      try { localStorage.setItem('booknerd-comment-name', authorName.trim()); } catch { /* optional */ }
+      rememberAuthor(authorName);
       setBody('');
       setWebsite('');
       setNotice('Комментарий отправлен. Он появится после проверки командой BOOKNERD.');
@@ -97,7 +120,17 @@ export default function CommentsSection({ bookId, chapterId = null }) {
 
         <form className="reader-comment-form" onSubmit={submit}>
           <h3>Оставить комментарий</h3>
-          <label><span>Имя или псевдоним</span><input value={authorName} onChange={(event) => setAuthorName(event.target.value)} maxLength={60} required /></label>
+          {savedAuthorName ? (
+            <div className="reader-comment-identity">
+              <span>Вы комментируете как <strong>{savedAuthorName}</strong></span>
+              <button type="button" onClick={changeAuthor}>Сменить</button>
+            </div>
+          ) : (
+            <>
+              <label><span>Имя или псевдоним</span><input value={authorName} onChange={(event) => setAuthorName(event.target.value)} onBlur={() => rememberAuthor(authorName)} maxLength={60} minLength={2} required /></label>
+              <p className="reader-comment-name-help">Введите один раз — сайт запомнит псевдоним на этом устройстве.</p>
+            </>
+          )}
           <label><span>Комментарий</span><textarea value={body} onChange={(event) => setBody(event.target.value)} maxLength={2000} rows={6} required /></label>
           <label className="reader-comment-honeypot" aria-hidden="true"><span>Сайт</span><input value={website} onChange={(event) => setWebsite(event.target.value)} tabIndex={-1} autoComplete="off" /></label>
           <small>{body.length} / 2000</small>
