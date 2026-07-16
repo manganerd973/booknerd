@@ -14,5 +14,5 @@ export default async function ChapterPage({ params }) {
   const index = chapters.findIndex((item) => item.id === chapter.id);
   const previous = index > 0 ? chapters[index - 1] : null;
   const next = index >= 0 && index < chapters.length - 1 ? chapters[index + 1] : null;
-  return <ReaderView book={book} chapter={chapter} previous={previous} next={next} />;
+  return <ReaderView book={book} chapter={chapter} chapters={chapters} previous={previous} next={next} />;
 }
