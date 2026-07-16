@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, BookOpen, Minus, Moon, Plus, Sun } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookOpen, ExternalLink, Minus, Moon, Plus, Sun } from 'lucide-react';
+import CommentsSection from './comments-section.jsx';
 
 export default function ReaderView({ book, chapter, previous, next }) {
   const [fontSize, setFontSize] = useState(20);
@@ -58,6 +59,7 @@ export default function ReaderView({ book, chapter, previous, next }) {
         <a className="reader-back" href={`/books/${book.slug}`}><ArrowLeft size={17} /> Все главы</a>
         <span className="editorial-kicker">{book.title}</span>
         <h1><small>Глава {chapter.chapterNumber}</small>{chapter.title}</h1>
+        {chapter.driveUrl ? <a className="reader-drive-link" href={chapter.driveUrl} target="_blank" rel="noreferrer">Открыть файл главы в Google Drive <ExternalLink size={16} /></a> : null}
         <div className="reader-rule"><span>✦</span></div>
         <div className="reader-text reader-article-body">
           {paragraphs.length ? paragraphs.map((paragraph, index) => <p key={index}>{paragraph}</p>) : <p>Текст этой главы готовится к публикации.</p>}
@@ -68,6 +70,7 @@ export default function ReaderView({ book, chapter, previous, next }) {
         {previous ? <a href={`/books/${book.slug}/chapters/${previous.id}`}><ArrowLeft size={18} /><span><small>Предыдущая</small><strong>{previous.title}</strong></span></a> : <span />}
         {next ? <a href={`/books/${book.slug}/chapters/${next.id}`}><span><small>Следующая</small><strong>{next.title}</strong></span><ArrowRight size={18} /></a> : <a href={`/books/${book.slug}`}><span><small>Конец</small><strong>Вернуться к книге</strong></span><BookOpen size={18} /></a>}
       </nav>
+      <CommentsSection bookId={book.id} chapterId={chapter.id} />
     </main>
   );
 }

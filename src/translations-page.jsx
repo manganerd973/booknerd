@@ -21,7 +21,7 @@ export default function TranslationsPage({ initialBooks = [] }) {
     const normalized = query.trim().toLowerCase();
     return initialBooks.filter((book) => {
       const matchesGenre = genre === 'Все' || book.genres?.includes(genre);
-      const matchesQuery = !normalized || `${book.title} ${book.author} ${(book.genres || []).join(' ')}`.toLowerCase().includes(normalized);
+      const matchesQuery = !normalized || `${book.title} ${book.author} ${(book.genres || []).join(' ')} ${(book.tropes || []).join(' ')}`.toLowerCase().includes(normalized);
       return matchesGenre && matchesQuery;
     });
   }, [genre, initialBooks, query]);
@@ -49,6 +49,7 @@ export default function TranslationsPage({ initialBooks = [] }) {
                     <h2>{book.title}</h2><p>{book.author}</p>
                     {book.seriesTitle ? <small className="translation-series">Серия «{book.seriesTitle}»{book.seriesNumber ? ` · книга ${book.seriesNumber}` : ''}</small> : null}
                     <small>{(book.genres || []).join(' · ')}</small>
+                    {(book.tropes || []).length ? <div className="translation-tropes">{book.tropes.slice(0, 4).map((trope) => <span key={trope}>{trope}</span>)}</div> : null}
                     <div className="translation-card-progress"><i style={{ width: `${book.progress}%` }} /></div>
                     <a href={`/books/${book.slug}`}>Открыть книгу <ArrowRight size={18} /></a>
                   </div>

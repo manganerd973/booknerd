@@ -27,6 +27,8 @@
 .translation-card-copy p { margin: 0; color: var(--muted); font-size: 12px; }
 .translation-card-copy > small { display: block; margin-top: 13px; color: #78827f; font-family: var(--serif); font-style: italic; }
 .translation-card-copy > .translation-series { color: var(--navy); font-family: var(--sans); font-size: 9px; font-style: normal; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; }
+.translation-tropes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 13px; }
+.translation-tropes span { padding: 6px 8px; color: var(--navy); border: 1px solid var(--line); background: rgba(85,169,140,.08); font-size: 8px; font-weight: 800; text-transform: lowercase; }
 .translation-card-progress { height: 3px; margin: 18px 0; background: rgba(18,60,53,.12); }
 .translation-card-progress i { display: block; height: 100%; background: var(--blue); }
 .translation-card-copy a { display: inline-flex; align-items: center; gap: 13px; padding-bottom: 5px; border-bottom: 1px solid var(--navy); font-size: 11px; font-weight: 900; }

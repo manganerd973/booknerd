@@ -12,6 +12,7 @@ import {
   LoaderCircle,
   LogOut,
   Menu,
+  MessageCircle,
   Plus,
   Save,
   Search,
@@ -32,6 +33,8 @@ const blankBook = {
   author: '',
   synopsis: '',
   genres: [],
+  tropes: [],
+  driveUrl: '',
   status: 'Черновик',
   progress: 0,
   coverKey: null,
@@ -44,6 +47,7 @@ const blankChapter = {
   chapterNumber: 1,
   title: '',
   body: '',
+  driveUrl: '',
   status: 'draft',
 };
 
@@ -53,6 +57,22 @@ async function api(url, options) {
   if (!response.ok) throw new Error(data.error || 'Не удалось выполнить действие.');
   return data;
 }
+
+function formatAdminDate(value) {
+  try {
+    return new Intl.DateTimeFormat('ru-RU', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' }).format(new Date(value));
+  } catch {
+    return '';
+  }
+}
+
+const reportReasonLabels = {
+  spam: 'Спам или реклама',
+  insult: 'Оскорбление или травля',
+  spoiler: 'Спойлер без предупреждения',
+  inappropriate: 'Неприемлемый текст',
+  other: 'Другая причина',
+};
 
 function canvasToBlob(canvas, type, quality) {
   return new Promise((resolve, reject) => {
@@ -142,6 +162,8 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
   const [chapters, setChapters] = useState([]);
   const [chapterForm, setChapterForm] = useState(blankChapter);
   const [team, setTeam] = useState([]);
+  const [comments, setComments] = useState([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
   const [teamEmail, setTeamEmail] = useState('');
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -166,12 +188,24 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
     }
   }, [flash]);
 
+  const loadComments = useCallback(async () => {
+    setCommentsLoading(true);
+    try {
+      const data = await api('/api/admin/comments');
+      setComments(data.comments || []);
+    } catch (error) {
+      flash(error.message, 'error');
+    } finally {
+      setCommentsLoading(false);
+    }
+  }, [flash]);
+
   useEffect(() => { loadBooks(); }, [loadBooks]);
 
   const filteredBooks = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     if (!normalized) return books;
-    return books.filter((book) => `${book.title} ${book.author} ${book.status}`.toLowerCase().includes(normalized));
+    return books.filter((book) => `${book.title} ${book.author} ${book.status} ${(book.tropes || []).join(' ')}`.toLowerCase().includes(normalized));
   }, [books, query]);
 
   const stats = useMemo(() => ({
@@ -185,7 +219,12 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
     setView(next);
     setMenuOpen(false);
     if (next === 'team') loadTeam();
+    if (next === 'comments') loadComments();
   };
+
+  const pendingComments = comments.filter((comment) => comment.status === 'pending').length;
+  const reportedComments = comments.filter((comment) => (comment.reports || []).length > 0).length;
+  const commentsNeedingAttention = comments.filter((comment) => comment.status === 'pending' || (comment.reports || []).length > 0).length;
 
   const startNewBook = () => {
     setBookForm({ ...blankBook });
@@ -257,6 +296,18 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
       flash('Книга удалена.');
       await loadBooks();
       navigate('dashboard');
+    } catch (error) {
+      flash(error.message, 'error');
+    }
+  };
+
+  const deleteBookFromList = async (event, book) => {
+    event.stopPropagation();
+    if (!window.confirm(`Удалить «${book.title}» вместе со всеми главами?`)) return;
+    try {
+      await api(`/api/admin/books/${book.id}`, { method: 'DELETE' });
+      flash('Книга удалена.');
+      await loadBooks();
     } catch (error) {
       flash(error.message, 'error');
     }
@@ -355,6 +406,55 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
     }
   };
 
+  const approveComment = async (comment) => {
+    try {
+      await api(`/api/admin/comments/${comment.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status: 'approved' }),
+      });
+      await loadComments();
+      flash('Комментарий опубликован.');
+    } catch (error) {
+      flash(error.message, 'error');
+    }
+  };
+
+  const hideComment = async (comment) => {
+    try {
+      await api(`/api/admin/comments/${comment.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status: 'pending' }),
+      });
+      await loadComments();
+      flash('Комментарий скрыт и возвращён на проверку.');
+    } catch (error) {
+      flash(error.message, 'error');
+    }
+  };
+
+  const deleteComment = async (comment) => {
+    if (!window.confirm(`Удалить комментарий от ${comment.authorName}?`)) return;
+    try {
+      await api(`/api/admin/comments/${comment.id}`, { method: 'DELETE' });
+      await loadComments();
+      flash('Комментарий удалён.');
+    } catch (error) {
+      flash(error.message, 'error');
+    }
+  };
+
+  const clearCommentReports = async (comment) => {
+    try {
+      await api(`/api/admin/comments/${comment.id}/reports`, { method: 'DELETE' });
+      await loadComments();
+      flash('Жалобы отмечены как рассмотренные.');
+    } catch (error) {
+      flash(error.message, 'error');
+    }
+  };
+
   return (
     <div className="admin-shell">
       <Notice notice={notice} onClose={() => setNotice(null)} />
@@ -373,6 +473,9 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
           </button>
           <button className={view === 'book' && !bookForm.id ? 'is-active' : ''} onClick={startNewBook}>
             <Plus size={19} /> Добавить книгу
+          </button>
+          <button className={view === 'comments' ? 'is-active' : ''} onClick={() => navigate('comments')}>
+            <MessageCircle size={19} /> Комментарии {commentsNeedingAttention > 0 && <span>{commentsNeedingAttention}</span>}
           </button>
           {currentUser.role === 'owner' && (
             <button className={view === 'team' ? 'is-active' : ''} onClick={() => navigate('team')}>
@@ -398,7 +501,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
           <button className="admin-menu-toggle" onClick={() => setMenuOpen(true)}><Menu size={21} /></button>
           <div>
             <span>BOOKNERD · ПАНЕЛЬ КОМАНДЫ</span>
-            <strong>{view === 'book' ? (bookForm.id ? 'Редактирование книги' : 'Новая книга') : view === 'team' ? 'Доступ команды' : 'Управление библиотекой'}</strong>
+            <strong>{view === 'book' ? (bookForm.id ? 'Редактирование книги' : 'Новая книга') : view === 'team' ? 'Доступ команды' : view === 'comments' ? 'Модерация комментариев' : 'Управление библиотекой'}</strong>
           </div>
           <a href="/" target="_blank">Открыть сайт <ChevronRight size={17} /></a>
         </header>
@@ -431,7 +534,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
             ) : filteredBooks.length ? (
               <div className="admin-book-grid">
                 {filteredBooks.slice(0, view === 'dashboard' ? 6 : undefined).map((book) => (
-                  <button className="admin-book-card" key={book.id} onClick={() => openBook(book)}>
+                  <article className="admin-book-card" key={book.id} onClick={() => openBook(book)} onKeyDown={(event) => event.key === 'Enter' && openBook(book)} role="button" tabIndex="0">
                     <div className="admin-book-cover">
                       {book.coverUrl ? <img src={book.coverUrl} alt="" /> : <><span>перевод booknerd</span><strong>{book.title}</strong><small>{book.author}</small></>}
                       <b className={book.published ? 'is-live' : ''}>{book.published ? 'На сайте' : 'Черновик'}</b>
@@ -440,9 +543,11 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                       <span>{book.status} · {book.progress}%</span>
                       <h3>{book.title}</h3>
                       <p>{book.author}</p>
+                      {(book.tropes || []).length ? <small className="admin-book-tropes">{book.tropes.slice(0, 2).join(' · ')}</small> : null}
                       <div><FileText size={15} /> {book.chapterCount || 0} глав <ChevronRight size={18} /></div>
                     </div>
-                  </button>
+                    {currentUser.role === 'owner' && <button className="admin-book-card-delete" type="button" onClick={(event) => deleteBookFromList(event, book)} aria-label={`Удалить книгу ${book.title}`}><Trash2 size={15} /></button>}
+                  </article>
                 ))}
               </div>
             ) : (
@@ -470,10 +575,12 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                     <label><span>Адрес страницы</span><input value={bookForm.slug} onChange={(event) => setBookForm({ ...bookForm, slug: event.target.value })} placeholder="sozdayotsya-avtomaticheski" /></label>
                     <label><span>Название серии</span><input value={bookForm.seriesTitle || ''} onChange={(event) => setBookForm({ ...bookForm, seriesTitle: event.target.value })} placeholder="Например, Хроники Севера" /></label>
                     <label><span>Номер книги в серии</span><input type="number" min="1" value={bookForm.seriesNumber || ''} onChange={(event) => setBookForm({ ...bookForm, seriesNumber: event.target.value ? Number(event.target.value) : '' })} placeholder="1" /></label>
+                    <label className="admin-drive-field"><span>Файл книги в Google Drive</span><input type="url" value={bookForm.driveUrl || ''} onChange={(event) => setBookForm({ ...bookForm, driveUrl: event.target.value })} placeholder="https://drive.google.com/…" /></label>
                   </div>
                   <label className="admin-full-field"><span>Аннотация</span><textarea value={bookForm.synopsis} onChange={(event) => setBookForm({ ...bookForm, synopsis: event.target.value })} placeholder="Расскажите читателю, о чём эта история…" rows={7} /><small>{bookForm.synopsis.length} / 12 000</small></label>
                   <div className="admin-fields two-columns">
                     <label><span>Жанры</span><input value={bookForm.genres.join(', ')} onChange={(event) => setBookForm({ ...bookForm, genres: event.target.value.split(',').map((item) => item.trim()).filter(Boolean) })} placeholder="Романтика, Фэнтези" /></label>
+                    <label><span>Тропы</span><input value={(bookForm.tropes || []).join(', ')} onChange={(event) => setBookForm({ ...bookForm, tropes: event.target.value.split(',').map((item) => item.trim()).filter(Boolean) })} placeholder="Враги в возлюбленные, найденная семья" /></label>
                     <label><span>Статус перевода</span><select value={bookForm.status} onChange={(event) => setBookForm({ ...bookForm, status: event.target.value })}><option>Черновик</option><option>Скоро</option><option>В работе</option><option>Новый перевод</option><option>Готово</option><option>На паузе</option></select></label>
                     <label><span>Готовность перевода: {bookForm.progress}%</span><input type="range" min="0" max="100" value={bookForm.progress} onChange={(event) => setBookForm({ ...bookForm, progress: Number(event.target.value) })} /></label>
                     <label className="admin-switch-row"><span><strong>Показывать книгу на сайте</strong><small>Читатели увидят аннотацию и опубликованные главы.</small></span><input type="checkbox" checked={bookForm.published} onChange={(event) => setBookForm({ ...bookForm, published: event.target.checked })} /></label>
@@ -516,6 +623,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                       <label><span>Статус</span><select value={chapterForm.status} onChange={(event) => setChapterForm({ ...chapterForm, status: event.target.value })}><option value="draft">Черновик</option><option value="published">Опубликована</option></select></label>
                     </div>
                     <label className="admin-chapter-body"><span>Текст главы</span><textarea value={chapterForm.body} onChange={(event) => setChapterForm({ ...chapterForm, body: event.target.value })} placeholder="Вставьте сюда текст переведённой главы…" /></label>
+                    <label className="admin-chapter-drive"><span>Файл главы в Google Drive</span><input type="url" value={chapterForm.driveUrl || ''} onChange={(event) => setChapterForm({ ...chapterForm, driveUrl: event.target.value })} placeholder="https://drive.google.com/…" /></label>
                     <div className="admin-chapter-actions">
                       {chapterForm.id && <button type="button" className="admin-danger" onClick={deleteChapter}><Trash2 size={17} /> Удалить</button>}
                       <span>{chapterForm.body.length.toLocaleString('ru-RU')} знаков</span>
@@ -525,6 +633,60 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                 </div>
               )}
             </section>
+          </section>
+        )}
+
+        {view === 'comments' && (
+          <section className="admin-content admin-comments-page">
+            <div className="admin-hero-row">
+              <div><span className="admin-kicker">ОБСУЖДЕНИЯ ЧИТАТЕЛЕЙ</span><h1>Комментарии<br /><em>на проверке.</em></h1><p>Публикуйте доброжелательные отзывы и удаляйте спам. До одобрения комментарий читателям не виден.</p></div>
+              <button className="admin-secondary" onClick={loadComments}><MessageCircle size={18} /> Обновить</button>
+            </div>
+            <div className="admin-comment-summary">
+              <article><strong>{pendingComments}</strong><span>ожидают проверки</span></article>
+              <article><strong>{comments.filter((comment) => comment.status === 'approved').length}</strong><span>опубликовано</span></article>
+              <article><strong>{reportedComments}</strong><span>с жалобами</span></article>
+            </div>
+            {commentsLoading ? (
+              <div className="admin-loading"><LoaderCircle className="spin" /> Загружаем комментарии…</div>
+            ) : comments.length ? (
+              <div className="admin-comment-list">
+                {comments.map((comment) => (
+                  <article className={`admin-comment-card ${comment.status === 'approved' ? 'is-approved' : 'is-pending'} ${(comment.reports || []).length ? 'is-reported' : ''}`} key={comment.id}>
+                    <div className="admin-comment-meta">
+                      <span>{comment.status === 'approved' ? 'Опубликован' : 'Ожидает проверки'}</span>
+                      {(comment.reports || []).length ? <b>Жалоб: {comment.reports.length}</b> : null}
+                      <time dateTime={comment.createdAt}>{formatAdminDate(comment.createdAt)}</time>
+                    </div>
+                    <h3>{comment.authorName}</h3>
+                    <p>{comment.body}</p>
+                    {(comment.reports || []).length ? (
+                      <div className="admin-comment-reports">
+                        <strong>Причины жалоб</strong>
+                        {comment.reports.map((report, index) => (
+                          <div key={`${report.createdAt}-${index}`}><span>{reportReasonLabels[report.reason] || 'Другая причина'}</span>{report.details ? <p>{report.details}</p> : null}</div>
+                        ))}
+                      </div>
+                    ) : null}
+                    <div className="admin-comment-source">
+                      <BookOpen size={15} />
+                      <a href={comment.chapterId ? `/books/${comment.bookSlug}/chapters/${comment.chapterId}` : `/books/${comment.bookSlug}`} target="_blank" rel="noreferrer">
+                        {comment.bookTitle}{comment.chapterTitle ? ` · глава ${comment.chapterNumber}: ${comment.chapterTitle}` : ' · страница книги'}
+                      </a>
+                    </div>
+                    <div className="admin-comment-actions">
+                      {comment.status === 'pending'
+                        ? <button className="admin-primary" onClick={() => approveComment(comment)}><Check size={16} /> Опубликовать</button>
+                        : <button className="admin-secondary" onClick={() => hideComment(comment)}>Скрыть</button>}
+                      {(comment.reports || []).length ? <button className="admin-secondary" onClick={() => clearCommentReports(comment)}><Check size={16} /> Жалобы рассмотрены</button> : null}
+                      <button className="admin-danger" onClick={() => deleteComment(comment)}><Trash2 size={16} /> Удалить</button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <EmptyState title="Комментариев пока нет" text="Когда читатели начнут обсуждение, новые сообщения появятся здесь." />
+            )}
           </section>
         )}
 

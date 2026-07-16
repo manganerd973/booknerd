@@ -1,4 +1,4 @@
-import { blob, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { blob, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 export const books = sqliteTable('books', {
   id: text('id').primaryKey(),
@@ -10,6 +10,8 @@ export const books = sqliteTable('books', {
   author: text('author').notNull(),
   synopsis: text('synopsis').notNull().default(''),
   genres: text('genres').notNull().default('[]'),
+  tropes: text('tropes').notNull().default('[]'),
+  driveUrl: text('drive_url').notNull().default(''),
   status: text('status').notNull().default('Черновик'),
   progress: integer('progress').notNull().default(0),
   coverKey: text('cover_key'),
@@ -26,6 +28,7 @@ export const chapters = sqliteTable('chapters', {
   chapterNumber: integer('chapter_number').notNull(),
   title: text('title').notNull(),
   body: text('body').notNull().default(''),
+  driveUrl: text('drive_url').notNull().default(''),
   status: text('status').notNull().default('draft'),
   publishedAt: text('published_at'),
   createdAt: text('created_at').notNull(),
@@ -48,3 +51,35 @@ export const bookCovers = sqliteTable('book_covers', {
   createdAt: text('created_at').notNull(),
   uploadedBy: text('uploaded_by').notNull(),
 });
+
+export const comments = sqliteTable('comments', {
+  id: text('id').primaryKey(),
+  bookId: text('book_id').notNull().references(() => books.id, { onDelete: 'cascade' }),
+  chapterId: text('chapter_id').references(() => chapters.id, { onDelete: 'cascade' }),
+  authorName: text('author_name').notNull(),
+  body: text('body').notNull(),
+  status: text('status').notNull().default('pending'),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});
+
+export const commentVotes = sqliteTable('comment_votes', {
+  commentId: text('comment_id').notNull().references(() => comments.id, { onDelete: 'cascade' }),
+  voterKey: text('voter_key').notNull(),
+  value: integer('value').notNull(),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.commentId, table.voterKey] }),
+]);
+
+export const commentReports = sqliteTable('comment_reports', {
+  commentId: text('comment_id').notNull().references(() => comments.id, { onDelete: 'cascade' }),
+  voterKey: text('voter_key').notNull(),
+  reason: text('reason').notNull(),
+  details: text('details').notNull().default(''),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.commentId, table.voterKey] }),
+]);

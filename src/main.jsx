@@ -15,6 +15,8 @@ import {
   Star,
   X,
 } from 'lucide-react';
+import CommentVotes from './comment-votes.jsx';
+import CommentReport from './comment-report.jsx';
 
 function Logo() {
   return (
@@ -107,6 +109,7 @@ function BookCard({ book, saved, onSave, onOpen }) {
           <ArrowDownRight size={21} />
         </button>
         <p>{book.author}</p>
+        {(book.tropes || []).length ? <div className="book-tropes">{book.tropes.slice(0, 2).map((trope) => <span key={trope}>{trope}</span>)}</div> : null}
         <div className="progress-track" aria-label={`Готовность перевода ${book.progress}%`}>
           <span style={{ width: `${book.progress}%` }} />
         </div>
@@ -116,7 +119,40 @@ function BookCard({ book, saved, onSave, onOpen }) {
   );
 }
 
-function App({ initialBooks = [] }) {
+function PopularComments({ comments }) {
+  return (
+    <section className="popular-comments section" aria-labelledby="popular-comments-title">
+      <div className="section-heading">
+        <div>
+          <span className="section-number">02 / ГОЛОС ЧИТАТЕЛЕЙ</span>
+          <h2 id="popular-comments-title">Комментарии,<br /><em>которые любят.</em></h2>
+        </div>
+        <p>Самые высоко оценённые мысли о книгах и главах. Голосуйте за отзывы, которые откликаются.</p>
+      </div>
+      {comments.length ? (
+        <div className="popular-comment-grid">
+          {comments.map((comment) => (
+            <article className="popular-comment-card" key={comment.id}>
+              <MessageCircle size={23} />
+              <blockquote>«{comment.body}»</blockquote>
+              <div className="popular-comment-author"><strong>{comment.authorName}</strong><span>о книге «{comment.bookTitle}»</span></div>
+              <div className="popular-comment-footer">
+                <div className="popular-comment-feedback"><CommentVotes commentId={comment.id} initialUpVotes={comment.upVotes} initialDownVotes={comment.downVotes} compact /><CommentReport commentId={comment.id} compact /></div>
+                <a href={comment.chapterId ? `/books/${comment.bookSlug}/chapters/${comment.chapterId}` : `/books/${comment.bookSlug}`}>
+                  К обсуждению <ArrowRight size={15} />
+                </a>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div className="popular-comments-empty"><MessageCircle size={28} /><div><strong>Здесь появятся любимые комментарии</strong><span>Когда читатели начнут голосовать, самые популярные отзывы попадут на главную.</span></div></div>
+      )}
+    </section>
+  );
+}
+
+function App({ initialBooks = [], initialPopularComments = [] }) {
   const books = initialBooks;
   const filters = useMemo(() => ['Все', ...new Set(books.flatMap((book) => book.genres?.length ? book.genres : [book.genre]).filter(Boolean))], [books]);
   const [activeFilter, setActiveFilter] = useState('Все');
@@ -153,7 +189,7 @@ function App({ initialBooks = [] }) {
     const normalized = query.trim().toLowerCase();
     return books.filter((book) => {
       const inFilter = activeFilter === 'Все' || book.genre === activeFilter;
-      const inSearch = !normalized || `${book.title} ${book.author} ${book.genre}`.toLowerCase().includes(normalized);
+      const inSearch = !normalized || `${book.title} ${book.author} ${book.genre} ${(book.tropes || []).join(' ')}`.toLowerCase().includes(normalized);
       return inFilter && inSearch;
     });
   }, [activeFilter, query]);
@@ -281,10 +317,12 @@ function App({ initialBooks = [] }) {
             )}
           </section>
 
+          <PopularComments comments={initialPopularComments} />
+
           <section className="manifesto section" id="about">
             <div className="manifesto-card">
               <div className="manifesto-topline">
-                <span>02 / НАШ ПОДХОД</span>
+                <span>03 / НАШ ПОДХОД</span>
                 <Sparkles size={28} />
               </div>
               <blockquote>
@@ -326,7 +364,7 @@ function App({ initialBooks = [] }) {
               <span>BOOK</span><span>NERD</span>
             </div>
             <div className="join-content">
-              <span className="section-number">03 / ЧИТАТЬ ДАЛЬШЕ</span>
+              <span className="section-number">04 / ЧИТАТЬ ДАЛЬШЕ</span>
               <h2>Новая глава уже<br /><em>на подходе.</em></h2>
               <p>Следи за новыми переводами и продолжай чтение прямо на сайте.</p>
               <a className="join-library-link" href="/translations">Открыть библиотеку <ArrowRight size={19} /></a>
@@ -397,6 +435,7 @@ function App({ initialBooks = [] }) {
               <h2>{selectedBook.title}</h2>
               <p className="dialog-author">{selectedBook.author}</p>
               <p>{selectedBook.synopsis || 'Следим за интонациями, бережём атмосферу и обсуждаем каждую важную деталь внутри команды.'}</p>
+              {(selectedBook.tropes || []).length ? <div className="dialog-tropes">{selectedBook.tropes.map((trope) => <span key={trope}>{trope}</span>)}</div> : null}
               <div className="dialog-progress">
                 <div><span>Готовность перевода</span><strong>{selectedBook.progress}%</strong></div>
                 <div className="progress-track"><span style={{ width: `${selectedBook.progress}%` }} /></div>

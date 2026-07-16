@@ -1,0 +1,16 @@
+{
+  "name": "BOOKNERD — книжные переводы",
+  "short_name": "BOOKNERD",
+  "description": "Книги, переводы и онлайн-читалка BOOKNERD.",
+  "lang": "ru",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f5f3df",
+  "theme_color": "#123c35",
+  "icons": [
+    { "src": "/booknerd-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/booknerd-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
