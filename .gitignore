@@ -8,3 +8,5 @@ booknerd-preview*.png
 .git/
 .agents/
 .codex/
+.vinext/
+.wrangler/

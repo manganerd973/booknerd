@@ -80,7 +80,7 @@ function canvasToBlob(canvas, type, quality) {
   });
 }
 
-async function prepareCover(file) {
+async function prepareImage(file, { prefix = 'cover', artwork = false } = {}) {
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
     throw new Error('Поддерживаются JPG, PNG и WEBP.');
   }
@@ -97,7 +97,11 @@ async function prepareCover(file) {
       image.src = objectUrl;
     });
 
-    const attempts = [
+    const attempts = artwork ? [
+      { width: 1800, height: 1800, quality: 0.84 },
+      { width: 1450, height: 1450, quality: 0.76 },
+      { width: 1100, height: 1100, quality: 0.68 },
+    ] : [
       { width: 1200, height: 1800, quality: 0.84 },
       { width: 1000, height: 1500, quality: 0.76 },
       { width: 800, height: 1200, quality: 0.68 },
@@ -114,10 +118,10 @@ async function prepareCover(file) {
       context.drawImage(image, 0, 0, canvas.width, canvas.height);
       const blob = await canvasToBlob(canvas, 'image/webp', attempt.quality);
       if (blob.size <= 1_500_000) {
-        return new File([blob], `booknerd-cover-${Date.now()}.webp`, { type: 'image/webp' });
+        return new File([blob], `booknerd-${prefix}-${Date.now()}.webp`, { type: 'image/webp' });
       }
     }
-    throw new Error('Не удалось уменьшить обложку. Выберите изображение поменьше.');
+    throw new Error('Не удалось уменьшить изображение. Выберите файл поменьше.');
   } finally {
     URL.revokeObjectURL(objectUrl);
   }
@@ -160,6 +164,8 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
   const [books, setBooks] = useState([]);
   const [bookForm, setBookForm] = useState(blankBook);
   const [chapters, setChapters] = useState([]);
+  const [artworks, setArtworks] = useState([]);
+  const [artworkCaption, setArtworkCaption] = useState('');
   const [chapterForm, setChapterForm] = useState(blankChapter);
   const [team, setTeam] = useState([]);
   const [comments, setComments] = useState([]);
@@ -169,6 +175,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [artworkUploading, setArtworkUploading] = useState(false);
   const [notice, setNotice] = useState(null);
 
   const flash = useCallback((message, type = 'success') => {
@@ -229,17 +236,25 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
   const startNewBook = () => {
     setBookForm({ ...blankBook });
     setChapters([]);
+    setArtworks([]);
+    setArtworkCaption('');
     setChapterForm({ ...blankChapter });
     navigate('book');
   };
 
   const openBook = async (book) => {
     setBookForm({ ...blankBook, ...book });
+    setArtworks([]);
+    setArtworkCaption('');
     setChapterForm({ ...blankChapter });
     navigate('book');
     try {
-      const data = await api(`/api/admin/books/${book.id}/chapters`);
-      setChapters(data.chapters || []);
+      const [chapterData, artworkData] = await Promise.all([
+        api(`/api/admin/books/${book.id}/chapters`),
+        api(`/api/admin/books/${book.id}/artworks`),
+      ]);
+      setChapters(chapterData.chapters || []);
+      setArtworks(artworkData.artworks || []);
     } catch (error) {
       flash(error.message, 'error');
     }
@@ -275,7 +290,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
     if (!file) return;
     setUploading(true);
     try {
-      const preparedFile = await prepareCover(file);
+      const preparedFile = await prepareImage(file);
       const formData = new FormData();
       formData.append('cover', preparedFile, preparedFile.name);
       const data = await api('/api/admin/covers', { method: 'POST', body: formData });
@@ -286,6 +301,43 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
     } finally {
       setUploading(false);
       event.target.value = '';
+    }
+  };
+
+  const uploadArtwork = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!bookForm.id) {
+      flash('Сначала сохраните книгу.', 'error');
+      event.target.value = '';
+      return;
+    }
+    setArtworkUploading(true);
+    try {
+      const preparedFile = await prepareImage(file, { prefix: 'artwork', artwork: true });
+      const formData = new FormData();
+      formData.append('image', preparedFile, preparedFile.name);
+      formData.append('caption', artworkCaption);
+      const data = await api(`/api/admin/books/${bookForm.id}/artworks`, { method: 'POST', body: formData });
+      setArtworks((current) => [...current, data.artwork]);
+      setArtworkCaption('');
+      flash('Арт добавлен в галерею книги.');
+    } catch (error) {
+      flash(error.message, 'error');
+    } finally {
+      setArtworkUploading(false);
+      event.target.value = '';
+    }
+  };
+
+  const deleteArtwork = async (artwork) => {
+    if (!window.confirm('Удалить этот арт из галереи?')) return;
+    try {
+      await api(`/api/admin/artworks/${artwork.id}`, { method: 'DELETE' });
+      setArtworks((current) => current.filter((item) => item.id !== artwork.id));
+      flash('Арт удалён.');
+    } catch (error) {
+      flash(error.message, 'error');
     }
   };
 
@@ -600,9 +652,41 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
               </aside>
             </form>
 
+            <section className={`admin-artwork-section ${!bookForm.id ? 'is-disabled' : ''}`}>
+              <div className="admin-list-head">
+                <div><span>03 / АРТЫ</span><h2>Галерея книги</h2><p>Добавьте до 8 атмосферных иллюстраций, чтобы заинтересовать читателей.</p></div>
+                <span className="admin-artwork-count">{artworks.length} / 8</span>
+              </div>
+              {!bookForm.id ? (
+                <EmptyState title="Сначала сохраните книгу" text="После сохранения сюда можно будет загрузить арты." />
+              ) : (
+                <div className="admin-artwork-workspace">
+                  <div className="admin-artwork-upload">
+                    <ImagePlus size={34} />
+                    <div><strong>Новый арт</strong><p>Можно загрузить вертикальное или горизонтальное изображение.</p></div>
+                    <label><span>Подпись к арту</span><input value={artworkCaption} onChange={(event) => setArtworkCaption(event.target.value)} maxLength={240} placeholder="Например, главные герои в зимнем саду" /></label>
+                    <label className="admin-upload-button">{artworkUploading ? <LoaderCircle className="spin" size={18} /> : <UploadCloud size={18} />} {artworkUploading ? 'Загружаем…' : 'Выбрать изображение'}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadArtwork} disabled={artworkUploading || artworks.length >= 8} /></label>
+                    <small>JPG, PNG или WEBP. Сайт сам уменьшит изображение.</small>
+                  </div>
+                  {artworks.length ? (
+                    <div className="admin-artwork-grid">
+                      {artworks.map((artwork, index) => (
+                        <article key={artwork.id}>
+                          <img src={artwork.imageUrl} alt={artwork.caption || `Арт ${index + 1}`} />
+                          <div><span>{String(index + 1).padStart(2, '0')}</span><p>{artwork.caption || 'Без подписи'}</p><button type="button" onClick={() => deleteArtwork(artwork)} aria-label="Удалить арт"><Trash2 size={16} /></button></div>
+                        </article>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="admin-artwork-empty"><ImagePlus size={40} /><strong>Галерея пока пуста</strong><p>Первый арт появится здесь сразу после загрузки.</p></div>
+                  )}
+                </div>
+              )}
+            </section>
+
             <section className={`admin-chapter-section ${!bookForm.id ? 'is-disabled' : ''}`}>
               <div className="admin-list-head">
-                <div><span>03 / ГЛАВЫ</span><h2>Текст перевода</h2><p>Добавляйте главы, храните черновики и публикуйте готовый текст.</p></div>
+                <div><span>04 / ГЛАВЫ</span><h2>Текст перевода</h2><p>Добавляйте главы, храните черновики и публикуйте готовый текст.</p></div>
                 <button className="admin-secondary" onClick={startNewChapter} disabled={!bookForm.id}><Plus size={18} /> Новая глава</button>
               </div>
               {!bookForm.id ? (

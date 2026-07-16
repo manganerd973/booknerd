@@ -52,6 +52,16 @@ export const bookCovers = sqliteTable('book_covers', {
   uploadedBy: text('uploaded_by').notNull(),
 });
 
+export const bookArtworks = sqliteTable('book_artworks', {
+  id: text('id').primaryKey(),
+  bookId: text('book_id').notNull().references(() => books.id, { onDelete: 'cascade' }),
+  imageKey: text('image_key').notNull(),
+  caption: text('caption').notNull().default(''),
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: text('created_at').notNull(),
+  uploadedBy: text('uploaded_by').notNull(),
+});
+
 export const comments = sqliteTable('comments', {
   id: text('id').primaryKey(),
   bookId: text('book_id').notNull().references(() => books.id, { onDelete: 'cascade' }),

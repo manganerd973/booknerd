@@ -1,5 +1,7 @@
 import { defineConfig } from 'vite';
 import vinext from 'vinext';
+import { cdnAdapter } from "@vinext/cloudflare/cache/cdn-adapter";
+import { cloudflare } from "@cloudflare/vite-plugin";
 
 const localCloudflareWorkers = {
   name: 'booknerd-local-cloudflare-workers',
@@ -15,7 +17,18 @@ const localCloudflareWorkers = {
 };
 
 export default defineConfig({
-  plugins: [localCloudflareWorkers, vinext()],
+  plugins: [
+    localCloudflareWorkers,
+    vinext({
+      cache: { cdn: cdnAdapter() },
+    }),
+    cloudflare({
+      viteEnvironment: {
+        name: "rsc",
+        childEnvironments: ["ssr"],
+      },
+    }),
+  ],
   build: {
     rolldownOptions: {
       external: ['cloudflare:workers'],

@@ -50,18 +50,48 @@ function Logo() {
   );
 }
 
-function MiniCover({ cover, className = '' }) {
+function HeroBookCover({ book, className = '' }) {
+  if (!book) return null;
   return (
-    <div className={`mini-cover cover-${cover} ${className}`} aria-hidden="true">
-      <span className="cover-kicker">a booknerd translation</span>
-      <span className="cover-symbol">✦</span>
-      <strong>{cover === 'woven' ? 'WOVEN' : cover === 'wild' ? 'WILD' : 'STORIES'}</strong>
-      <small>BOOKNERD · 2026</small>
-    </div>
+    <a
+      className={`mini-cover hero-book-cover cover-${book.cover || 'garden'} ${book.coverUrl ? 'has-image' : ''} ${className}`}
+      href={`/books/${book.slug}`}
+      aria-label={`Открыть книгу «${book.title}»`}
+    >
+      {book.coverUrl ? (
+        <img src={book.coverUrl} alt={`Обложка книги «${book.title}»`} />
+      ) : (
+        <>
+          <span className="cover-kicker">перевод booknerd</span>
+          <span className="cover-symbol">✦</span>
+          <strong>{book.title}</strong>
+          <small>{book.author}</small>
+        </>
+      )}
+    </a>
   );
 }
 
-function HeroArtwork() {
+function HeroArtwork({ books = [] }) {
+  const [coverOffset, setCoverOffset] = useState(0);
+
+  useEffect(() => {
+    if (books.length < 2) return undefined;
+    setCoverOffset(Math.floor(Math.random() * books.length));
+    if (books.length < 3) return undefined;
+    const interval = window.setInterval(() => {
+      setCoverOffset((current) => (current + 2) % books.length);
+    }, 7000);
+    return () => window.clearInterval(interval);
+  }, [books.length]);
+
+  const featuredBooks = useMemo(() => {
+    if (!books.length) return [];
+    const first = books[coverOffset % books.length];
+    const second = books[(coverOffset + 1) % books.length];
+    return first?.id === second?.id ? [first] : [first, second];
+  }, [books, coverOffset]);
+
   return (
     <div className="hero-art" aria-label="Коллекция переводов BOOKNERD">
       <div className="orbit orbit-one" />
@@ -73,8 +103,9 @@ function HeroArtwork() {
         <strong>читателей</strong>
         <ArrowDownRight size={24} />
       </div>
-      <MiniCover cover="wild" className="cover-back" />
-      <MiniCover cover="woven" className="cover-front" />
+      {featuredBooks.length === 1 ? <HeroBookCover book={featuredBooks[0]} className="cover-front cover-only" key={`only-${featuredBooks[0].id}`} /> : null}
+      {featuredBooks.length > 1 ? <HeroBookCover book={featuredBooks[0]} className="cover-back" key={`back-${featuredBooks[0].id}`} /> : null}
+      {featuredBooks.length > 1 ? <HeroBookCover book={featuredBooks[1]} className="cover-front" key={`front-${featuredBooks[1].id}`} /> : null}
       <div className="round-stamp">
         <span>READ · FEEL · REPEAT ·</span>
         <BookOpen size={24} />
@@ -286,7 +317,7 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
                 <div><strong>100%</strong><span>любви к деталям</span></div>
               </div>
             </div>
-            <HeroArtwork />
+            <HeroArtwork books={books} />
           </section>
 
           <div className="ticker" aria-hidden="true">

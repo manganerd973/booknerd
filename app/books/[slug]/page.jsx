@@ -1,7 +1,9 @@
 import { ArrowLeft, ArrowRight, BookOpen, Clock3, ExternalLink, FileText } from 'lucide-react';
 import { notFound } from 'next/navigation';
 import { getBookBySlug, listChapters } from '../../../lib/books.js';
+import { listBookArtworks } from '../../../lib/artworks.js';
 import { requireReaderAccess } from '../../../lib/reader-access.js';
+import BookArtGallery from '../../../src/book-art-gallery.jsx';
 import CommentsSection from '../../../src/comments-section.jsx';
 
 export const dynamic = 'force-dynamic';
@@ -11,7 +13,10 @@ export default async function BookPage({ params }) {
   await requireReaderAccess(`/books/${slug}`);
   const book = await getBookBySlug(slug);
   if (!book) notFound();
-  const chapters = await listChapters(book.id);
+  const [chapters, artworks] = await Promise.all([
+    listChapters(book.id),
+    listBookArtworks(book.id),
+  ]);
 
   return (
     <main className="editorial-page">
@@ -73,6 +78,8 @@ export default async function BookPage({ params }) {
           )}
         </aside>
       </section>
+
+      <BookArtGallery artworks={artworks} bookTitle={book.title} />
 
       <CommentsSection bookId={book.id} />
     </main>

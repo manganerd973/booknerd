@@ -74,10 +74,14 @@ export async function DELETE(request, { params }) {
     const db = await ensureDb();
     const book = await db.prepare(`SELECT cover_key FROM books WHERE id = ? LIMIT 1`).bind(id).first();
     if (!book) return Response.json({ error: 'Книга не найдена.' }, { status: 404 });
-    await db.prepare(`DELETE FROM books WHERE id = ?`).bind(id).run();
-    if (book.cover_key) {
-      await db.prepare(`DELETE FROM book_covers WHERE key = ?`).bind(book.cover_key).run();
-    }
+    const artworkRows = await db.prepare(`SELECT image_key FROM book_artworks WHERE book_id = ?`).bind(id).all();
+    const artworkKeys = (artworkRows.results || []).map((row) => row.image_key).filter(Boolean);
+    await db.batch([
+      db.prepare(`DELETE FROM book_artworks WHERE book_id = ?`).bind(id),
+      db.prepare(`DELETE FROM books WHERE id = ?`).bind(id),
+      ...(book.cover_key ? [db.prepare(`DELETE FROM book_covers WHERE key = ?`).bind(book.cover_key)] : []),
+      ...artworkKeys.map((key) => db.prepare(`DELETE FROM book_covers WHERE key = ?`).bind(key)),
+    ]);
     return Response.json({ ok: true });
   } catch (error) {
     return Response.json({ error: error.message || 'Не удалось удалить книгу.' }, { status: 500 });
