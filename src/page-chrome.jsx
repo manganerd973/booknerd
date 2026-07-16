@@ -16,6 +16,7 @@ const links = [
   { href: '/translations', label: 'Переводы', key: 'translations' },
   { href: '/about', label: 'О проекте', key: 'about' },
   { href: '/team', label: 'Команда', key: 'team' },
+  { href: 'https://t.me/booknerd_tr', label: 'Telegram', key: 'telegram', external: true },
 ];
 
 export function SiteHeader({ active = '' }) {
@@ -28,7 +29,7 @@ export function SiteHeader({ active = '' }) {
       <header className="header page-header">
         <SiteLogo />
         <nav className="desktop-nav" aria-label="Главная навигация">
-          {links.map((link) => <a className={active === link.key ? 'is-active' : ''} href={link.href} key={link.key}>{link.label}</a>)}
+          {links.map((link) => <a className={active === link.key ? 'is-active' : ''} href={link.href} target={link.external ? '_blank' : undefined} rel={link.external ? 'noreferrer' : undefined} key={link.key}>{link.label}</a>)}
         </nav>
         <div className="header-actions">
           <a className="telegram-button" href="/admin">Редакционная <ArrowRight size={17} /></a>
@@ -39,8 +40,8 @@ export function SiteHeader({ active = '' }) {
         <div className="mobile-drawer">
           <div className="drawer-head"><SiteLogo /><button onClick={() => setOpen(false)} aria-label="Закрыть меню"><X /></button></div>
           <nav>
-            {links.map((link, index) => <a href={link.href} key={link.key}><span>0{index + 1}</span>{link.label}</a>)}
-            <a href="/admin"><span>04</span>Редакционная</a>
+            {links.map((link, index) => <a href={link.href} target={link.external ? '_blank' : undefined} rel={link.external ? 'noreferrer' : undefined} key={link.key}><span>0{index + 1}</span>{link.label}</a>)}
+            <a href="/admin"><span>05</span>Редакционная</a>
           </nav>
           <p>Истории, которые мы хотели прочитать сами.</p>
         </div>
@@ -54,7 +55,7 @@ export function SiteFooter() {
     <footer>
       <SiteLogo />
       <p>Книжная команда переводов · сделано читателями для читателей</p>
-      <div><a href="/translations">Переводы</a><a href="/about">О нас</a><a href="/team">Команда</a><a href="/admin">Редакционная</a></div>
+      <div><a href="/translations">Переводы</a><a href="/about">О нас</a><a href="/team">Команда</a><a href="https://t.me/booknerd_tr" target="_blank" rel="noreferrer">Telegram</a><a href="/admin">Редакционная</a></div>
       <span>© 2026 BOOKNERD</span>
     </footer>
   );

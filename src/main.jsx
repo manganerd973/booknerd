@@ -18,6 +18,26 @@ import {
 import CommentVotes from './comment-votes.jsx';
 import CommentReport from './comment-report.jsx';
 
+const FEATURED_GENRES = [
+  'ROMANCE',
+  'FANTASY',
+  'YOUNG ADULT',
+  'ROMANTASY',
+  'DARK ROMANCE',
+  'NEW ADULT',
+  'CONTEMPORARY',
+  'MYSTERY',
+  'THRILLER',
+  'SCIENCE FICTION',
+  'PARANORMAL',
+  'HISTORICAL',
+  'DYSTOPIA',
+  'HORROR',
+  'ADVENTURE',
+  'DRAMA',
+  'COMEDY',
+];
+
 function Logo() {
   return (
     <a className="logo" href="/" aria-label="BOOKNERD — на главную">
@@ -155,6 +175,12 @@ function PopularComments({ comments }) {
 function App({ initialBooks = [], initialPopularComments = [] }) {
   const books = initialBooks;
   const filters = useMemo(() => ['Все', ...new Set(books.flatMap((book) => book.genres?.length ? book.genres : [book.genre]).filter(Boolean))], [books]);
+  const tickerGenres = useMemo(() => [...new Set([
+    ...FEATURED_GENRES,
+    ...books.flatMap((book) => book.genres?.length ? book.genres : [book.genre])
+      .filter(Boolean)
+      .map((genre) => String(genre).toLocaleUpperCase('ru-RU')),
+  ])], [books]);
   const [activeFilter, setActiveFilter] = useState('Все');
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
@@ -228,8 +254,8 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
             <button className="icon-button" onClick={() => setSearchOpen(true)} aria-label="Открыть поиск">
               <Search size={19} />
             </button>
-            <a className="telegram-button" href="/translations">
-              Читать сейчас <ArrowRight size={17} />
+            <a className="telegram-button" href="https://t.me/booknerd_tr" target="_blank" rel="noreferrer">
+              Наш Telegram <ArrowRight size={17} />
             </a>
             <button className="menu-button" onClick={() => setMenuOpen(true)} aria-label="Открыть меню">
               <Menu size={22} />
@@ -265,8 +291,11 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
 
           <div className="ticker" aria-hidden="true">
             <div>
-              <span>ROMANCE</span><b>✦</b><span>FANTASY</span><b>✦</b><span>YOUNG ADULT</span><b>✦</b>
-              <span>ROMANCE</span><b>✦</b><span>FANTASY</span><b>✦</b><span>YOUNG ADULT</span><b>✦</b>
+              {[0, 1].map((copy) => (
+                <React.Fragment key={copy}>
+                  {tickerGenres.map((genre) => <React.Fragment key={`${copy}-${genre}`}><span>{genre}</span><b>✦</b></React.Fragment>)}
+                </React.Fragment>
+              ))}
             </div>
           </div>
 
@@ -376,7 +405,7 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
         <footer>
           <Logo />
           <p>Книжная команда переводов · сделано читателями для читателей</p>
-          <div><a href="/translations">Переводы</a><a href="/about">О нас</a><a href="/team">Команда</a></div>
+          <div><a href="/translations">Переводы</a><a href="/about">О нас</a><a href="/team">Команда</a><a href="https://t.me/booknerd_tr" target="_blank" rel="noreferrer">Telegram</a></div>
           <span>© 2026 BOOKNERD</span>
         </footer>
       </div>
@@ -418,7 +447,8 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
             <a href="/translations" onClick={() => setMenuOpen(false)}><span>01</span>Переводы</a>
             <a href="/about" onClick={() => setMenuOpen(false)}><span>02</span>О проекте</a>
             <a href="/team" onClick={() => setMenuOpen(false)}><span>03</span>Команда</a>
-            <a href="/admin" onClick={() => setMenuOpen(false)}><span>04</span>Редакционная</a>
+            <a href="https://t.me/booknerd_tr" target="_blank" rel="noreferrer" onClick={() => setMenuOpen(false)}><span>04</span>Telegram</a>
+            <a href="/admin" onClick={() => setMenuOpen(false)}><span>05</span>Редакционная</a>
           </nav>
           <p>Истории, которые мы хотели прочитать сами.</p>
         </div>

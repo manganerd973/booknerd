@@ -268,7 +268,7 @@ a { color: inherit; text-decoration: none; }
 .round-stamp svg { color: var(--yellow); }
 
 .ticker { overflow: hidden; color: var(--cream); background: var(--navy); border-top: 1px solid var(--navy); border-bottom: 1px solid var(--navy); transform: rotate(-1.25deg) scale(1.02); }
-.ticker > div { width: max-content; display: flex; align-items: center; gap: 25px; padding: 14px 0; animation: ticker 26s linear infinite; }
+.ticker > div { width: max-content; display: flex; align-items: center; gap: 25px; padding: 14px 0; animation: ticker 68s linear infinite; }
 .ticker span { font-family: var(--serif); font-size: 17px; font-style: italic; letter-spacing: .1em; }
 .ticker b { color: var(--yellow); }
 @keyframes ticker { to { transform: translateX(-50%); } }

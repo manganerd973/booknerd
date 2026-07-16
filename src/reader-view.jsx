@@ -433,6 +433,9 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
           <button type="button" onClick={() => updateSetting('theme', settings.theme === 'night' ? 'paper' : 'night')} aria-label="Светлая или ночная тема">
             {settings.theme === 'night' ? <Sun size={19} /> : <Moon size={19} />}
           </button>
+          <button type="button" className="reader-reading-mode-quick" onClick={() => setPanel('reading-mode')} aria-label="Выбрать способ чтения">
+            <ReadingModeIcon mode={settings.motion} size={18} /><span>Режим</span>
+          </button>
           <a href={`/books/${book.slug}`}><BookOpen size={17} /> О книге</a>
           <button type="button" className="reader-menu-button" onClick={() => setPanel('menu')} aria-label="Меню читалки"><Menu size={21} /></button>
         </nav>
@@ -501,7 +504,9 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
           <div className="reader-menu-list">
             <button type="button" onClick={() => setPanel('contents')}><List size={22} /><span><strong>Содержание</strong><small>Все главы книги</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('search')}><Search size={22} /><span><strong>Поиск по книге</strong><small>Найти слово во всех главах</small></span><ChevronRight size={18} /></button>
+            <button type="button" onClick={() => setPanel('reading-mode')}><ReadingModeIcon mode={settings.motion} size={22} /><span><strong>Способ чтения</strong><small>{READING_MODE_OPTIONS.find((mode) => mode.id === settings.motion)?.name}</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('settings')}><SlidersHorizontal size={22} /><span><strong>Темы и настройки</strong><small>Шрифт, размер, фон и яркость</small></span><ChevronRight size={18} /></button>
+            <a href="https://t.me/booknerd_tr" target="_blank" rel="noreferrer"><ExternalLink size={22} /><span><strong>Telegram BOOKNERD</strong><small>@booknerd_tr</small></span><ChevronRight size={18} /></a>
           </div>
           <div className="reader-menu-actions">
             <button type="button" onClick={sharePage}><Share2 size={21} /><span>Поделиться</span></button>
