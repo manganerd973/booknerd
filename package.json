@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vinext dev --hostname 0.0.0.0",
+    "dev": "vite",
     "build": "vinext build && mkdir -p dist/.openai && cp .openai/hosting.json dist/.openai/hosting.json && if [ -d .openai/drizzle ]; then cp -R .openai/drizzle dist/.openai/drizzle; fi",
     "start": "vinext start",
     "db:generate": "drizzle-kit generate",

@@ -139,12 +139,19 @@ function BookCover({ book }) {
 
 function BookCard({ book, saved, onSave, onOpen }) {
   return (
-    <article className="book-card">
+    <article
+      className="book-card"
+      role="link"
+      tabIndex={0}
+      aria-label={`Открыть страницу книги «${book.title}»`}
+      onClick={() => onOpen(book)}
+      onKeyDown={(event) => { if (event.key === 'Enter') onOpen(book); }}
+    >
       <div className="book-visual-wrap">
         <BookCover book={book} />
         <button
           className={`save-button ${saved ? 'is-saved' : ''}`}
-          onClick={() => onSave(book.id)}
+          onClick={(event) => { event.stopPropagation(); onSave(book.id); }}
           aria-label={saved ? `Убрать ${book.title} из закладок` : `Сохранить ${book.title}`}
         >
           <Bookmark size={18} fill={saved ? 'currentColor' : 'none'} />
@@ -156,7 +163,7 @@ function BookCard({ book, saved, onSave, onOpen }) {
           <span>{book.genre}</span>
           <span>{book.progress}%</span>
         </div>
-        <button className="book-title-button" onClick={() => onOpen(book)}>
+        <button className="book-title-button" onClick={(event) => { event.stopPropagation(); onOpen(book); }}>
           <h3>{book.title}</h3>
           <ArrowDownRight size={21} />
         </button>
@@ -236,7 +243,6 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [selectedBook, setSelectedBook] = useState(null);
   const [notice, setNotice] = useState('');
   const [saved, setSaved] = useState(() => {
     if (typeof window === 'undefined') return new Set();
@@ -258,9 +264,9 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
   }, [notice]);
 
   useEffect(() => {
-    document.body.style.overflow = selectedBook || searchOpen || menuOpen ? 'hidden' : '';
+    document.body.style.overflow = searchOpen || menuOpen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
-  }, [selectedBook, searchOpen, menuOpen]);
+  }, [searchOpen, menuOpen]);
 
   const visibleBooks = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -283,6 +289,10 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
       }
       return next;
     });
+  };
+
+  const openBook = (book) => {
+    if (book?.slug) window.location.href = `/books/${book.slug}`;
   };
 
   return (
@@ -327,9 +337,9 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
                 <a className="primary-button" href="/translations">
                   Смотреть переводы <ArrowDownRight size={19} />
                 </a>
-                  <button className="text-button" onClick={() => setSelectedBook(books[0])}>
+                  <a className="text-button" href={books[0]?.slug ? `/books/${books[0].slug}` : '/translations'}>
                   Что читаем сейчас <span>↗</span>
-                </button>
+                </a>
               </div>
               <div className="hero-stats">
                 <div><strong>1 900+</strong><span>читателей</span></div>
@@ -384,7 +394,7 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
                     book={book}
                     saved={saved.has(book.id)}
                     onSave={toggleSave}
-                    onOpen={setSelectedBook}
+                    onOpen={openBook}
                   />
                 ))}
               </div>
@@ -479,7 +489,7 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
             {query && visibleBooks.length > 0 && (
               <div className="search-results">
                 {visibleBooks.slice(0, 4).map((book) => (
-                  <button key={book.id} onClick={() => { setSelectedBook(book); setSearchOpen(false); }}>
+                  <button key={book.id} onClick={() => { setSearchOpen(false); openBook(book); }}>
                     <span className={`result-swatch cover-${book.cover || 'garden'}`} style={book.coverUrl ? { backgroundImage: `url(${book.coverUrl})`, backgroundSize: 'cover' } : undefined} />
                     <span><strong>{book.title}</strong><small>{book.author} · {book.genre}</small></span>
                     <ArrowRight size={18} />
@@ -502,34 +512,6 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
             <a href="/admin" onClick={() => setMenuOpen(false)}><span>05</span>Редакционная</a>
           </nav>
           <p>Истории, которые мы хотели прочитать сами.</p>
-        </div>
-      )}
-
-      {selectedBook && (
-        <div className="overlay book-overlay" role="dialog" aria-modal="true" aria-label={`О книге ${selectedBook.title}`}>
-          <button className="overlay-close" onClick={() => setSelectedBook(null)} aria-label="Закрыть"><X /></button>
-          <div className="book-dialog">
-            <BookCover book={selectedBook} />
-            <div className="book-dialog-copy">
-              <span className="dialog-status">{selectedBook.status}</span>
-              <small>{selectedBook.genre} {selectedBook.note ? `· ${selectedBook.note}` : ''}</small>
-              <h2>{selectedBook.title}</h2>
-              <p className="dialog-author">{selectedBook.author}</p>
-              <p>{selectedBook.synopsis || 'Следим за интонациями, бережём атмосферу и обсуждаем каждую важную деталь внутри команды.'}</p>
-              {(selectedBook.tropes || []).length ? <div className="dialog-tropes">{selectedBook.tropes.map((trope) => <span key={trope}>{trope}</span>)}</div> : null}
-              <div className="dialog-progress">
-                <div><span>Готовность перевода</span><strong>{selectedBook.progress}%</strong></div>
-                <div className="progress-track"><span style={{ width: `${selectedBook.progress}%` }} /></div>
-              </div>
-              <div className="dialog-actions">
-                {selectedBook.slug && <a className="primary-button" href={`/books/${selectedBook.slug}`}>Открыть книгу <ArrowRight size={18} /></a>}
-                <button className="dialog-save-button" onClick={() => toggleSave(selectedBook.id)}>
-                  <Bookmark size={18} fill={saved.has(selectedBook.id) ? 'currentColor' : 'none'} />
-                  {saved.has(selectedBook.id) ? 'Сохранено' : 'В закладки'}
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
       )}
 

@@ -463,10 +463,10 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
       await api(`/api/admin/comments/${comment.id}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ status: 'approved' }),
+        body: JSON.stringify({ status: 'approved', kind: comment.kind }),
       });
       await loadComments();
-      flash('Комментарий опубликован.');
+      flash(comment.kind === 'review' ? 'Отзыв опубликован.' : 'Комментарий опубликован.');
     } catch (error) {
       flash(error.message, 'error');
     }
@@ -477,21 +477,21 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
       await api(`/api/admin/comments/${comment.id}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ status: 'pending' }),
+        body: JSON.stringify({ status: 'pending', kind: comment.kind }),
       });
       await loadComments();
-      flash('Комментарий скрыт от читателей.');
+      flash(comment.kind === 'review' ? 'Отзыв скрыт от читателей.' : 'Комментарий скрыт от читателей.');
     } catch (error) {
       flash(error.message, 'error');
     }
   };
 
   const deleteComment = async (comment) => {
-    if (!window.confirm(`Удалить комментарий от ${comment.authorName}?`)) return;
+    if (!window.confirm(`Удалить ${comment.kind === 'review' ? 'отзыв' : 'комментарий'} от ${comment.authorName}?`)) return;
     try {
-      await api(`/api/admin/comments/${comment.id}`, { method: 'DELETE' });
+      await api(`/api/admin/comments/${comment.id}?kind=${comment.kind || 'comment'}`, { method: 'DELETE' });
       await loadComments();
-      flash('Комментарий удалён.');
+      flash(comment.kind === 'review' ? 'Отзыв удалён.' : 'Комментарий удалён.');
     } catch (error) {
       flash(error.message, 'error');
     }
@@ -527,7 +527,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
             <Plus size={19} /> Добавить книгу
           </button>
           <button className={view === 'comments' ? 'is-active' : ''} onClick={() => navigate('comments')}>
-            <MessageCircle size={19} /> Комментарии {commentsNeedingAttention > 0 && <span>{commentsNeedingAttention}</span>}
+            <MessageCircle size={19} /> Комментарии и отзывы {commentsNeedingAttention > 0 && <span>{commentsNeedingAttention}</span>}
           </button>
           {currentUser.role === 'owner' && (
             <button className={view === 'team' ? 'is-active' : ''} onClick={() => navigate('team')}>
@@ -553,7 +553,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
           <button className="admin-menu-toggle" onClick={() => setMenuOpen(true)}><Menu size={21} /></button>
           <div>
             <span>BOOKNERD · ПАНЕЛЬ КОМАНДЫ</span>
-            <strong>{view === 'book' ? (bookForm.id ? 'Редактирование книги' : 'Новая книга') : view === 'team' ? 'Доступ команды' : view === 'comments' ? 'Модерация комментариев' : 'Управление библиотекой'}</strong>
+            <strong>{view === 'book' ? (bookForm.id ? 'Редактирование книги' : 'Новая книга') : view === 'team' ? 'Доступ команды' : view === 'comments' ? 'Комментарии и отзывы' : 'Управление библиотекой'}</strong>
           </div>
           <a href="/" target="_blank">Открыть сайт <ChevronRight size={17} /></a>
         </header>
@@ -723,7 +723,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
         {view === 'comments' && (
           <section className="admin-content admin-comments-page">
             <div className="admin-hero-row">
-              <div><span className="admin-kicker">ОБСУЖДЕНИЯ ЧИТАТЕЛЕЙ</span><h1>Комментарии<br /><em>и жалобы.</em></h1><p>Новые комментарии публикуются сразу. Здесь можно скрыть нарушение, вернуть комментарий на сайт или удалить спам.</p></div>
+              <div><span className="admin-kicker">МНЕНИЯ ЧИТАТЕЛЕЙ</span><h1>Комментарии<br /><em>и отзывы.</em></h1><p>Они публикуются сразу. Здесь можно скрыть или удалить любой комментарий и отзыв.</p></div>
               <button className="admin-secondary" onClick={loadComments}><MessageCircle size={18} /> Обновить</button>
             </div>
             <div className="admin-comment-summary">
@@ -739,6 +739,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                   <article className={`admin-comment-card ${comment.status === 'approved' ? 'is-approved' : 'is-pending'} ${(comment.reports || []).length ? 'is-reported' : ''}`} key={comment.id}>
                     <div className="admin-comment-meta">
                       <span>{comment.status === 'approved' ? 'Опубликован' : 'Скрыт'}</span>
+                      {comment.kind === 'review' ? <b>Отзыв · {comment.rating}/10</b> : null}
                       {comment.isSpoiler ? <b className="admin-comment-spoiler">Спойлер</b> : null}
                       {(comment.reports || []).length ? <b>Жалоб: {comment.reports.length}</b> : null}
                       <time dateTime={comment.createdAt}>{formatAdminDate(comment.createdAt)}</time>
@@ -770,7 +771,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                 ))}
               </div>
             ) : (
-              <EmptyState title="Комментариев пока нет" text="Когда читатели начнут обсуждение, новые сообщения появятся здесь." />
+              <EmptyState title="Комментариев и отзывов пока нет" text="Когда читатели начнут обсуждение, новые сообщения появятся здесь." />
             )}
           </section>
         )}

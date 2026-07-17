@@ -17,6 +17,10 @@ const localCloudflareWorkers = {
 };
 
 export default defineConfig({
+  server: {
+    host: '0.0.0.0',
+    allowedHosts: ['terminal.local'],
+  },
   plugins: [
     localCloudflareWorkers,
     vinext({

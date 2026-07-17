@@ -29,6 +29,7 @@ import {
   X,
 } from 'lucide-react';
 import CommentsSection from './comments-section.jsx';
+import { CompletionReviewForm } from './book-reviews.jsx';
 
 const SETTINGS_KEY = 'booknerd-reader-settings-v2';
 const BOOKMARKS_KEY = 'booknerd-reader-bookmarks-v2';
@@ -138,10 +139,13 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
   const [bookmarks, setBookmarks] = useState([]);
   const [toast, setToast] = useState('');
   const [orientationLocked, setOrientationLocked] = useState(false);
+  const [chromeHidden, setChromeHidden] = useState(false);
+  const [showCompletion, setShowCompletion] = useState(false);
   const viewportRef = useRef(null);
   const measureRefs = useRef(new Map());
   const initialPositionApplied = useRef(false);
   const touchStart = useRef(null);
+  const readerTap = useRef({ tracking: false, x: 0, y: 0, last: 0 });
 
   const updateSetting = useCallback((key, value) => {
     setSettings((current) => ({ ...current, [key]: value }));
@@ -302,8 +306,31 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       return;
     }
     if (next) window.location.href = `/books/${book.slug}/chapters/${next.id}`;
-    else window.location.href = `/books/${book.slug}`;
+    else setShowCompletion(true);
   }, [book.slug, currentChapterPages, next, page, settings.motion]);
+
+  const startReaderTap = (event) => {
+    if (event.button !== undefined && event.button !== 0) return;
+    if (event.target.closest('button, a, input, textarea, select, label')) return;
+    readerTap.current.tracking = true;
+    readerTap.current.x = event.clientX;
+    readerTap.current.y = event.clientY;
+  };
+
+  const finishReaderTap = (event) => {
+    if (!readerTap.current.tracking) return;
+    readerTap.current.tracking = false;
+    const moved = Math.hypot(event.clientX - readerTap.current.x, event.clientY - readerTap.current.y);
+    if (moved > 18) return;
+    const now = Date.now();
+    if (now - readerTap.current.last <= 360) {
+      readerTap.current.last = 0;
+      setPanel(null);
+      setChromeHidden((current) => !current);
+    } else {
+      readerTap.current.last = now;
+    }
+  };
 
   useEffect(() => {
     const node = viewportRef.current;
@@ -418,8 +445,16 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
     : `${chapter.id}-${settings.motion}`;
 
   return (
-    <main className="reader-page reader-modern" data-reader-theme={settings.theme} style={fontStyle}>
-      <section className="reader-experience" data-reading-mode={settings.motion} aria-label={`Читалка: ${book.title}`}>
+    <main className="reader-page reader-modern" data-reader-theme={settings.theme} data-reader-chrome={chromeHidden ? 'hidden' : 'visible'} style={fontStyle}>
+      <section
+        className="reader-experience"
+        data-reading-mode={settings.motion}
+        aria-label={`Читалка: ${book.title}. Дважды нажмите на текст, чтобы скрыть или вернуть элементы управления.`}
+        onPointerDown={startReaderTap}
+        onPointerUp={finishReaderTap}
+        onPointerCancel={() => { readerTap.current.tracking = false; }}
+        onDoubleClick={(event) => event.preventDefault()}
+      >
         <header className="reader-book-header">
           <a className="reader-book-brand" href="/"><span>B</span><strong>BOOKNERD</strong></a>
           <div className="reader-book-progress" aria-label={`Прочитано ${percent}%`}>
@@ -615,6 +650,19 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
                 <span>{font.name}</span>{settings.fontFamily === font.id ? <Check size={22} /> : null}
               </button>
             ))}
+          </div>
+        </ReaderSheet>
+      ) : null}
+
+      {showCompletion ? (
+        <ReaderSheet title="Спасибо, что прочитали!" eyebrow={`Вы закончили «${book.title}»`} onClose={() => setShowCompletion(false)} wide>
+          <div className="reader-completion">
+            <div className="reader-completion-copy">
+              <Check size={28} />
+              <p>Вы дошли до последней страницы. Оставьте оценку и отзыв — он сразу появится на главной странице этой книги.</p>
+            </div>
+            <CompletionReviewForm bookId={book.id} />
+            <a href={`/books/${book.slug}`}>Перейти на страницу книги <ArrowRight size={18} /></a>
           </div>
         </ReaderSheet>
       ) : null}

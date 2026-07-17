@@ -11,7 +11,8 @@
 .translations-search { display: flex; width: min(320px, 100%); align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--navy); }
 .translations-search input { width: 100%; background: transparent; border: 0; outline: 0; }
 .translations-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 68px 28px; margin-top: 46px; }
-.translation-card { min-width: 0; }
+.translation-card { min-width: 0; cursor: pointer; }
+.translation-card:focus-visible { outline: 3px solid var(--yellow); outline-offset: 5px; }
 .translation-cover { position: relative; display: flex; aspect-ratio: 2 / 3; flex-direction: column; overflow: hidden; padding: 28px; color: #fffdf4; background: var(--navy); box-shadow: 12px 14px 0 var(--yellow-soft); transition: transform .25s ease, box-shadow .25s ease; }
 .translation-card:hover .translation-cover { transform: translateY(-6px) rotate(-.7deg); box-shadow: 15px 20px 0 var(--yellow); }
 .translation-cover::before { position: absolute; top: 17%; right: -35%; width: 86%; aspect-ratio: 1; border: 1px solid currentColor; border-radius: 50%; opacity: .3; content: ''; }

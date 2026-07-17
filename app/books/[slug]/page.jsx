@@ -4,6 +4,8 @@ import { getBookBySlug, listChapters } from '../../../lib/books.js';
 import { listBookArtworks } from '../../../lib/artworks.js';
 import { requireReaderAccess } from '../../../lib/reader-access.js';
 import BookArtGallery from '../../../src/book-art-gallery.jsx';
+import BookRating from '../../../src/book-rating.jsx';
+import BookReviews from '../../../src/book-reviews.jsx';
 import CommentsSection from '../../../src/comments-section.jsx';
 
 export const dynamic = 'force-dynamic';
@@ -50,6 +52,7 @@ export default async function BookPage({ params }) {
             {chapters[0] ? <a className="editorial-primary" href={`/books/${book.slug}/chapters/${chapters[0].id}`}>Начать читать <ArrowRight size={18} /></a> : <span className="book-coming-soon"><Clock3 size={18} /> Первая глава готовится</span>}
             {book.driveUrl ? <a className="editorial-drive-link" href={book.driveUrl} target="_blank" rel="noreferrer">Файл книги в Google Drive <ExternalLink size={16} /></a> : null}
           </div>
+          <BookRating bookId={book.id} />
         </div>
       </section>
 
@@ -80,6 +83,8 @@ export default async function BookPage({ params }) {
       </section>
 
       <BookArtGallery artworks={artworks} bookTitle={book.title} />
+
+      <BookReviews bookId={book.id} />
 
       <CommentsSection bookId={book.id} />
     </main>

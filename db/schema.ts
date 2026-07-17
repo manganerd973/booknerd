@@ -94,3 +94,27 @@ export const commentReports = sqliteTable('comment_reports', {
 }, (table) => [
   primaryKey({ columns: [table.commentId, table.voterKey] }),
 ]);
+
+export const bookRatings = sqliteTable('book_ratings', {
+  bookId: text('book_id').notNull().references(() => books.id, { onDelete: 'cascade' }),
+  voterKey: text('voter_key').notNull(),
+  rating: integer('rating').notNull(),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.bookId, table.voterKey] }),
+]);
+
+export const bookReviews = sqliteTable('book_reviews', {
+  id: text('id').primaryKey(),
+  bookId: text('book_id').notNull().references(() => books.id, { onDelete: 'cascade' }),
+  voterKey: text('voter_key').notNull(),
+  authorName: text('author_name').notNull(),
+  body: text('body').notNull(),
+  rating: integer('rating').notNull(),
+  status: text('status').notNull().default('approved'),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, (table) => [
+  uniqueIndex('book_reviews_book_voter_unique').on(table.bookId, table.voterKey),
+]);

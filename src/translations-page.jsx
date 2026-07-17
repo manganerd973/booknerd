@@ -42,7 +42,15 @@ export default function TranslationsPage({ initialBooks = [] }) {
           {books.length ? (
             <div className="translations-grid">
               {books.map((book) => (
-                <article className="translation-card" key={book.id}>
+                <article
+                  className="translation-card"
+                  key={book.id}
+                  role="link"
+                  tabIndex={0}
+                  aria-label={`Открыть страницу книги «${book.title}»`}
+                  onClick={() => { window.location.href = `/books/${book.slug}`; }}
+                  onKeyDown={(event) => { if (event.key === 'Enter') window.location.href = `/books/${book.slug}`; }}
+                >
                   <TranslationCover book={book} />
                   <div className="translation-card-copy">
                     <span>{book.status} · {book.progress}%</span>
