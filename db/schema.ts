@@ -68,7 +68,8 @@ export const comments = sqliteTable('comments', {
   chapterId: text('chapter_id').references(() => chapters.id, { onDelete: 'cascade' }),
   authorName: text('author_name').notNull(),
   body: text('body').notNull(),
-  status: text('status').notNull().default('pending'),
+  isSpoiler: integer('is_spoiler', { mode: 'boolean' }).notNull().default(false),
+  status: text('status').notNull().default('approved'),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 });

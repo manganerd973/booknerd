@@ -144,6 +144,14 @@
 .reader-comment strong { font-family: Georgia, serif; font-size: 17px; }
 .reader-comment time { color: var(--ed-mint); font-size: 9px; font-weight: 900; text-transform: uppercase; }
 .reader-comment p { margin: 12px 0 0; color: var(--ed-ink); font-family: Georgia, serif; font-size: 15px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+.reader-comment-spoiler-cover { display: grid; width: 100%; min-height: 116px; grid-template-columns: auto minmax(0,1fr); align-items: center; gap: 14px; margin: 14px 0 0; padding: 20px; border: 1px dashed color-mix(in srgb, var(--ed-blue) 58%, var(--ed-line)); color: var(--ed-ink); background: color-mix(in srgb, var(--ed-blue) 10%, var(--ed-card)); font: inherit; text-align: left; cursor: pointer; }
+.reader-comment-spoiler-cover > svg { color: var(--ed-blue); }
+.reader-comment-spoiler-cover > span { display: grid; gap: 5px; }
+.reader-comment-spoiler-cover strong { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 11px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
+.reader-comment-spoiler-cover small { color: color-mix(in srgb, var(--ed-ink) 62%, transparent); font-size: 10px; }
+.reader-comment-spoiler-cover:hover { border-style: solid; background: color-mix(in srgb, var(--ed-blue) 17%, var(--ed-card)); }
+.reader-comment-spoiler-open { margin-top: 2px; }
+.reader-comment-spoiler-open > button { display: inline-flex; align-items: center; gap: 5px; margin-top: 10px; padding: 6px 8px; border: 1px solid var(--ed-line); color: color-mix(in srgb, var(--ed-ink) 68%, transparent); background: transparent; font: inherit; font-size: 9px; font-weight: 850; cursor: pointer; }
 .reader-comment-actions { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
 .reader-comments-empty { display: flex; min-height: 130px; align-items: center; justify-content: center; gap: 9px; padding: 24px; border: 1px dashed var(--ed-line); color: color-mix(in srgb, var(--ed-ink) 62%, transparent); font-family: Georgia, serif; text-align: center; }
 .reader-comment-form { position: relative; display: grid; gap: 13px; padding: 24px; color: #123c35; background: var(--ed-yellow); }
@@ -153,6 +161,12 @@
 .reader-comment-identity strong { font-family: Georgia, serif; font-size: 16px; }
 .reader-comment-identity button { min-height: 30px; padding: 0 10px; border: 1px solid rgba(18,60,53,.32); color: #123c35; background: transparent; font-size: 9px; }
 .reader-comment-name-help { margin: -7px 0 1px; color: rgba(18,60,53,.63); font-size: 9px; line-height: 1.45; }
+.reader-comment-spoiler-toggle { display: grid !important; min-height: 64px; grid-template-columns: 22px 22px minmax(0,1fr); align-items: center; gap: 10px !important; padding: 11px 12px; border: 1px solid rgba(18,60,53,.24); color: #123c35; background: rgba(255,255,255,.5); cursor: pointer; }
+.reader-comment-form .reader-comment-spoiler-toggle input { width: 20px; height: 20px; padding: 0; accent-color: #123c35; }
+.reader-comment-spoiler-toggle > svg { color: #123c35; }
+.reader-comment-spoiler-toggle > span { display: grid; gap: 3px; letter-spacing: 0 !important; text-transform: none !important; }
+.reader-comment-spoiler-toggle strong { font-size: 10px; font-weight: 900; }
+.reader-comment-spoiler-toggle small { color: rgba(18,60,53,.64); font-size: 9px; font-weight: 500; line-height: 1.35; }
 .reader-comment-form label { display: grid; gap: 6px; }
 .reader-comment-form label > span { font-size: 9px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
 .reader-comment-form input,

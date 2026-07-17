@@ -480,7 +480,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
         body: JSON.stringify({ status: 'pending' }),
       });
       await loadComments();
-      flash('Комментарий скрыт и возвращён на проверку.');
+      flash('Комментарий скрыт от читателей.');
     } catch (error) {
       flash(error.message, 'error');
     }
@@ -723,11 +723,11 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
         {view === 'comments' && (
           <section className="admin-content admin-comments-page">
             <div className="admin-hero-row">
-              <div><span className="admin-kicker">ОБСУЖДЕНИЯ ЧИТАТЕЛЕЙ</span><h1>Комментарии<br /><em>на проверке.</em></h1><p>Публикуйте доброжелательные отзывы и удаляйте спам. До одобрения комментарий читателям не виден.</p></div>
+              <div><span className="admin-kicker">ОБСУЖДЕНИЯ ЧИТАТЕЛЕЙ</span><h1>Комментарии<br /><em>и жалобы.</em></h1><p>Новые комментарии публикуются сразу. Здесь можно скрыть нарушение, вернуть комментарий на сайт или удалить спам.</p></div>
               <button className="admin-secondary" onClick={loadComments}><MessageCircle size={18} /> Обновить</button>
             </div>
             <div className="admin-comment-summary">
-              <article><strong>{pendingComments}</strong><span>ожидают проверки</span></article>
+              <article><strong>{pendingComments}</strong><span>скрыто вручную</span></article>
               <article><strong>{comments.filter((comment) => comment.status === 'approved').length}</strong><span>опубликовано</span></article>
               <article><strong>{reportedComments}</strong><span>с жалобами</span></article>
             </div>
@@ -738,7 +738,8 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                 {comments.map((comment) => (
                   <article className={`admin-comment-card ${comment.status === 'approved' ? 'is-approved' : 'is-pending'} ${(comment.reports || []).length ? 'is-reported' : ''}`} key={comment.id}>
                     <div className="admin-comment-meta">
-                      <span>{comment.status === 'approved' ? 'Опубликован' : 'Ожидает проверки'}</span>
+                      <span>{comment.status === 'approved' ? 'Опубликован' : 'Скрыт'}</span>
+                      {comment.isSpoiler ? <b className="admin-comment-spoiler">Спойлер</b> : null}
                       {(comment.reports || []).length ? <b>Жалоб: {comment.reports.length}</b> : null}
                       <time dateTime={comment.createdAt}>{formatAdminDate(comment.createdAt)}</time>
                     </div>
@@ -760,7 +761,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                     </div>
                     <div className="admin-comment-actions">
                       {comment.status === 'pending'
-                        ? <button className="admin-primary" onClick={() => approveComment(comment)}><Check size={16} /> Опубликовать</button>
+                        ? <button className="admin-primary" onClick={() => approveComment(comment)}><Check size={16} /> Вернуть на сайт</button>
                         : <button className="admin-secondary" onClick={() => hideComment(comment)}>Скрыть</button>}
                       {(comment.reports || []).length ? <button className="admin-secondary" onClick={() => clearCommentReports(comment)}><Check size={16} /> Жалобы рассмотрены</button> : null}
                       <button className="admin-danger" onClick={() => deleteComment(comment)}><Trash2 size={16} /> Удалить</button>

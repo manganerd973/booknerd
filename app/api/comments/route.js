@@ -6,6 +6,7 @@ function mapComment(row) {
     id: row.id,
     authorName: row.author_name,
     body: row.body,
+    isSpoiler: Boolean(row.is_spoiler),
     createdAt: row.created_at,
     upVotes: Number(row.up_votes || 0),
     downVotes: Number(row.down_votes || 0),
@@ -29,13 +30,13 @@ export async function GET(request) {
 
     const db = await ensureDb();
     const statement = chapterId
-      ? db.prepare(`SELECT c.id, c.author_name, c.body, c.created_at,
+      ? db.prepare(`SELECT c.id, c.author_name, c.body, c.is_spoiler, c.created_at,
           SUM(CASE WHEN v.value = 1 THEN 1 ELSE 0 END) AS up_votes,
           SUM(CASE WHEN v.value = -1 THEN 1 ELSE 0 END) AS down_votes
           FROM comments c LEFT JOIN comment_votes v ON v.comment_id = c.id
           WHERE c.book_id = ? AND c.chapter_id = ? AND c.status = 'approved'
           GROUP BY c.id ORDER BY c.created_at ASC LIMIT 100`).bind(bookId, chapterId)
-      : db.prepare(`SELECT c.id, c.author_name, c.body, c.created_at,
+      : db.prepare(`SELECT c.id, c.author_name, c.body, c.is_spoiler, c.created_at,
           SUM(CASE WHEN v.value = 1 THEN 1 ELSE 0 END) AS up_votes,
           SUM(CASE WHEN v.value = -1 THEN 1 ELSE 0 END) AS down_votes
           FROM comments c LEFT JOIN comment_votes v ON v.comment_id = c.id
@@ -57,6 +58,7 @@ export async function POST(request) {
     const chapterId = String(payload.chapterId || '').trim() || null;
     const authorName = String(payload.authorName || '').trim().replace(/\s+/g, ' ').slice(0, 60);
     const body = String(payload.body || '').trim().slice(0, 2000);
+    const isSpoiler = payload.isSpoiler === true;
     if (payload.website) return Response.json({ ok: true }, { status: 201 });
     if (!bookId || authorName.length < 2 || body.length < 3) {
       return Response.json({ error: 'Укажите имя и напишите комментарий.' }, { status: 400 });
@@ -73,10 +75,10 @@ export async function POST(request) {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     await db.prepare(
-      `INSERT INTO comments (id, book_id, chapter_id, author_name, body, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)`
-    ).bind(id, bookId, chapterId, authorName, body, now, now).run();
-    return Response.json({ ok: true, moderation: 'pending' }, { status: 201 });
+      `INSERT INTO comments (id, book_id, chapter_id, author_name, body, is_spoiler, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 'approved', ?, ?)`
+    ).bind(id, bookId, chapterId, authorName, body, isSpoiler ? 1 : 0, now, now).run();
+    return Response.json({ ok: true, id, moderation: 'approved' }, { status: 201 });
   } catch (error) {
     return Response.json({ error: error.message || 'Не удалось отправить комментарий.' }, { status: 500 });
   }

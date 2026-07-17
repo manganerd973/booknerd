@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { LoaderCircle, MessageCircle, Send } from 'lucide-react';
+import { Eye, EyeOff, LoaderCircle, MessageCircle, Send } from 'lucide-react';
 import CommentVotes from './comment-votes.jsx';
 import CommentReport from './comment-report.jsx';
 
@@ -20,11 +20,31 @@ function formatDate(value) {
   }
 }
 
+function CommentBody({ comment }) {
+  const [revealed, setRevealed] = useState(false);
+  if (!comment.isSpoiler) return <p>{comment.body}</p>;
+  if (!revealed) {
+    return (
+      <button className="reader-comment-spoiler-cover" type="button" onClick={() => setRevealed(true)}>
+        <EyeOff size={22} />
+        <span><strong>В комментарии есть спойлер</strong><small>Нажмите, чтобы показать текст</small></span>
+      </button>
+    );
+  }
+  return (
+    <div className="reader-comment-spoiler-open">
+      <p>{comment.body}</p>
+      <button type="button" onClick={() => setRevealed(false)}><EyeOff size={14} /> Скрыть спойлер</button>
+    </div>
+  );
+}
+
 export default function CommentsSection({ bookId, chapterId = null }) {
   const [comments, setComments] = useState([]);
   const [authorName, setAuthorName] = useState('');
   const [savedAuthorName, setSavedAuthorName] = useState('');
   const [body, setBody] = useState('');
+  const [isSpoiler, setIsSpoiler] = useState(false);
   const [website, setWebsite] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -82,12 +102,14 @@ export default function CommentsSection({ bookId, chapterId = null }) {
       await commentsApi('/api/comments', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ bookId, chapterId, authorName, body, website }),
+        body: JSON.stringify({ bookId, chapterId, authorName, body, isSpoiler, website }),
       });
       rememberAuthor(authorName);
       setBody('');
+      setIsSpoiler(false);
       setWebsite('');
-      setNotice('Комментарий отправлен. Он появится после проверки командой BOOKNERD.');
+      setNotice('Комментарий опубликован. Он уже виден другим читателям.');
+      await loadComments();
     } catch (submitError) {
       setError(submitError.message);
     } finally {
@@ -100,7 +122,7 @@ export default function CommentsSection({ bookId, chapterId = null }) {
       <div className="reader-comments-heading">
         <span className="editorial-section-number">{chapterId ? 'КОММЕНТАРИИ К ГЛАВЕ' : 'КОММЕНТАРИИ К КНИГЕ'}</span>
         <h2 id={`comments-${chapterId || bookId}`}>Обсуждение</h2>
-        <p>Делитесь впечатлениями без спойлеров. Комментарии появляются после проверки.</p>
+        <p>Комментарии публикуются сразу. Если в тексте есть важная деталь сюжета, отметьте её как спойлер.</p>
       </div>
 
       <div className="reader-comments-layout">
@@ -110,7 +132,7 @@ export default function CommentsSection({ bookId, chapterId = null }) {
           ) : comments.length ? comments.map((comment) => (
             <article className="reader-comment" key={comment.id}>
               <div><strong>{comment.authorName}</strong><time dateTime={comment.createdAt}>{formatDate(comment.createdAt)}</time></div>
-              <p>{comment.body}</p>
+              <CommentBody comment={comment} />
               <div className="reader-comment-actions"><CommentVotes commentId={comment.id} initialUpVotes={comment.upVotes} initialDownVotes={comment.downVotes} /><CommentReport commentId={comment.id} /></div>
             </article>
           )) : (
@@ -132,11 +154,16 @@ export default function CommentsSection({ bookId, chapterId = null }) {
             </>
           )}
           <label><span>Комментарий</span><textarea value={body} onChange={(event) => setBody(event.target.value)} maxLength={2000} rows={6} required /></label>
+          <label className="reader-comment-spoiler-toggle">
+            <input type="checkbox" checked={isSpoiler} onChange={(event) => setIsSpoiler(event.target.checked)} />
+            <Eye size={20} />
+            <span><strong>В комментарии есть спойлер</strong><small>Текст будет скрыт, пока читатель сам его не откроет.</small></span>
+          </label>
           <label className="reader-comment-honeypot" aria-hidden="true"><span>Сайт</span><input value={website} onChange={(event) => setWebsite(event.target.value)} tabIndex={-1} autoComplete="off" /></label>
           <small>{body.length} / 2000</small>
           {notice && <p className="reader-comment-notice">{notice}</p>}
           {error && <p className="reader-comment-error">{error}</p>}
-          <button type="submit" disabled={sending}>{sending ? <LoaderCircle className="spin" size={17} /> : <Send size={17} />} {sending ? 'Отправляем…' : 'Отправить на проверку'}</button>
+          <button type="submit" disabled={sending}>{sending ? <LoaderCircle className="spin" size={17} /> : <Send size={17} />} {sending ? 'Публикуем…' : 'Опубликовать комментарий'}</button>
         </form>
       </div>
     </section>

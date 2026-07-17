@@ -7,6 +7,7 @@ import {
   Bookmark,
   BookOpen,
   Check,
+  EyeOff,
   Heart,
   Menu,
   MessageCircle,
@@ -185,7 +186,7 @@ function PopularComments({ comments }) {
           {comments.map((comment) => (
             <article className="popular-comment-card" key={comment.id}>
               <MessageCircle size={23} />
-              <blockquote>«{comment.body}»</blockquote>
+              <PopularCommentBody comment={comment} />
               <div className="popular-comment-author"><strong>{comment.authorName}</strong><span>о книге «{comment.bookTitle}»</span></div>
               <div className="popular-comment-footer">
                 <div className="popular-comment-feedback"><CommentVotes commentId={comment.id} initialUpVotes={comment.upVotes} initialDownVotes={comment.downVotes} compact /><CommentReport commentId={comment.id} compact /></div>
@@ -200,6 +201,25 @@ function PopularComments({ comments }) {
         <div className="popular-comments-empty"><MessageCircle size={28} /><div><strong>Здесь появятся любимые комментарии</strong><span>Когда читатели начнут голосовать, самые популярные отзывы попадут на главную.</span></div></div>
       )}
     </section>
+  );
+}
+
+function PopularCommentBody({ comment }) {
+  const [revealed, setRevealed] = useState(false);
+  if (!comment.isSpoiler) return <blockquote>«{comment.body}»</blockquote>;
+  if (!revealed) {
+    return (
+      <button className="popular-comment-spoiler" type="button" onClick={() => setRevealed(true)}>
+        <EyeOff size={22} />
+        <span><strong>Комментарий со спойлером</strong><small>Нажмите, чтобы прочитать</small></span>
+      </button>
+    );
+  }
+  return (
+    <div className="popular-comment-spoiler-open">
+      <blockquote>«{comment.body}»</blockquote>
+      <button type="button" onClick={() => setRevealed(false)}><EyeOff size={13} /> Скрыть</button>
+    </div>
   );
 }
 
