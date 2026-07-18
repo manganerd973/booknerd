@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   BookOpen,
@@ -16,12 +16,16 @@ import {
   Plus,
   Save,
   Search,
+  Send,
   Settings2,
+  Smartphone,
   Trash2,
   UploadCloud,
   Users,
+  Wifi,
   X,
 } from 'lucide-react';
+import RichChapterEditor from './rich-chapter-editor.jsx';
 
 const blankBook = {
   id: null,
@@ -33,7 +37,9 @@ const blankBook = {
   author: '',
   synopsis: '',
   genres: [],
+  genresText: '',
   tropes: [],
+  tropesText: '',
   driveUrl: '',
   status: 'Черновик',
   progress: 0,
@@ -47,6 +53,8 @@ const blankChapter = {
   chapterNumber: 1,
   title: '',
   body: '',
+  bodyRich: '',
+  footnotes: [],
   driveUrl: '',
   status: 'draft',
 };
@@ -64,6 +72,16 @@ function formatAdminDate(value) {
   } catch {
     return '';
   }
+}
+
+function splitBookTags(value, limit) {
+  const seen = new Set();
+  return String(value || '').split(/[,;\n]+/).map((item) => item.trim()).filter((item) => {
+    const key = item.toLocaleLowerCase('ru-RU');
+    if (!item || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, limit);
 }
 
 const reportReasonLabels = {
@@ -167,6 +185,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
   const [artworks, setArtworks] = useState([]);
   const [artworkCaption, setArtworkCaption] = useState('');
   const [chapterForm, setChapterForm] = useState(blankChapter);
+  const [footnoteDraft, setFootnoteDraft] = useState(null);
   const [team, setTeam] = useState([]);
   const [comments, setComments] = useState([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
@@ -177,6 +196,9 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
   const [uploading, setUploading] = useState(false);
   const [artworkUploading, setArtworkUploading] = useState(false);
   const [notice, setNotice] = useState(null);
+  const [audience, setAudience] = useState(null);
+  const chapterBodyRef = useRef(null);
+  const chapterSelectionRef = useRef('');
 
   const flash = useCallback((message, type = 'success') => {
     setNotice({ message, type });
@@ -207,7 +229,22 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
     }
   }, [flash]);
 
+  const loadAudience = useCallback(async () => {
+    if (currentUser.role !== 'owner') return;
+    try {
+      setAudience(await api('/api/admin/analytics'));
+    } catch {
+      setAudience(null);
+    }
+  }, [currentUser.role]);
+
   useEffect(() => { loadBooks(); }, [loadBooks]);
+  useEffect(() => {
+    if (currentUser.role !== 'owner') return undefined;
+    loadAudience();
+    const timer = window.setInterval(loadAudience, 30000);
+    return () => window.clearInterval(timer);
+  }, [currentUser.role, loadAudience]);
 
   const filteredBooks = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -239,14 +276,21 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
     setArtworks([]);
     setArtworkCaption('');
     setChapterForm({ ...blankChapter });
+    setFootnoteDraft(null);
     navigate('book');
   };
 
   const openBook = async (book) => {
-    setBookForm({ ...blankBook, ...book });
+    setBookForm({
+      ...blankBook,
+      ...book,
+      genresText: (book.genres || []).join(', '),
+      tropesText: (book.tropes || []).join(', '),
+    });
     setArtworks([]);
     setArtworkCaption('');
     setChapterForm({ ...blankChapter });
+    setFootnoteDraft(null);
     navigate('book');
     try {
       const [chapterData, artworkData] = await Promise.all([
@@ -269,13 +313,16 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
     setSaving(true);
     try {
       const editing = Boolean(bookForm.id);
+      const genres = splitBookTags(bookForm.genresText ?? (bookForm.genres || []).join(', '), 20);
+      const tropes = splitBookTags(bookForm.tropesText ?? (bookForm.tropes || []).join(', '), 40);
+      const payload = { ...bookForm, genres, tropes };
       const data = await api(editing ? `/api/admin/books/${bookForm.id}` : '/api/admin/books', {
         method: editing ? 'PUT' : 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(bookForm),
+        body: JSON.stringify(payload),
       });
       const id = bookForm.id || data.id;
-      setBookForm((current) => ({ ...current, id, slug: data.slug }));
+      setBookForm((current) => ({ ...current, id, slug: data.slug, genres, tropes, genresText: genres.join(', '), tropesText: tropes.join(', ') }));
       flash(editing ? 'Книга сохранена.' : 'Книга добавлена. Теперь можно создать главы.');
       await loadBooks();
     } catch (error) {
@@ -367,6 +414,60 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
 
   const startNewChapter = () => {
     setChapterForm({ ...blankChapter, chapterNumber: chapters.length + 1 });
+    setFootnoteDraft(null);
+  };
+
+  const startFootnote = () => {
+    const editor = chapterBodyRef.current;
+    const selection = window.getSelection?.();
+    const anchor = selection?.anchorNode;
+    const liveTerm = selection?.rangeCount && anchor && editor?.contains(anchor.nodeType === 1 ? anchor : anchor.parentElement)
+      ? selection.toString().trim()
+      : '';
+    const term = liveTerm || chapterSelectionRef.current;
+    if (!term) {
+      flash('Сначала выделите слово или короткую фразу в тексте главы.', 'error');
+      editor?.focus();
+      return;
+    }
+    if (term.length > 120 || term.includes('\n')) {
+      flash('Для сноски выберите одно слово или короткую фразу до 120 знаков.', 'error');
+      return;
+    }
+    const existing = (chapterForm.footnotes || []).find((footnote) => footnote.term.toLocaleLowerCase('ru-RU') === term.toLocaleLowerCase('ru-RU'));
+    chapterSelectionRef.current = '';
+    setFootnoteDraft(existing ? { ...existing } : { id: null, term, explanation: '' });
+  };
+
+  const editFootnote = (footnote) => {
+    setFootnoteDraft({ ...footnote });
+  };
+
+  const saveFootnote = () => {
+    if (!footnoteDraft) return;
+    const term = String(footnoteDraft.term || '').trim().slice(0, 120);
+    const explanation = String(footnoteDraft.explanation || '').trim().slice(0, 2000);
+    if (!term || !explanation) {
+      flash('Напишите объяснение для выбранного слова.', 'error');
+      return;
+    }
+    const id = footnoteDraft.id || (crypto.randomUUID ? crypto.randomUUID() : `footnote-${Date.now()}`);
+    setChapterForm((current) => {
+      const footnotes = current.footnotes || [];
+      const next = footnoteDraft.id
+        ? footnotes.map((footnote) => footnote.id === footnoteDraft.id ? { id, term, explanation } : footnote)
+        : [...footnotes.filter((footnote) => footnote.term.toLocaleLowerCase('ru-RU') !== term.toLocaleLowerCase('ru-RU')), { id, term, explanation }];
+      return { ...current, footnotes: next };
+    });
+    setFootnoteDraft(null);
+    flash('Сноска добавлена. Теперь сохраните главу.');
+  };
+
+  const deleteFootnote = (id) => {
+    if (!window.confirm('Удалить эту сноску?')) return;
+    setChapterForm((current) => ({ ...current, footnotes: (current.footnotes || []).filter((footnote) => footnote.id !== id) }));
+    if (footnoteDraft?.id === id) setFootnoteDraft(null);
+    flash('Сноска удалена. Сохраните главу.');
   };
 
   const saveChapter = async (event) => {
@@ -395,6 +496,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
       setChapters(refreshed.chapters || []);
       const updated = (refreshed.chapters || []).find((chapter) => chapter.id === (chapterForm.id || data.id));
       setChapterForm(updated || { ...blankChapter });
+      setFootnoteDraft(null);
       await loadBooks();
     } catch (error) {
       flash(error.message, 'error');
@@ -409,6 +511,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
       await api(`/api/admin/chapters/${chapterForm.id}`, { method: 'DELETE' });
       setChapters((current) => current.filter((chapter) => chapter.id !== chapterForm.id));
       setChapterForm({ ...blankChapter, chapterNumber: Math.max(1, chapters.length) });
+      setFootnoteDraft(null);
       flash('Глава удалена.');
       await loadBooks();
     } catch (error) {
@@ -576,6 +679,17 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
               <article><span>04</span><strong>{stats.drafts}</strong><p>черновиков</p></article>
             </div>
 
+            {currentUser.role === 'owner' ? (
+              <section className="admin-audience">
+                <div><span>ЖИВАЯ СТАТИСТИКА</span><h2>Читатели BOOKNERD</h2><p>Количество читателей обновляется примерно раз в 30 секунд.</p></div>
+                <div className="admin-audience-grid">
+                  <article><Wifi size={23} /><strong>{audience?.onlineReaders ?? '—'}</strong><p>сейчас читают</p></article>
+                  <article><Smartphone size={23} /><strong>{audience?.installs ?? '—'}</strong><p>установили на телефон</p></article>
+                  <article><Send size={23} /><strong>{audience?.telegramVisitors ?? '—'}</strong><p>перешли в Telegram</p><small>{audience ? `${audience.telegramClicks} переходов всего` : 'считаем переходы по ссылке'}</small></article>
+                </div>
+              </section>
+            ) : null}
+
             <div className="admin-list-head">
               <div><span>{view === 'dashboard' ? 'ПОСЛЕДНИЕ КНИГИ' : 'КАТАЛОГ'}</span><h2>{view === 'dashboard' ? 'Продолжить работу' : 'Управление книгами'}</h2></div>
               <label className="admin-search"><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Найти книгу" /></label>
@@ -631,8 +745,8 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                   </div>
                   <label className="admin-full-field"><span>Аннотация</span><textarea value={bookForm.synopsis} onChange={(event) => setBookForm({ ...bookForm, synopsis: event.target.value })} placeholder="Расскажите читателю, о чём эта история…" rows={7} /><small>{bookForm.synopsis.length} / 12 000</small></label>
                   <div className="admin-fields two-columns">
-                    <label><span>Жанры</span><input value={bookForm.genres.join(', ')} onChange={(event) => setBookForm({ ...bookForm, genres: event.target.value.split(',').map((item) => item.trim()).filter(Boolean) })} placeholder="Романтика, Фэнтези" /></label>
-                    <label><span>Тропы</span><input value={(bookForm.tropes || []).join(', ')} onChange={(event) => setBookForm({ ...bookForm, tropes: event.target.value.split(',').map((item) => item.trim()).filter(Boolean) })} placeholder="Враги в возлюбленные, найденная семья" /></label>
+                    <label><span>Жанры</span><input value={bookForm.genresText || ''} onChange={(event) => setBookForm({ ...bookForm, genresText: event.target.value })} placeholder="Романтика, Фэнтези, Young Adult" /><small>Разделяйте жанры запятыми.</small></label>
+                    <label><span>Тропы</span><input value={bookForm.tropesText || ''} onChange={(event) => setBookForm({ ...bookForm, tropesText: event.target.value })} placeholder="Враги в возлюбленные, найденная семья" /><small>Разделяйте тропы запятыми.</small></label>
                     <label><span>Статус перевода</span><select value={bookForm.status} onChange={(event) => setBookForm({ ...bookForm, status: event.target.value })}><option>Черновик</option><option>Скоро</option><option>В работе</option><option>Новый перевод</option><option>Готово</option><option>На паузе</option></select></label>
                     <label><span>Готовность перевода: {bookForm.progress}%</span><input type="range" min="0" max="100" value={bookForm.progress} onChange={(event) => setBookForm({ ...bookForm, progress: Number(event.target.value) })} /></label>
                     <label className="admin-switch-row"><span><strong>Показывать книгу на сайте</strong><small>Читатели увидят аннотацию и опубликованные главы.</small></span><input type="checkbox" checked={bookForm.published} onChange={(event) => setBookForm({ ...bookForm, published: event.target.checked })} /></label>
@@ -695,7 +809,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                 <div className="admin-chapter-workspace">
                   <aside className="admin-chapter-list">
                     {chapters.length ? chapters.map((chapter) => (
-                      <button key={chapter.id} className={chapterForm.id === chapter.id ? 'is-active' : ''} onClick={() => setChapterForm(chapter)}>
+                      <button key={chapter.id} className={chapterForm.id === chapter.id ? 'is-active' : ''} onClick={() => { setChapterForm({ ...blankChapter, ...chapter, footnotes: chapter.footnotes || [] }); setFootnoteDraft(null); }}>
                         <span>{String(chapter.chapterNumber).padStart(2, '0')}</span><div><strong>{chapter.title}</strong><small>{chapter.status === 'published' ? 'Опубликована' : 'Черновик'}</small></div><ChevronRight size={17} />
                       </button>
                     )) : <p className="admin-no-chapters">Глав пока нет. Создайте первую.</p>}
@@ -706,7 +820,31 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                       <label className="grow"><span>Название главы</span><input value={chapterForm.title} onChange={(event) => setChapterForm({ ...chapterForm, title: event.target.value })} placeholder="Название главы" /></label>
                       <label><span>Статус</span><select value={chapterForm.status} onChange={(event) => setChapterForm({ ...chapterForm, status: event.target.value })}><option value="draft">Черновик</option><option value="published">Опубликована</option></select></label>
                     </div>
-                    <label className="admin-chapter-body"><span>Текст главы</span><textarea value={chapterForm.body} onChange={(event) => setChapterForm({ ...chapterForm, body: event.target.value })} placeholder="Вставьте сюда текст переведённой главы…" /></label>
+                    <div className="admin-chapter-body"><span>Текст главы с оформлением</span><RichChapterEditor key={`${bookForm.id || 'book'}-${chapterForm.id || 'new'}-${chapterForm.chapterNumber}`} ref={chapterBodyRef} value={chapterForm.bodyRich} fallbackText={chapterForm.body} onTextSelect={(text) => { chapterSelectionRef.current = text; }} onChange={({ body, bodyRich }) => setChapterForm((current) => ({ ...current, body, bodyRich }))} /></div>
+                    <section className="admin-footnotes-panel">
+                      <header>
+                        <div><span>СНОСКИ КОМАНДЫ</span><strong>Пояснения для читателей</strong><small>Выделите слово или короткую фразу в тексте выше и нажмите кнопку. Сноски могут создавать вы и выбранные участники команды.</small></div>
+                        <button type="button" className="admin-secondary" onClick={startFootnote}><Plus size={17} /> Добавить сноску</button>
+                      </header>
+                        {footnoteDraft ? (
+                          <div className="admin-footnote-editor">
+                            <label><span>Слово или фраза</span><input value={footnoteDraft.term} onChange={(event) => setFootnoteDraft({ ...footnoteDraft, term: event.target.value })} maxLength="120" /></label>
+                            <label><span>Объяснение</span><textarea value={footnoteDraft.explanation} onChange={(event) => setFootnoteDraft({ ...footnoteDraft, explanation: event.target.value })} maxLength="2000" rows="4" placeholder="Например: архаичное слово, исторический термин или важная деталь мира книги…" /></label>
+                            <div><button type="button" className="admin-secondary" onClick={() => setFootnoteDraft(null)}>Отмена</button><button type="button" className="admin-primary" onClick={saveFootnote}><Check size={17} /> Сохранить сноску</button></div>
+                          </div>
+                        ) : null}
+                        {(chapterForm.footnotes || []).length ? (
+                          <div className="admin-footnote-list">
+                            {(chapterForm.footnotes || []).map((footnote, index) => (
+                              <article key={footnote.id || `${footnote.term}-${index}`}>
+                                <span>{index + 1}</span>
+                                <button type="button" onClick={() => editFootnote(footnote)}><strong>{footnote.term}</strong><small>{footnote.explanation}</small></button>
+                                <button type="button" onClick={() => deleteFootnote(footnote.id)} aria-label={`Удалить сноску ${footnote.term}`}><Trash2 size={16} /></button>
+                              </article>
+                            ))}
+                          </div>
+                        ) : <p className="admin-footnote-empty">Сносок пока нет.</p>}
+                    </section>
                     <label className="admin-chapter-drive"><span>Файл главы в Google Drive</span><input type="url" value={chapterForm.driveUrl || ''} onChange={(event) => setChapterForm({ ...chapterForm, driveUrl: event.target.value })} placeholder="https://drive.google.com/…" /></label>
                     <div className="admin-chapter-actions">
                       {chapterForm.id && <button type="button" className="admin-danger" onClick={deleteChapter}><Trash2 size={17} /> Удалить</button>}

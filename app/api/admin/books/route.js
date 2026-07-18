@@ -5,11 +5,11 @@ import { normalizeGoogleDriveUrl } from '../../../../lib/google-drive.js';
 
 function normalizeBookPayload(payload = {}) {
   const genres = Array.isArray(payload.genres)
-    ? payload.genres.map((genre) => String(genre).trim()).filter(Boolean).slice(0, 8)
-    : String(payload.genres || '').split(',').map((genre) => genre.trim()).filter(Boolean).slice(0, 8);
+    ? payload.genres.map((genre) => String(genre).trim()).filter(Boolean).slice(0, 20)
+    : String(payload.genres || '').split(/[,;\n]+/).map((genre) => genre.trim()).filter(Boolean).slice(0, 20);
   const tropes = Array.isArray(payload.tropes)
-    ? payload.tropes.map((trope) => String(trope).trim()).filter(Boolean).slice(0, 16)
-    : String(payload.tropes || '').split(',').map((trope) => trope.trim()).filter(Boolean).slice(0, 16);
+    ? payload.tropes.map((trope) => String(trope).trim()).filter(Boolean).slice(0, 40)
+    : String(payload.tropes || '').split(/[,;\n]+/).map((trope) => trope.trim()).filter(Boolean).slice(0, 40);
   const driveUrl = normalizeGoogleDriveUrl(payload.driveUrl);
   return {
     title: String(payload.title || '').trim().slice(0, 180),

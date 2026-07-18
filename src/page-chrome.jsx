@@ -16,7 +16,7 @@ const links = [
   { href: '/translations', label: 'Переводы', key: 'translations' },
   { href: '/about', label: 'О проекте', key: 'about' },
   { href: '/team', label: 'Команда', key: 'team' },
-  { href: 'https://t.me/booknerd_tr', label: 'Telegram', key: 'telegram', external: true },
+  { href: '/go/telegram', label: 'Telegram', key: 'telegram', external: true },
 ];
 
 export function SiteHeader({ active = '' }) {
@@ -55,7 +55,7 @@ export function SiteFooter() {
     <footer>
       <SiteLogo />
       <p>Книжная команда переводов · сделано читателями для читателей</p>
-      <div><a href="/translations">Переводы</a><a href="/about">О нас</a><a href="/team">Команда</a><a href="https://t.me/booknerd_tr" target="_blank" rel="noreferrer">Telegram</a><a href="/admin">Редакционная</a></div>
+      <div><a href="/translations">Переводы</a><a href="/about">О нас</a><a href="/team">Команда</a><a href="/go/telegram" target="_blank" rel="noreferrer">Telegram</a><a href="/admin">Редакционная</a></div>
       <span>© 2026 BOOKNERD</span>
     </footer>
   );

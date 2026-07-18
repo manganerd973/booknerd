@@ -10,7 +10,10 @@
   "background_color": "#f5f3df",
   "theme_color": "#123c35",
   "icons": [
-    { "src": "/booknerd-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "/booknerd-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    { "src": "/booknerd-icon-v2-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/booknerd-icon-v2-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/booknerd-icon-v2-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/booknerd-icon-v2-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/booknerd-icon-v2-1024.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any" }
   ]
 }

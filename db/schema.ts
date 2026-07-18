@@ -1,4 +1,4 @@
-import { blob, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { blob, index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 export const books = sqliteTable('books', {
   id: text('id').primaryKey(),
@@ -28,6 +28,8 @@ export const chapters = sqliteTable('chapters', {
   chapterNumber: integer('chapter_number').notNull(),
   title: text('title').notNull(),
   body: text('body').notNull().default(''),
+  bodyRich: text('body_rich').notNull().default(''),
+  footnotes: text('footnotes').notNull().default('[]'),
   driveUrl: text('drive_url').notNull().default(''),
   status: text('status').notNull().default('draft'),
   publishedAt: text('published_at'),
@@ -117,4 +119,31 @@ export const bookReviews = sqliteTable('book_reviews', {
   updatedAt: text('updated_at').notNull(),
 }, (table) => [
   uniqueIndex('book_reviews_book_voter_unique').on(table.bookId, table.voterKey),
+]);
+
+export const readerPresence = sqliteTable('reader_presence', {
+  visitorKey: text('visitor_key').primaryKey(),
+  bookId: text('book_id').notNull().default(''),
+  chapterId: text('chapter_id').notNull().default(''),
+  updatedAt: text('updated_at').notNull(),
+}, (table) => [
+  index('reader_presence_updated_idx').on(table.updatedAt),
+]);
+
+export const siteInstalls = sqliteTable('site_installs', {
+  visitorKey: text('visitor_key').primaryKey(),
+  platform: text('platform').notNull().default('unknown'),
+  firstSeenAt: text('first_seen_at').notNull(),
+  lastSeenAt: text('last_seen_at').notNull(),
+});
+
+export const analyticsEvents = sqliteTable('analytics_events', {
+  id: text('id').primaryKey(),
+  eventType: text('event_type').notNull(),
+  visitorKey: text('visitor_key').notNull(),
+  path: text('path').notNull().default(''),
+  createdAt: text('created_at').notNull(),
+}, (table) => [
+  index('analytics_events_type_created_idx').on(table.eventType, table.createdAt),
+  index('analytics_events_type_visitor_idx').on(table.eventType, table.visitorKey),
 ]);

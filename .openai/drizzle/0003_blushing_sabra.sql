@@ -1,0 +1,1 @@
+ALTER TABLE `chapters` ADD `footnotes` text DEFAULT '[]' NOT NULL;

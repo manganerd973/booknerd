@@ -1,0 +1,1 @@
+ALTER TABLE `chapters` ADD `body_rich` text DEFAULT '' NOT NULL;

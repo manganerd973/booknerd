@@ -2,17 +2,36 @@ import { authorizeAdminRequest } from '../../../../../../lib/admin-auth.js';
 import { listChapters } from '../../../../../../lib/books.js';
 import { ensureDb } from '../../../../../../lib/runtime.js';
 import { normalizeGoogleDriveUrl } from '../../../../../../lib/google-drive.js';
+import { normalizeRichDocument, richDocumentToPlainText, serializeRichDocument } from '../../../../../../lib/rich-document.js';
 
 function normalizeChapter(payload = {}) {
   const status = payload.status === 'published' ? 'published' : 'draft';
   const driveUrl = normalizeGoogleDriveUrl(payload.driveUrl);
+  const richDocument = normalizeRichDocument(payload.bodyRich);
+  const richBody = richDocument.blocks.length ? richDocumentToPlainText(richDocument) : '';
   return {
     chapterNumber: Math.max(1, Math.floor(Number(payload.chapterNumber || 1))),
     title: String(payload.title || '').trim().slice(0, 220),
-    body: String(payload.body || '').trim().slice(0, 300000),
+    body: (richBody || String(payload.body || '')).trim().slice(0, 300000),
+    bodyRich: richDocument.blocks.length ? serializeRichDocument(richDocument) : '',
     driveUrl,
     status,
   };
+}
+
+function normalizeFootnotes(value) {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set();
+  return value.slice(0, 200).map((footnote) => ({
+    id: String(footnote?.id || crypto.randomUUID()).slice(0, 100),
+    term: String(footnote?.term || '').trim().slice(0, 120),
+    explanation: String(footnote?.explanation || '').trim().slice(0, 2000),
+  })).filter((footnote) => {
+    const key = footnote.term.toLocaleLowerCase('ru-RU');
+    if (!footnote.term || !footnote.explanation || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 export async function GET(request, { params }) {
@@ -31,7 +50,9 @@ export async function POST(request, { params }) {
   if (auth.response) return auth.response;
   try {
     const { id: bookId } = await params;
-    const payload = normalizeChapter(await request.json());
+    const input = await request.json();
+    const payload = normalizeChapter(input);
+    const footnotes = normalizeFootnotes(input.footnotes);
     if (!payload.title) return Response.json({ error: 'Укажите название главы.' }, { status: 400 });
     if (payload.driveUrl === null) return Response.json({ error: 'Вставьте ссылку с drive.google.com или docs.google.com.' }, { status: 400 });
     const db = await ensureDb();
@@ -41,10 +62,10 @@ export async function POST(request, { params }) {
     const now = new Date().toISOString();
     await db.prepare(
       `INSERT INTO chapters
-       (id, book_id, chapter_number, title, body, drive_url, status, published_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (id, book_id, chapter_number, title, body, body_rich, footnotes, drive_url, status, published_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
-      id, bookId, payload.chapterNumber, payload.title, payload.body, payload.driveUrl, payload.status,
+      id, bookId, payload.chapterNumber, payload.title, payload.body, payload.bodyRich, JSON.stringify(footnotes), payload.driveUrl, payload.status,
       payload.status === 'published' ? now : null, now, now,
     ).run();
     return Response.json({ id }, { status: 201 });

@@ -315,7 +315,7 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
             <button className="icon-button" onClick={() => setSearchOpen(true)} aria-label="Открыть поиск">
               <Search size={19} />
             </button>
-            <a className="telegram-button" href="https://t.me/booknerd_tr" target="_blank" rel="noreferrer">
+            <a className="telegram-button" href="/go/telegram" target="_blank" rel="noreferrer">
               Наш Telegram <ArrowRight size={17} />
             </a>
             <button className="menu-button" onClick={() => setMenuOpen(true)} aria-label="Открыть меню">
@@ -466,7 +466,7 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
         <footer>
           <Logo />
           <p>Книжная команда переводов · сделано читателями для читателей</p>
-          <div><a href="/translations">Переводы</a><a href="/about">О нас</a><a href="/team">Команда</a><a href="https://t.me/booknerd_tr" target="_blank" rel="noreferrer">Telegram</a></div>
+          <div><a href="/translations">Переводы</a><a href="/about">О нас</a><a href="/team">Команда</a><a href="/go/telegram" target="_blank" rel="noreferrer">Telegram</a></div>
           <span>© 2026 BOOKNERD</span>
         </footer>
       </div>
@@ -508,7 +508,7 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
             <a href="/translations" onClick={() => setMenuOpen(false)}><span>01</span>Переводы</a>
             <a href="/about" onClick={() => setMenuOpen(false)}><span>02</span>О проекте</a>
             <a href="/team" onClick={() => setMenuOpen(false)}><span>03</span>Команда</a>
-            <a href="https://t.me/booknerd_tr" target="_blank" rel="noreferrer" onClick={() => setMenuOpen(false)}><span>04</span>Telegram</a>
+            <a href="/go/telegram" target="_blank" rel="noreferrer" onClick={() => setMenuOpen(false)}><span>04</span>Telegram</a>
             <a href="/admin" onClick={() => setMenuOpen(false)}><span>05</span>Редакционная</a>
           </nav>
           <p>Истории, которые мы хотели прочитать сами.</p>

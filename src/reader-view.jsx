@@ -13,6 +13,7 @@ import {
   Check,
   ChevronRight,
   ExternalLink,
+  Highlighter,
   List,
   Lock,
   Menu,
@@ -24,15 +25,29 @@ import {
   Search,
   Share2,
   SlidersHorizontal,
+  SmilePlus,
+  StickyNote,
   Sun,
+  Trash2,
   Type,
   X,
 } from 'lucide-react';
 import CommentsSection from './comments-section.jsx';
 import { CompletionReviewForm } from './book-reviews.jsx';
+import { richDocumentFor } from '../lib/rich-document.js';
+import { trackReaderPresence } from './site-analytics.js';
+import {
+  AnnotatedParagraph,
+  HIGHLIGHT_COLORS,
+  ReaderSticker,
+  SelectionAnnotationBar,
+  StickerPicker,
+  stickerById,
+} from './reader-annotations.jsx';
 
 const SETTINGS_KEY = 'booknerd-reader-settings-v2';
 const BOOKMARKS_KEY = 'booknerd-reader-bookmarks-v2';
+const ANNOTATIONS_KEY_PREFIX = 'booknerd-reader-annotations-v1';
 
 const DEFAULT_SETTINGS = {
   theme: 'paper',
@@ -75,13 +90,22 @@ function clamp(value, minimum, maximum) {
   return Math.min(maximum, Math.max(minimum, value));
 }
 
-function paragraphsFor(value) {
-  const paragraphs = String(value || '').split(/\n{2,}/).map((item) => item.trim()).filter(Boolean);
-  return paragraphs.length ? paragraphs : ['Текст этой главы готовится к публикации.'];
+function blocksFor(chapter) {
+  const documentValue = richDocumentFor(chapter.bodyRich, chapter.body);
+  return documentValue.blocks.length ? documentValue.blocks : [{ type: 'paragraph', runs: [{ text: 'Текст этой главы готовится к публикации.' }] }];
 }
 
-function ChapterFlow({ book, chapter, showDriveLink = false, measuring = false }) {
-  const paragraphs = useMemo(() => paragraphsFor(chapter.body), [chapter.body]);
+function ChapterFlow({
+  book,
+  chapter,
+  showDriveLink = false,
+  measuring = false,
+  annotations = [],
+  onOpenAnnotation,
+  onOpenFootnote,
+  onSelectionEnd,
+}) {
+  const blocks = useMemo(() => blocksFor(chapter), [chapter.body, chapter.bodyRich]);
 
   return (
     <article className="reader-flow-chapter">
@@ -98,7 +122,27 @@ function ChapterFlow({ book, chapter, showDriveLink = false, measuring = false }
         <div className="reader-flow-rule"><i />✦<i /></div>
       </header>
       <div className="reader-flow-copy">
-        {paragraphs.map((paragraph, index) => <p key={index}>{paragraph}</p>)}
+        {blocks.map((block, index) => {
+          const text = block.runs.map((run) => run.text).join('');
+          const element = block.type === 'heading' ? 'h2' : block.type === 'subheading' ? 'h3' : block.type === 'blockquote' ? 'blockquote' : 'p';
+          const listMarker = block.type === 'list-item' ? block.listType === 'number' ? `${block.listIndex || index + 1}.` : '•' : '';
+          return <AnnotatedParagraph
+            text={text}
+            runs={block.runs}
+            as={element}
+            className={`reader-rich-block reader-rich-${block.type}`}
+            style={{ textAlign: block.align || undefined, textIndent: block.textIndent || undefined, marginLeft: block.marginLeft || undefined }}
+            listMarker={listMarker}
+            paragraphIndex={index}
+            chapterId={chapter.id}
+            annotations={annotations.filter((annotation) => Number(annotation.paragraphIndex) === index)}
+            footnotes={chapter.footnotes || []}
+            onOpenAnnotation={measuring ? undefined : onOpenAnnotation}
+            onOpenFootnote={measuring ? undefined : onOpenFootnote}
+            onSelectionEnd={measuring ? undefined : onSelectionEnd}
+            key={index}
+          />;
+        })}
       </div>
     </article>
   );
@@ -141,11 +185,38 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
   const [orientationLocked, setOrientationLocked] = useState(false);
   const [chromeHidden, setChromeHidden] = useState(false);
   const [showCompletion, setShowCompletion] = useState(false);
+  const [annotations, setAnnotations] = useState([]);
+  const [annotationsReady, setAnnotationsReady] = useState(false);
+  const [textSelection, setTextSelection] = useState(null);
+
+  useEffect(() => {
+    const ping = () => {
+      if (document.visibilityState !== 'hidden') trackReaderPresence(book.id, chapter.id);
+    };
+    ping();
+    const timer = window.setInterval(ping, 30000);
+    document.addEventListener('visibilitychange', ping);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', ping);
+    };
+  }, [book.id, chapter.id]);
+  const [activeAnnotationId, setActiveAnnotationId] = useState(null);
+  const [activeFootnote, setActiveFootnote] = useState(null);
+  const [noteDraft, setNoteDraft] = useState(null);
   const viewportRef = useRef(null);
   const measureRefs = useRef(new Map());
   const initialPositionApplied = useRef(false);
   const touchStart = useRef(null);
   const readerTap = useRef({ tracking: false, x: 0, y: 0, last: 0 });
+
+  const annotationStorageKey = `${ANNOTATIONS_KEY_PREFIX}:${book.id}`;
+  const chapterAnnotations = useMemo(
+    () => annotations.filter((annotation) => annotation.chapterId === chapter.id),
+    [annotations, chapter.id]
+  );
+  const activeAnnotation = annotations.find((annotation) => annotation.id === activeAnnotationId) || null;
+  const annotationVersion = annotations.map((annotation) => `${annotation.id}:${annotation.updatedAt || annotation.createdAt}:${annotation.color}:${annotation.sticker}:${annotation.note}`).join('|');
 
   const updateSetting = useCallback((key, value) => {
     setSettings((current) => ({ ...current, [key]: value }));
@@ -180,6 +251,23 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
     if (!settingsReady) return;
     try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* storage is optional */ }
   }, [settings, settingsReady]);
+
+  useEffect(() => {
+    setAnnotationsReady(false);
+    try {
+      const saved = JSON.parse(localStorage.getItem(annotationStorageKey) || '[]');
+      setAnnotations(Array.isArray(saved) ? saved : []);
+    } catch {
+      setAnnotations([]);
+    } finally {
+      setAnnotationsReady(true);
+    }
+  }, [annotationStorageKey]);
+
+  useEffect(() => {
+    if (!annotationsReady) return;
+    try { localStorage.setItem(annotationStorageKey, JSON.stringify(annotations)); } catch { /* device storage is optional */ }
+  }, [annotationStorageKey, annotations, annotationsReady]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -236,7 +324,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       window.cancelAnimationFrame(firstFrame);
       window.cancelAnimationFrame(secondFrame);
     };
-  }, [chapterList, dimensions, settings.align, settings.bold, settings.fontFamily, settings.fontSize, settings.lineHeight, settingsReady]);
+  }, [annotationVersion, chapterList, dimensions, settings.align, settings.bold, settings.fontFamily, settings.fontSize, settings.lineHeight, settingsReady]);
 
   const currentChapterPages = pageCounts[chapterIndex] || 1;
 
@@ -247,6 +335,10 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
   useEffect(() => {
     initialPositionApplied.current = false;
     setPage(0);
+    setTextSelection(null);
+    setActiveAnnotationId(null);
+    setActiveFootnote(null);
+    setNoteDraft(null);
   }, [chapter.id]);
 
   useEffect(() => {
@@ -322,6 +414,8 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
     readerTap.current.tracking = false;
     const moved = Math.hypot(event.clientX - readerTap.current.x, event.clientY - readerTap.current.y);
     if (moved > 18) return;
+    if (window.getSelection?.()?.toString().trim()) return;
+    if (event.target.closest?.('[data-annotation-id]')) return;
     const now = Date.now();
     if (now - readerTap.current.last <= 360) {
       readerTap.current.last = 0;
@@ -331,6 +425,185 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       readerTap.current.last = now;
     }
   };
+
+  const clearTextSelection = useCallback(() => {
+    try { window.getSelection()?.removeAllRanges(); } catch { /* selection may already be gone */ }
+    setTextSelection(null);
+  }, []);
+
+  const captureTextSelection = useCallback(() => {
+    window.setTimeout(() => {
+      const selection = window.getSelection?.();
+      if (!selection || selection.isCollapsed || !selection.rangeCount) return;
+      const range = selection.getRangeAt(0);
+      const startNode = range.startContainer.nodeType === 1 ? range.startContainer : range.startContainer.parentElement;
+      const endNode = range.endContainer.nodeType === 1 ? range.endContainer : range.endContainer.parentElement;
+      const startParagraph = startNode?.closest?.('[data-reader-paragraph="true"]');
+      const endParagraph = endNode?.closest?.('[data-reader-paragraph="true"]');
+      if (!startParagraph || !endParagraph || startParagraph !== endParagraph) {
+        if (selection.toString().trim()) setToast('Пока можно помечать фразу внутри одного абзаца.');
+        return;
+      }
+      if (startParagraph.dataset.chapterId !== chapter.id) return;
+
+      const offsetInParagraph = (node, offset) => {
+        const helper = document.createRange();
+        helper.selectNodeContents(startParagraph);
+        helper.setEnd(node, offset);
+        return helper.toString().length;
+      };
+
+      const rawText = range.toString();
+      const leadingSpace = rawText.match(/^\s*/)?.[0]?.length || 0;
+      const selectedText = rawText.trim();
+      if (!selectedText) return;
+      if (selectedText.length > 800) {
+        setToast('Для пометки выберите отрывок короче 800 знаков.');
+        return;
+      }
+      const start = offsetInParagraph(range.startContainer, range.startOffset) + leadingSpace;
+      setChromeHidden(false);
+      setTextSelection({
+        chapterId: chapter.id,
+        paragraphIndex: Number(startParagraph.dataset.paragraphIndex),
+        start,
+        end: start + selectedText.length,
+        text: selectedText,
+        page,
+      });
+    }, 10);
+  }, [chapter.id, page]);
+
+  const addAnnotation = useCallback((source, patch = {}) => {
+    if (!source?.text) return null;
+    const now = new Date().toISOString();
+    const id = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `note-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    const annotation = {
+      id,
+      chapterId: source.chapterId,
+      chapterTitle: chapterList.find((item) => item.id === source.chapterId)?.title || chapter.title,
+      chapterNumber: chapterList.find((item) => item.id === source.chapterId)?.chapterNumber || chapter.chapterNumber,
+      paragraphIndex: source.paragraphIndex,
+      start: source.start,
+      end: source.end,
+      text: source.text,
+      page: Number(source.page) || 0,
+      color: patch.color || '#ffe066',
+      note: String(patch.note || '').trim(),
+      sticker: patch.sticker || '',
+      createdAt: now,
+      updatedAt: now,
+    };
+    setAnnotations((current) => [
+      ...current.filter((item) => (
+        item.chapterId !== annotation.chapterId
+        || Number(item.paragraphIndex) !== Number(annotation.paragraphIndex)
+        || Number(item.end) <= annotation.start
+        || Number(item.start) >= annotation.end
+      )),
+      annotation,
+    ]);
+    clearTextSelection();
+    setToast(patch.note ? 'Заметка сохранена' : patch.sticker ? 'Стикер добавлен' : 'Фраза выделена');
+    return id;
+  }, [chapter.chapterNumber, chapter.title, chapterList, clearTextSelection]);
+
+  const updateAnnotation = useCallback((id, patch) => {
+    setAnnotations((current) => current.map((annotation) => annotation.id === id
+      ? { ...annotation, ...patch, updatedAt: new Date().toISOString() }
+      : annotation));
+  }, []);
+
+  const deleteAnnotation = useCallback((id) => {
+    setAnnotations((current) => current.filter((annotation) => annotation.id !== id));
+    setActiveAnnotationId(null);
+    setPanel(null);
+    setToast('Пометка удалена');
+  }, []);
+
+  const openAnnotation = useCallback((id) => {
+    clearTextSelection();
+    setActiveAnnotationId(id);
+    setPanel('annotation');
+  }, [clearTextSelection]);
+
+  const openFootnote = useCallback((footnote) => {
+    if (!footnote) return;
+    clearTextSelection();
+    setChromeHidden(false);
+    setActiveFootnote(footnote);
+    setPanel('footnote');
+  }, [clearTextSelection]);
+
+  const openNewNote = useCallback(() => {
+    if (!textSelection) return;
+    setNoteDraft({ ...textSelection, mode: 'new', color: '#ffe066', note: '', sticker: '' });
+    clearTextSelection();
+    setPanel('annotation-note');
+  }, [clearTextSelection, textSelection]);
+
+  const openEditNote = useCallback((annotation) => {
+    if (!annotation) return;
+    setNoteDraft({ ...annotation, mode: 'edit' });
+    setPanel('annotation-note');
+  }, []);
+
+  const saveNoteDraft = useCallback(() => {
+    if (!noteDraft) return;
+    if (noteDraft.mode === 'edit') {
+      updateAnnotation(noteDraft.id, {
+        color: noteDraft.color,
+        note: String(noteDraft.note || '').trim(),
+        sticker: noteDraft.sticker || '',
+      });
+      setToast('Пометка обновлена');
+    } else {
+      addAnnotation(noteDraft, {
+        color: noteDraft.color,
+        note: noteDraft.note,
+        sticker: noteDraft.sticker,
+      });
+    }
+    setNoteDraft(null);
+    setPanel(null);
+  }, [addAnnotation, noteDraft, updateAnnotation]);
+
+  const translateSelectedText = useCallback(() => {
+    if (!textSelection?.text) return;
+    const targetLanguage = /[а-яё]/i.test(textSelection.text) ? 'en' : 'ru';
+    window.open(`https://translate.google.com/?sl=auto&tl=${targetLanguage}&text=${encodeURIComponent(textSelection.text)}&op=translate`, '_blank', 'noopener,noreferrer');
+  }, [textSelection]);
+
+  const searchSelectedText = useCallback(() => {
+    if (!textSelection?.text) return;
+    window.open(`https://www.google.com/search?q=${encodeURIComponent(textSelection.text)}`, '_blank', 'noopener,noreferrer');
+  }, [textSelection]);
+
+  const copySelectedText = useCallback(async () => {
+    if (!textSelection?.text) return;
+    try {
+      await navigator.clipboard.writeText(textSelection.text);
+      setToast('Отрывок скопирован');
+      clearTextSelection();
+    } catch {
+      setToast('Не удалось скопировать отрывок');
+    }
+  }, [clearTextSelection, textSelection]);
+
+  const shareSelectedText = useCallback(async () => {
+    if (!textSelection?.text) return;
+    const data = { title: `${book.title} — ${chapter.title}`, text: `“${textSelection.text}”\n\n${book.title}`, url: window.location.href };
+    try {
+      if (navigator.share) await navigator.share(data);
+      else await navigator.clipboard.writeText(`${data.text}\n${data.url}`);
+      setToast(navigator.share ? 'Отрывок отправлен' : 'Отрывок и ссылка скопированы');
+      clearTextSelection();
+    } catch (error) {
+      if (error?.name !== 'AbortError') setToast('Не удалось поделиться отрывком');
+    }
+  }, [book.title, chapter.title, clearTextSelection, textSelection]);
 
   useEffect(() => {
     const node = viewportRef.current;
@@ -496,7 +769,15 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
           >
             <div className={`reader-motion-surface reader-motion-${settings.motion}`} key={motionKey}>
               <div className="reader-column-flow reader-visible-flow" style={{ ...flowStyle, transform: `translate3d(-${page * dimensions.width}px, 0, 0)` }}>
-                <ChapterFlow book={book} chapter={chapter} showDriveLink />
+                <ChapterFlow
+                  book={book}
+                  chapter={chapter}
+                  showDriveLink
+                  annotations={chapterAnnotations}
+                  onOpenAnnotation={openAnnotation}
+                  onOpenFootnote={openFootnote}
+                  onSelectionEnd={captureTextSelection}
+                />
               </div>
             </div>
           </div>
@@ -525,7 +806,13 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
             }}
             style={flowStyle}
           >
-            <ChapterFlow book={book} chapter={item} showDriveLink measuring />
+            <ChapterFlow
+              book={book}
+              chapter={item}
+              showDriveLink
+              measuring
+              annotations={annotations.filter((annotation) => annotation.chapterId === item.id)}
+            />
           </div>
         )) : null}
       </div>
@@ -534,14 +821,37 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
         <CommentsSection bookId={book.id} chapterId={chapter.id} />
       </section>
 
+      <SelectionAnnotationBar
+        selection={textSelection}
+        onHighlight={(color) => addAnnotation(textSelection, { color })}
+        onNote={openNewNote}
+        onSticker={(sticker) => addAnnotation(textSelection, { color: '#fff1a8', sticker })}
+        onTranslate={translateSelectedText}
+        onSearch={searchSelectedText}
+        onCopy={copySelectedText}
+        onShare={shareSelectedText}
+        onClose={clearTextSelection}
+      />
+
+      {panel === 'footnote' && activeFootnote ? (
+        <ReaderSheet title={activeFootnote.term} eyebrow={`Сноска ${activeFootnote.number}`} onClose={() => { setActiveFootnote(null); setPanel(null); }}>
+          <div className="reader-footnote-sheet">
+            <span>{activeFootnote.number}</span>
+            <p>{activeFootnote.explanation}</p>
+            <small>Пояснение от команды BOOKNERD</small>
+          </div>
+        </ReaderSheet>
+      ) : null}
+
       {panel === 'menu' ? (
         <ReaderSheet title="Меню чтения" eyebrow={`${currentBookPage} из ${totalBookPages}`} onClose={() => setPanel(null)}>
           <div className="reader-menu-list">
             <button type="button" onClick={() => setPanel('contents')}><List size={22} /><span><strong>Содержание</strong><small>Все главы книги</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('search')}><Search size={22} /><span><strong>Поиск по книге</strong><small>Найти слово во всех главах</small></span><ChevronRight size={18} /></button>
+            <button type="button" onClick={() => setPanel('annotations')}><Highlighter size={22} /><span><strong>Мои пометки</strong><small>{annotations.length ? `${annotations.length} сохранено` : 'Выделения, заметки и стикеры'}</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('reading-mode')}><ReadingModeIcon mode={settings.motion} size={22} /><span><strong>Способ чтения</strong><small>{READING_MODE_OPTIONS.find((mode) => mode.id === settings.motion)?.name}</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('settings')}><SlidersHorizontal size={22} /><span><strong>Темы и настройки</strong><small>Шрифт, размер, фон и яркость</small></span><ChevronRight size={18} /></button>
-            <a href="https://t.me/booknerd_tr" target="_blank" rel="noreferrer"><ExternalLink size={22} /><span><strong>Telegram BOOKNERD</strong><small>@booknerd_tr</small></span><ChevronRight size={18} /></a>
+            <a href="/go/telegram" target="_blank" rel="noreferrer"><ExternalLink size={22} /><span><strong>Telegram BOOKNERD</strong><small>@booknerd_tr</small></span><ChevronRight size={18} /></a>
           </div>
           <div className="reader-menu-actions">
             <button type="button" onClick={sharePage}><Share2 size={21} /><span>Поделиться</span></button>
@@ -582,6 +892,140 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
                 <small>Глава {result.chapterNumber}</small><strong>{result.title}</strong><span>{result.snippet}</span>
               </a>
             ))}
+          </div>
+        </ReaderSheet>
+      ) : null}
+
+      {panel === 'annotations' ? (
+        <ReaderSheet title="Мои пометки" eyebrow={`${annotations.length} в этой книге`} onClose={() => setPanel('menu')} wide>
+          <p className="reader-annotation-intro">Выделения, личные заметки и стикеры хранятся только на этом устройстве.</p>
+          {!annotations.length ? (
+            <div className="reader-annotation-empty">
+              <Highlighter size={31} />
+              <strong>Пометок пока нет</strong>
+              <span>Выделите фразу в тексте — появится меню аннотирования.</span>
+            </div>
+          ) : (
+            <div className="reader-annotation-list">
+              {[...annotations].sort((left, right) => String(right.updatedAt || right.createdAt).localeCompare(String(left.updatedAt || left.createdAt))).map((annotation) => {
+                const content = (
+                  <>
+                    <span className="reader-annotation-list-icon" style={{ '--annotation-color': annotation.color || '#ffe066' }}>
+                      {annotation.sticker ? <ReaderSticker stickerId={annotation.sticker} size={48} /> : annotation.note ? <StickyNote size={21} /> : <Highlighter size={21} />}
+                    </span>
+                    <span className="reader-annotation-list-copy">
+                      <small>Глава {annotation.chapterNumber} · {annotation.chapterTitle}</small>
+                      <strong>“{annotation.text}”</strong>
+                      {annotation.note ? <em>{annotation.note}</em> : null}
+                    </span>
+                    <ChevronRight size={18} />
+                  </>
+                );
+                return annotation.chapterId === chapter.id ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPage(clamp(Number(annotation.page) || 0, 0, Math.max(0, currentChapterPages - 1)));
+                      setActiveAnnotationId(annotation.id);
+                      setPanel('annotation');
+                    }}
+                    key={annotation.id}
+                  >
+                    {content}
+                  </button>
+                ) : (
+                  <a href={`/books/${book.slug}/chapters/${annotation.chapterId}?page=${Number(annotation.page || 0) + 1}`} key={annotation.id}>
+                    {content}
+                  </a>
+                );
+              })}
+            </div>
+          )}
+        </ReaderSheet>
+      ) : null}
+
+      {panel === 'annotation' ? (
+        <ReaderSheet title="Пометка" eyebrow={activeAnnotation ? `Глава ${activeAnnotation.chapterNumber}` : 'Моя пометка'} onClose={() => setPanel('annotations')}>
+          {activeAnnotation ? (
+            <div className="reader-annotation-detail">
+              <blockquote style={{ '--annotation-color': activeAnnotation.color || '#ffe066' }}>“{activeAnnotation.text}”</blockquote>
+              <section>
+                <small>Цвет выделения</small>
+                <div className="reader-annotation-colors">
+                  {HIGHLIGHT_COLORS.map((color) => (
+                    <button
+                      type="button"
+                      className={activeAnnotation.color === color.value ? 'is-active' : ''}
+                      style={{ '--swatch': color.value }}
+                      onClick={() => updateAnnotation(activeAnnotation.id, { color: color.value })}
+                      aria-label={color.name}
+                      title={color.name}
+                      key={color.id}
+                    >{activeAnnotation.color === color.value ? <Check size={14} /> : null}</button>
+                  ))}
+                </div>
+              </section>
+              {activeAnnotation.sticker ? (
+                <div className="reader-annotation-sticker-card">
+                  <ReaderSticker stickerId={activeAnnotation.sticker} size={76} />
+                  <span><small>Эмоция</small><strong>{stickerById(activeAnnotation.sticker)?.name}</strong></span>
+                </div>
+              ) : null}
+              <section className="reader-annotation-note-card">
+                <small>Личная заметка</small>
+                <p>{activeAnnotation.note || 'К этой фразе ещё нет заметки.'}</p>
+              </section>
+              <div className="reader-annotation-detail-actions">
+                <button type="button" onClick={() => openEditNote(activeAnnotation)}><StickyNote size={18} /> Изменить заметку и стикер</button>
+                <button type="button" className="is-danger" onClick={() => deleteAnnotation(activeAnnotation.id)}><Trash2 size={18} /> Удалить пометку</button>
+              </div>
+            </div>
+          ) : (
+            <div className="reader-annotation-empty"><Highlighter size={31} /><strong>Пометка не найдена</strong></div>
+          )}
+        </ReaderSheet>
+      ) : null}
+
+      {panel === 'annotation-note' && noteDraft ? (
+        <ReaderSheet title={noteDraft.mode === 'edit' ? 'Изменить пометку' : 'Добавить заметку'} eyebrow="Личная аннотация" onClose={() => { setNoteDraft(null); setPanel(noteDraft.mode === 'edit' ? 'annotation' : null); }} wide>
+          <div className="reader-note-editor">
+            <blockquote style={{ '--annotation-color': noteDraft.color || '#ffe066' }}>“{noteDraft.text}”</blockquote>
+            <label>
+              <span>Ваша заметка</span>
+              <textarea
+                autoFocus
+                rows="5"
+                maxLength="2000"
+                value={noteDraft.note || ''}
+                onChange={(event) => setNoteDraft((current) => ({ ...current, note: event.target.value }))}
+                placeholder="Запишите мысль, теорию или любимую цитату…"
+              />
+              <small>{String(noteDraft.note || '').length} / 2000</small>
+            </label>
+            <section>
+              <span>Цвет выделения</span>
+              <div className="reader-annotation-colors">
+                {HIGHLIGHT_COLORS.map((color) => (
+                  <button
+                    type="button"
+                    className={noteDraft.color === color.value ? 'is-active' : ''}
+                    style={{ '--swatch': color.value }}
+                    onClick={() => setNoteDraft((current) => ({ ...current, color: color.value }))}
+                    aria-label={color.name}
+                    title={color.name}
+                    key={color.id}
+                  >{noteDraft.color === color.value ? <Check size={14} /> : null}</button>
+                ))}
+              </div>
+            </section>
+            <section>
+              <div className="reader-note-sticker-heading"><span>Стикер‑эмоция</span>{noteDraft.sticker ? <button type="button" onClick={() => setNoteDraft((current) => ({ ...current, sticker: '' }))}>Убрать</button> : null}</div>
+              <StickerPicker value={noteDraft.sticker || ''} onSelect={(sticker) => setNoteDraft((current) => ({ ...current, sticker: current.sticker === sticker ? '' : sticker }))} />
+            </section>
+            <div className="reader-note-editor-actions">
+              <button type="button" onClick={() => { setNoteDraft(null); setPanel(noteDraft.mode === 'edit' ? 'annotation' : null); }}>Отмена</button>
+              <button type="button" className="is-primary" onClick={saveNoteDraft}><Check size={18} /> Сохранить пометку</button>
+            </div>
           </div>
         </ReaderSheet>
       ) : null}
