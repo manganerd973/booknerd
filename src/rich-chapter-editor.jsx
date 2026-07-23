@@ -25,13 +25,14 @@ import {
 } from '../lib/rich-document.js';
 
 const BLOCK_TAGS = new Set(['P', 'DIV', 'H1', 'H2', 'H3', 'BLOCKQUOTE', 'LI']);
-const ALLOWED_PASTE_TAGS = new Set(['P', 'DIV', 'BR', 'STRONG', 'B', 'EM', 'I', 'U', 'S', 'STRIKE', 'BLOCKQUOTE', 'UL', 'OL', 'LI', 'H1', 'H2', 'H3', 'SPAN']);
+const ALLOWED_PASTE_TAGS = new Set(['P', 'DIV', 'BR', 'STRONG', 'B', 'EM', 'I', 'U', 'S', 'STRIKE', 'BLOCKQUOTE', 'UL', 'OL', 'LI', 'H1', 'H2', 'H3', 'SPAN', 'FONT']);
 
 function sameMarks(left, right) {
   return left.bold === right.bold
     && left.italic === right.italic
     && left.underline === right.underline
-    && left.strike === right.strike;
+    && left.strike === right.strike
+    && left.fontFamily === right.fontFamily;
 }
 
 function appendRun(runs, text, marks) {
@@ -43,6 +44,12 @@ function appendRun(runs, text, marks) {
   else runs.push(run);
 }
 
+function safeFontFamily(value) {
+  const input = String(value || '').trim();
+  if (!input || input.length > 180 || /[;{}<>]|url\s*\(|expression\s*\(/i.test(input)) return '';
+  return /^[\p{L}\p{N}\s,'"._-]+$/u.test(input) ? input : '';
+}
+
 function marksFor(element, inherited) {
   const tag = element.tagName;
   const weight = String(element.style?.fontWeight || '').toLowerCase();
@@ -52,10 +59,11 @@ function marksFor(element, inherited) {
     italic: inherited.italic || tag === 'I' || tag === 'EM' || String(element.style?.fontStyle || '').toLowerCase() === 'italic',
     underline: inherited.underline || tag === 'U' || decoration.includes('underline'),
     strike: inherited.strike || tag === 'S' || tag === 'STRIKE' || decoration.includes('line-through'),
+    fontFamily: safeFontFamily(element.style?.fontFamily || element.getAttribute?.('face')) || inherited.fontFamily || '',
   };
 }
 
-function collectRuns(node, inherited = { bold: false, italic: false, underline: false, strike: false }, runs = []) {
+function collectRuns(node, inherited = { bold: false, italic: false, underline: false, strike: false, fontFamily: '' }, runs = []) {
   if (node.nodeType === Node.TEXT_NODE) {
     appendRun(runs, node.nodeValue || '', inherited);
     return runs;
@@ -107,7 +115,7 @@ function extractBlocks(root) {
 
   const visit = (node) => {
     if (node.nodeType === Node.TEXT_NODE) {
-      appendRun(looseRuns, node.nodeValue || '', { bold: false, italic: false, underline: false, strike: false });
+      appendRun(looseRuns, node.nodeValue || '', { bold: false, italic: false, underline: false, strike: false, fontFamily: '' });
       return;
     }
     if (node.nodeType !== Node.ELEMENT_NODE) return;
@@ -127,7 +135,7 @@ function extractBlocks(root) {
       else blocks.push(blockFromElement(node));
       return;
     }
-    collectRuns(node, { bold: false, italic: false, underline: false, strike: false }, looseRuns);
+    collectRuns(node, { bold: false, italic: false, underline: false, strike: false, fontFamily: '' }, looseRuns);
   };
 
   root.childNodes.forEach(visit);
@@ -149,6 +157,7 @@ function sanitizePastedHtml(html) {
     const kept = {
       fontWeight: style.fontWeight,
       fontStyle: style.fontStyle,
+      fontFamily: safeFontFamily(style.fontFamily || element.getAttribute('face')),
       textDecoration: style.textDecorationLine || style.textDecoration,
       textAlign: style.textAlign,
       textIndent: safeCssLength(style.textIndent),
@@ -158,6 +167,7 @@ function sanitizePastedHtml(html) {
     [...element.attributes].forEach((attribute) => element.removeAttribute(attribute.name));
     if (kept.fontWeight) element.style.fontWeight = kept.fontWeight;
     if (kept.fontStyle) element.style.fontStyle = kept.fontStyle;
+    if (kept.fontFamily) element.style.fontFamily = kept.fontFamily;
     if (kept.textDecoration) element.style.textDecoration = kept.textDecoration;
     if (kept.textAlign) element.style.textAlign = kept.textAlign;
     if (kept.textIndent) element.style.textIndent = kept.textIndent;
@@ -259,7 +269,7 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
           emitChange();
         }}
       />
-      <p className="admin-rich-hint"><strong>Оформление сохраняется:</strong> абзацы, красная строка, отступы, жирный текст, курсив, подчёркивание, списки и выравнивание.</p>
+      <p className="admin-rich-hint"><strong>Оформление сохраняется:</strong> шрифты, абзацы, красная строка, отступы, жирный текст, курсив, подчёркивание, списки и выравнивание.</p>
     </div>
   );
 });

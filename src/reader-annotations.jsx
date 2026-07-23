@@ -198,10 +198,11 @@ function formattingRuns(text, runs) {
       italic: Boolean(run.italic),
       underline: Boolean(run.underline),
       strike: Boolean(run.strike),
+      fontFamily: String(run.fontFamily || ''),
     });
     cursor += value.length;
   });
-  if (cursor !== text.length) return [{ start: 0, end: text.length, bold: false, italic: false, underline: false, strike: false }];
+  if (cursor !== text.length) return [{ start: 0, end: text.length, bold: false, italic: false, underline: false, strike: false, fontFamily: '' }];
   return normalized;
 }
 
@@ -243,6 +244,7 @@ export function AnnotatedParagraph({ text, runs = [], as: Element = 'p', classNa
         if (piece.formatting?.underline) formatted = <u>{formatted}</u>;
         if (piece.formatting?.italic) formatted = <em>{formatted}</em>;
         if (piece.formatting?.bold) formatted = <strong>{formatted}</strong>;
+        if (piece.formatting?.fontFamily) formatted = <span style={{ fontFamily: `${piece.formatting.fontFamily}, Georgia, serif` }}>{formatted}</span>;
         const content = piece.footnote ? (
           <span
             className="reader-footnote-term"
