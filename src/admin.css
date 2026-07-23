@@ -164,7 +164,7 @@
 .admin-audience > div:first-child > span { color: var(--admin-mint); font-size: 8px; font-weight: 900; letter-spacing: .15em; }
 .admin-audience h2 { margin: 6px 0 5px; font-family: Georgia, serif; font-size: 27px; font-weight: 500; }
 .admin-audience > div:first-child > p { margin: 0; color: var(--admin-ink-soft); font-size: 10px; line-height: 1.5; }
-.admin-audience-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); border: 1px solid var(--admin-line); background: var(--admin-card); }
+.admin-audience-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); border: 1px solid var(--admin-line); background: var(--admin-card); }
 .admin-audience-grid article { position: relative; min-height: 112px; padding: 17px; border-right: 1px solid var(--admin-line); }
 .admin-audience-grid article:last-child { border-right: 0; }
 .admin-audience-grid svg { position: absolute; top: 16px; right: 16px; color: var(--admin-mint); }
@@ -334,6 +334,16 @@
 .admin-rich-toolbar button { display: inline-flex; min-width: 33px; height: 33px; align-items: center; justify-content: center; gap: 5px; padding: 0 8px; border: 1px solid transparent; color: var(--admin-ink); background: transparent; cursor: pointer; }
 .admin-rich-toolbar button span { font-size: 8px; font-weight: 900; text-transform: uppercase; }
 .admin-rich-toolbar button:hover { border-color: var(--admin-line); background: var(--admin-yellow); }
+.admin-rich-search { display: grid; grid-template-columns: minmax(160px, 1fr) auto auto; align-items: center; gap: 7px; padding: 8px 10px; border-bottom: 1px solid var(--admin-line); background: #fffef8; }
+.admin-rich-search label { display: flex; min-width: 0; align-items: center; gap: 8px; }
+.admin-rich-search label > svg { flex: 0 0 auto; color: var(--admin-mint); }
+.admin-rich-search input { width: 100%; min-width: 0; padding: 8px 10px; border: 1px solid var(--admin-line); background: #fff; color: var(--admin-ink); font: inherit; font-size: 12px; outline: 0; }
+.admin-rich-search input:focus { border-color: var(--admin-mint); box-shadow: 0 0 0 2px rgba(85,169,140,.14); }
+.admin-rich-search > span { min-width: 92px; color: var(--admin-ink-soft); font-size: 9px; text-align: center; white-space: nowrap; }
+.admin-rich-search-actions { display: flex; gap: 3px; }
+.admin-rich-search-actions button { display: grid; width: 31px; height: 31px; place-items: center; border: 1px solid var(--admin-line); color: var(--admin-ink); background: #fff; cursor: pointer; }
+.admin-rich-search-actions button:hover:not(:disabled) { background: var(--admin-yellow); }
+.admin-rich-search-actions button:disabled { opacity: .35; cursor: default; }
 .admin-rich-content { min-height: 440px; max-height: 760px; overflow: auto; padding: 24px 28px; outline: 0; font-family: Georgia, serif; font-size: 17px; line-height: 1.75; }
 .admin-rich-content:focus { box-shadow: inset 0 0 0 2px rgba(85,169,140,.35); }
 .admin-rich-content:empty::before { color: rgba(18,60,53,.38); content: attr(data-placeholder); pointer-events: none; }
@@ -509,6 +519,8 @@
   .admin-rich-content { min-height: 360px; max-height: 620px; padding: 18px; font-size: 16px; }
   .admin-rich-toolbar { overflow-x: auto; flex-wrap: nowrap; }
   .admin-rich-toolbar > div { flex: 0 0 auto; }
+  .admin-rich-search { grid-template-columns: minmax(0,1fr) auto; }
+  .admin-rich-search > span { grid-column: 1 / -1; grid-row: 2; min-width: 0; text-align: left; }
   .admin-footnotes-panel > header { align-items: stretch; flex-direction: column; }
   .admin-footnotes-panel > header > button { width: 100%; }
   .admin-footnote-editor > div { flex-direction: column; }
