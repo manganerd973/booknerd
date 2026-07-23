@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, BookOpen, Clock3, ExternalLink, FileText, Flame } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ArrowRight, BookOpen, Clock3, ExternalLink, FileText, Flame } from 'lucide-react';
 import { notFound } from 'next/navigation';
 import { getBookBySlug, listChapters } from '../../../lib/books.js';
 import { listBookArtworks } from '../../../lib/artworks.js';
@@ -86,6 +86,17 @@ export default async function BookPage({ params }) {
         </aside>
       </section>
 
+      {(book.triggerWarnings || []).length ? (
+        <section className="book-trigger-warnings" aria-labelledby="book-trigger-warnings-title">
+          <div>
+            <AlertTriangle size={23} />
+            <div><span className="editorial-section-number">03 / БЕРЕЖНО К СЕБЕ</span><h2 id="book-trigger-warnings-title">Предупреждения о триггерах</h2></div>
+          </div>
+          <p>Перед чтением обратите внимание: в книге встречаются темы, которые могут быть чувствительными.</p>
+          <div>{book.triggerWarnings.map((warning) => <span key={warning}>{warning}</span>)}</div>
+        </section>
+      ) : null}
+
       <section className="book-heat-guide" aria-labelledby="book-heat-guide-title">
         <div className="book-heat-guide-heading">
           <div>
@@ -101,6 +112,7 @@ export default async function BookPage({ params }) {
               <a href={`/books/${book.slug}/chapters/${chapter.id}`} key={chapter.id}>
                 <span>Глава {chapter.chapterNumber}</span>
                 <strong>{chapter.title}</strong>
+                {chapter.heatPages ? <small>стр. {chapter.heatPages}</small> : null}
                 <em aria-label={`Уровень горячих сцен: ${chapter.heatLevel} из 3`}>{'🔥'.repeat(chapter.heatLevel)}</em>
                 <ArrowRight size={17} />
               </a>

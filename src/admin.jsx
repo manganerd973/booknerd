@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
+  Bell,
   BookOpen,
   Check,
   ChevronRight,
@@ -36,6 +37,8 @@ const blankBook = {
   seriesNumber: '',
   author: '',
   dedication: '',
+  triggerWarnings: [],
+  triggerWarningsText: '',
   synopsis: '',
   genres: [],
   genresText: '',
@@ -49,15 +52,25 @@ const blankBook = {
   published: false,
 };
 
+function defaultChapterTitle(chapterNumber) {
+  const number = Math.max(1, Math.floor(Number(chapterNumber) || 1));
+  return `Глава ${number}`;
+}
+
+function isAutomaticChapterTitle(title) {
+  return /^Глава\s+\d+$/iu.test(String(title || '').trim());
+}
+
 const blankChapter = {
   id: null,
   chapterNumber: 1,
-  title: '',
+  title: defaultChapterTitle(1),
   pointOfView: '',
   body: '',
   bodyRich: '',
   footnotes: [],
   heatLevel: 0,
+  heatPages: '',
   driveUrl: '',
   status: 'draft',
 };
@@ -289,6 +302,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
       ...book,
       genresText: (book.genres || []).join(', '),
       tropesText: (book.tropes || []).join(', '),
+      triggerWarningsText: (book.triggerWarnings || []).join(', '),
     });
     setArtworks([]);
     setArtworkCaption('');
@@ -318,14 +332,15 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
       const editing = Boolean(bookForm.id);
       const genres = splitBookTags(bookForm.genresText ?? (bookForm.genres || []).join(', '), 20);
       const tropes = splitBookTags(bookForm.tropesText ?? (bookForm.tropes || []).join(', '), 40);
-      const payload = { ...bookForm, genres, tropes };
+      const triggerWarnings = splitBookTags(bookForm.triggerWarningsText ?? (bookForm.triggerWarnings || []).join(', '), 40);
+      const payload = { ...bookForm, genres, tropes, triggerWarnings };
       const data = await api(editing ? `/api/admin/books/${bookForm.id}` : '/api/admin/books', {
         method: editing ? 'PUT' : 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(payload),
       });
       const id = bookForm.id || data.id;
-      setBookForm((current) => ({ ...current, id, slug: data.slug, genres, tropes, genresText: genres.join(', '), tropesText: tropes.join(', ') }));
+      setBookForm((current) => ({ ...current, id, slug: data.slug, genres, tropes, triggerWarnings, genresText: genres.join(', '), tropesText: tropes.join(', '), triggerWarningsText: triggerWarnings.join(', ') }));
       flash(editing ? 'Книга сохранена.' : 'Книга добавлена. Теперь можно создать главы.');
       await loadBooks();
     } catch (error) {
@@ -416,7 +431,8 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
   };
 
   const startNewChapter = () => {
-    setChapterForm({ ...blankChapter, chapterNumber: chapters.length + 1 });
+    const chapterNumber = chapters.length + 1;
+    setChapterForm({ ...blankChapter, chapterNumber, title: defaultChapterTitle(chapterNumber) });
     setFootnoteDraft(null);
   };
 
@@ -479,25 +495,25 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
       flash('Сначала сохраните книгу.', 'error');
       return;
     }
-    if (!chapterForm.title.trim()) {
-      flash('Укажите название главы.', 'error');
-      return;
-    }
+    const chapterToSave = {
+      ...chapterForm,
+      title: chapterForm.title.trim() || defaultChapterTitle(chapterForm.chapterNumber),
+    };
     setSaving(true);
     try {
-      const editing = Boolean(chapterForm.id);
+      const editing = Boolean(chapterToSave.id);
       const data = await api(
-        editing ? `/api/admin/chapters/${chapterForm.id}` : `/api/admin/books/${bookForm.id}/chapters`,
+        editing ? `/api/admin/chapters/${chapterToSave.id}` : `/api/admin/books/${bookForm.id}/chapters`,
         {
           method: editing ? 'PUT' : 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(chapterForm),
+          body: JSON.stringify(chapterToSave),
         },
       );
-      flash(chapterForm.status === 'published' ? 'Глава опубликована.' : 'Глава сохранена в черновиках.');
+      flash(chapterToSave.status === 'published' ? 'Глава опубликована.' : 'Глава сохранена в черновиках.');
       const refreshed = await api(`/api/admin/books/${bookForm.id}/chapters`);
       setChapters(refreshed.chapters || []);
-      const updated = (refreshed.chapters || []).find((chapter) => chapter.id === (chapterForm.id || data.id));
+      const updated = (refreshed.chapters || []).find((chapter) => chapter.id === (chapterToSave.id || data.id));
       setChapterForm(updated || { ...blankChapter });
       setFootnoteDraft(null);
       await loadBooks();
@@ -513,7 +529,8 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
     try {
       await api(`/api/admin/chapters/${chapterForm.id}`, { method: 'DELETE' });
       setChapters((current) => current.filter((chapter) => chapter.id !== chapterForm.id));
-      setChapterForm({ ...blankChapter, chapterNumber: Math.max(1, chapters.length) });
+      const chapterNumber = Math.max(1, chapters.length);
+      setChapterForm({ ...blankChapter, chapterNumber, title: defaultChapterTitle(chapterNumber) });
       setFootnoteDraft(null);
       flash('Глава удалена.');
       await loadBooks();
@@ -688,6 +705,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                 <div className="admin-audience-grid">
                   <article><Wifi size={23} /><strong>{audience?.onlineReaders ?? '—'}</strong><p>сейчас читают</p></article>
                   <article><Smartphone size={23} /><strong>{audience?.installs ?? '—'}</strong><p>установили на телефон</p></article>
+                  <article><Bell size={23} /><strong>{audience?.notificationSubscribers ?? '—'}</strong><p>включили уведомления</p><small>уникальные читатели</small></article>
                   <article><Send size={23} /><strong>{audience?.telegramVisitors ?? '—'}</strong><p>перешли в Telegram</p><small>{audience ? `${audience.telegramClicks} переходов всего` : 'считаем переходы по ссылке'}</small></article>
                 </div>
               </section>
@@ -748,6 +766,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                   </div>
                   <label className="admin-full-field"><span>Аннотация</span><textarea value={bookForm.synopsis} onChange={(event) => setBookForm({ ...bookForm, synopsis: event.target.value })} placeholder="Расскажите читателю, о чём эта история…" rows={7} /><small>{bookForm.synopsis.length} / 12 000</small></label>
                   <label className="admin-full-field"><span>Кому посвящена книга</span><textarea value={bookForm.dedication || ''} onChange={(event) => setBookForm({ ...bookForm, dedication: event.target.value })} placeholder="Например: Всем девушкам, которые однажды выбрали себя…" rows={3} /><small>Посвящение появится на главной странице книги.</small></label>
+                  <label className="admin-full-field"><span>Предупреждения о триггерах</span><textarea value={bookForm.triggerWarningsText || ''} onChange={(event) => setBookForm({ ...bookForm, triggerWarningsText: event.target.value, triggerWarnings: splitBookTags(event.target.value, 40) })} placeholder="Например: насилие, утрата близкого, панические атаки" rows={3} /><small>Разделяйте предупреждения запятыми. Они появятся только на странице книги.</small></label>
                   <div className="admin-fields two-columns">
                     <label><span>Жанры</span><input value={bookForm.genresText || ''} onChange={(event) => setBookForm({ ...bookForm, genresText: event.target.value })} placeholder="Романтика, Фэнтези, Young Adult" /><small>Разделяйте жанры запятыми.</small></label>
                     <label><span>Тропы</span><input value={bookForm.tropesText || ''} onChange={(event) => setBookForm({ ...bookForm, tropesText: event.target.value })} placeholder="Враги в возлюбленные, найденная семья" /><small>Разделяйте тропы запятыми.</small></label>
@@ -820,11 +839,21 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                   </aside>
                   <form className="admin-chapter-editor" onSubmit={saveChapter}>
                     <div className="admin-chapter-editor-top">
-                      <label><span>Номер</span><input type="number" min="1" value={chapterForm.chapterNumber} onChange={(event) => setChapterForm({ ...chapterForm, chapterNumber: Number(event.target.value) })} /></label>
-                      <label className="grow"><span>Название главы</span><input value={chapterForm.title} onChange={(event) => setChapterForm({ ...chapterForm, title: event.target.value })} placeholder="Название главы" /></label>
+                      <label><span>Номер</span><input type="number" min="1" value={chapterForm.chapterNumber} onChange={(event) => {
+                        const chapterNumber = Math.max(1, Math.floor(Number(event.target.value) || 1));
+                        setChapterForm((current) => ({
+                          ...current,
+                          chapterNumber,
+                          title: !current.title.trim() || isAutomaticChapterTitle(current.title)
+                            ? defaultChapterTitle(chapterNumber)
+                            : current.title,
+                        }));
+                      }} /></label>
+                      <label className="grow"><span>Название главы</span><input value={chapterForm.title} onChange={(event) => setChapterForm({ ...chapterForm, title: event.target.value })} placeholder={defaultChapterTitle(chapterForm.chapterNumber)} /><small>Заполняется автоматически, но название можно изменить.</small></label>
                       <label className="grow"><span>От лица героя</span><input value={chapterForm.pointOfView || ''} onChange={(event) => setChapterForm({ ...chapterForm, pointOfView: event.target.value })} placeholder="Например, Лейла" /></label>
                       <label><span>Статус</span><select value={chapterForm.status} onChange={(event) => setChapterForm({ ...chapterForm, status: event.target.value })}><option value="draft">Черновик</option><option value="published">Опубликована</option></select></label>
                       <label><span>Горячие сцены</span><select value={chapterForm.heatLevel || 0} onChange={(event) => setChapterForm({ ...chapterForm, heatLevel: Number(event.target.value) })}><option value="0">Нет</option><option value="1">Намёк · 🔥</option><option value="2">Горячая сцена · 🔥🔥</option><option value="3">Очень горячая · 🔥🔥🔥</option></select></label>
+                      <label><span>Страницы сцены</span><input value={chapterForm.heatPages || ''} onChange={(event) => setChapterForm({ ...chapterForm, heatPages: event.target.value })} placeholder="Например, 184–189" /><small>Будут указаны только на странице книги.</small></label>
                     </div>
                     <div className="admin-chapter-body"><span>Текст главы с оформлением</span><RichChapterEditor key={`${bookForm.id || 'book'}-${chapterForm.id || 'new'}-${chapterForm.chapterNumber}`} ref={chapterBodyRef} value={chapterForm.bodyRich} fallbackText={chapterForm.body} onTextSelect={(text) => { chapterSelectionRef.current = text; }} onChange={({ body, bodyRich }) => setChapterForm((current) => ({ ...current, body, bodyRich }))} /></div>
                     <section className="admin-footnotes-panel">

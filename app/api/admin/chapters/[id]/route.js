@@ -8,13 +8,15 @@ function normalizeChapter(payload = {}) {
   const driveUrl = normalizeGoogleDriveUrl(payload.driveUrl);
   const richDocument = normalizeRichDocument(payload.bodyRich);
   const richBody = richDocument.blocks.length ? richDocumentToPlainText(richDocument) : '';
+  const chapterNumber = Math.max(1, Math.floor(Number(payload.chapterNumber || 1)));
   return {
-    chapterNumber: Math.max(1, Math.floor(Number(payload.chapterNumber || 1))),
-    title: String(payload.title || '').trim().slice(0, 220),
+    chapterNumber,
+    title: (String(payload.title || '').trim() || `Глава ${chapterNumber}`).slice(0, 220),
     pointOfView: String(payload.pointOfView || '').trim().slice(0, 140),
     body: (richBody || String(payload.body || '')).trim().slice(0, 300000),
     bodyRich: richDocument.blocks.length ? serializeRichDocument(richDocument) : '',
     heatLevel: Math.max(0, Math.min(3, Math.floor(Number(payload.heatLevel || 0)))),
+    heatPages: String(payload.heatPages || '').trim().slice(0, 80),
     driveUrl,
     status: payload.status === 'published' ? 'published' : 'draft',
   };
@@ -42,7 +44,6 @@ export async function PUT(request, { params }) {
     const { id } = await params;
     const input = await request.json();
     const payload = normalizeChapter(input);
-    if (!payload.title) return Response.json({ error: 'Укажите название главы.' }, { status: 400 });
     if (payload.driveUrl === null) return Response.json({ error: 'Вставьте ссылку с drive.google.com или docs.google.com.' }, { status: 400 });
     const db = await ensureDb();
     const current = await db.prepare(`SELECT status, footnotes FROM chapters WHERE id = ? LIMIT 1`).bind(id).first();
@@ -54,13 +55,13 @@ export async function PUT(request, { params }) {
     const publishedExpression = publishedAt === undefined ? 'published_at' : '?';
     const footnotes = JSON.stringify(normalizeFootnotes(input.footnotes));
     const statement = db.prepare(
-      `UPDATE chapters SET chapter_number = ?, title = ?, point_of_view = ?, body = ?, body_rich = ?, footnotes = ?, heat_level = ?, drive_url = ?, status = ?,
+      `UPDATE chapters SET chapter_number = ?, title = ?, point_of_view = ?, body = ?, body_rich = ?, footnotes = ?, heat_level = ?, heat_pages = ?, drive_url = ?, status = ?,
        published_at = ${publishedExpression}, updated_at = ? WHERE id = ?`
     );
     if (publishedAt === undefined) {
-      await statement.bind(payload.chapterNumber, payload.title, payload.pointOfView, payload.body, payload.bodyRich, footnotes, payload.heatLevel, payload.driveUrl, payload.status, now, id).run();
+      await statement.bind(payload.chapterNumber, payload.title, payload.pointOfView, payload.body, payload.bodyRich, footnotes, payload.heatLevel, payload.heatPages, payload.driveUrl, payload.status, now, id).run();
     } else {
-      await statement.bind(payload.chapterNumber, payload.title, payload.pointOfView, payload.body, payload.bodyRich, footnotes, payload.heatLevel, payload.driveUrl, payload.status, publishedAt, now, id).run();
+      await statement.bind(payload.chapterNumber, payload.title, payload.pointOfView, payload.body, payload.bodyRich, footnotes, payload.heatLevel, payload.heatPages, payload.driveUrl, payload.status, publishedAt, now, id).run();
     }
     if (current.status !== 'published' && payload.status === 'published') {
       await notifyPublishedChapter({ chapterId: id, requestUrl: request.url }).catch(() => {});

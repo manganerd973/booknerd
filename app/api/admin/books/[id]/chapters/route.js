@@ -10,13 +10,15 @@ function normalizeChapter(payload = {}) {
   const driveUrl = normalizeGoogleDriveUrl(payload.driveUrl);
   const richDocument = normalizeRichDocument(payload.bodyRich);
   const richBody = richDocument.blocks.length ? richDocumentToPlainText(richDocument) : '';
+  const chapterNumber = Math.max(1, Math.floor(Number(payload.chapterNumber || 1)));
   return {
-    chapterNumber: Math.max(1, Math.floor(Number(payload.chapterNumber || 1))),
-    title: String(payload.title || '').trim().slice(0, 220),
+    chapterNumber,
+    title: (String(payload.title || '').trim() || `Глава ${chapterNumber}`).slice(0, 220),
     pointOfView: String(payload.pointOfView || '').trim().slice(0, 140),
     body: (richBody || String(payload.body || '')).trim().slice(0, 300000),
     bodyRich: richDocument.blocks.length ? serializeRichDocument(richDocument) : '',
     heatLevel: Math.max(0, Math.min(3, Math.floor(Number(payload.heatLevel || 0)))),
+    heatPages: String(payload.heatPages || '').trim().slice(0, 80),
     driveUrl,
     status,
   };
@@ -56,7 +58,6 @@ export async function POST(request, { params }) {
     const input = await request.json();
     const payload = normalizeChapter(input);
     const footnotes = normalizeFootnotes(input.footnotes);
-    if (!payload.title) return Response.json({ error: 'Укажите название главы.' }, { status: 400 });
     if (payload.driveUrl === null) return Response.json({ error: 'Вставьте ссылку с drive.google.com или docs.google.com.' }, { status: 400 });
     const db = await ensureDb();
     const book = await db.prepare(`SELECT id FROM books WHERE id = ? LIMIT 1`).bind(bookId).first();
@@ -65,10 +66,10 @@ export async function POST(request, { params }) {
     const now = new Date().toISOString();
     await db.prepare(
       `INSERT INTO chapters
-       (id, book_id, chapter_number, title, point_of_view, body, body_rich, footnotes, heat_level, drive_url, status, published_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (id, book_id, chapter_number, title, point_of_view, body, body_rich, footnotes, heat_level, heat_pages, drive_url, status, published_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
-      id, bookId, payload.chapterNumber, payload.title, payload.pointOfView, payload.body, payload.bodyRich, JSON.stringify(footnotes), payload.heatLevel, payload.driveUrl, payload.status,
+      id, bookId, payload.chapterNumber, payload.title, payload.pointOfView, payload.body, payload.bodyRich, JSON.stringify(footnotes), payload.heatLevel, payload.heatPages, payload.driveUrl, payload.status,
       payload.status === 'published' ? now : null, now, now,
     ).run();
     if (payload.status === 'published') {
