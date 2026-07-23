@@ -113,6 +113,7 @@ function ChapterFlow({
       <header className="reader-flow-intro">
         <span>{book.title}</span>
         <h1><small>Глава {chapter.chapterNumber}</small>{chapter.title}</h1>
+        {chapter.pointOfView ? <p className="reader-chapter-pov">От лица {chapter.pointOfView}</p> : null}
         {showDriveLink && chapter.driveUrl ? measuring ? (
           <span className="reader-flow-drive">Файл главы <ExternalLink size={14} /></span>
         ) : (
@@ -888,14 +889,14 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
         <ReaderSheet title="Содержание" eyebrow={`Страница ${currentBookPage} из ${totalBookPages}`} onClose={() => setPanel(null)} wide>
           <div className="reader-contents-book">
             <div className="reader-contents-cover">{book.coverUrl ? <img src={book.coverUrl} alt="" /> : <span>B</span>}</div>
-            <div><small>{book.author}</small><strong>{book.title}</strong><span>Глава {chapter.chapterNumber} · {chapter.title}</span></div>
+            <div><small>{book.author}</small><strong>{book.title}</strong><span>Глава {chapter.chapterNumber} · {chapter.title}{chapter.pointOfView ? ` · От лица ${chapter.pointOfView}` : ''}</span></div>
           </div>
           <div className="reader-contents-list">
             {chapterList.map((item, index) => {
               const startsAt = pageCounts.slice(0, index).reduce((total, count) => total + count, 0) + 1;
               return (
                 <a className={item.id === chapter.id ? 'is-current' : ''} href={`/books/${book.slug}/chapters/${item.id}`} key={item.id}>
-                  <span><small>Глава {item.chapterNumber}</small><strong>{item.title}</strong></span>
+                  <span><small>Глава {item.chapterNumber}{item.pointOfView ? ` · От лица ${item.pointOfView}` : ''}</small><strong>{item.title}</strong></span>
                   <em>{measurementReady ? startsAt : '—'}</em>
                 </a>
               );

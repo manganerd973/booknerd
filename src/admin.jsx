@@ -35,6 +35,7 @@ const blankBook = {
   seriesTitle: '',
   seriesNumber: '',
   author: '',
+  dedication: '',
   synopsis: '',
   genres: [],
   genresText: '',
@@ -52,6 +53,7 @@ const blankChapter = {
   id: null,
   chapterNumber: 1,
   title: '',
+  pointOfView: '',
   body: '',
   bodyRich: '',
   footnotes: [],
@@ -745,6 +747,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                     <label className="admin-drive-field"><span>Файл книги в Google Drive</span><input type="url" value={bookForm.driveUrl || ''} onChange={(event) => setBookForm({ ...bookForm, driveUrl: event.target.value })} placeholder="https://drive.google.com/…" /></label>
                   </div>
                   <label className="admin-full-field"><span>Аннотация</span><textarea value={bookForm.synopsis} onChange={(event) => setBookForm({ ...bookForm, synopsis: event.target.value })} placeholder="Расскажите читателю, о чём эта история…" rows={7} /><small>{bookForm.synopsis.length} / 12 000</small></label>
+                  <label className="admin-full-field"><span>Кому посвящена книга</span><textarea value={bookForm.dedication || ''} onChange={(event) => setBookForm({ ...bookForm, dedication: event.target.value })} placeholder="Например: Всем девушкам, которые однажды выбрали себя…" rows={3} /><small>Посвящение появится на главной странице книги.</small></label>
                   <div className="admin-fields two-columns">
                     <label><span>Жанры</span><input value={bookForm.genresText || ''} onChange={(event) => setBookForm({ ...bookForm, genresText: event.target.value })} placeholder="Романтика, Фэнтези, Young Adult" /><small>Разделяйте жанры запятыми.</small></label>
                     <label><span>Тропы</span><input value={bookForm.tropesText || ''} onChange={(event) => setBookForm({ ...bookForm, tropesText: event.target.value })} placeholder="Враги в возлюбленные, найденная семья" /><small>Разделяйте тропы запятыми.</small></label>
@@ -819,6 +822,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                     <div className="admin-chapter-editor-top">
                       <label><span>Номер</span><input type="number" min="1" value={chapterForm.chapterNumber} onChange={(event) => setChapterForm({ ...chapterForm, chapterNumber: Number(event.target.value) })} /></label>
                       <label className="grow"><span>Название главы</span><input value={chapterForm.title} onChange={(event) => setChapterForm({ ...chapterForm, title: event.target.value })} placeholder="Название главы" /></label>
+                      <label className="grow"><span>От лица героя</span><input value={chapterForm.pointOfView || ''} onChange={(event) => setChapterForm({ ...chapterForm, pointOfView: event.target.value })} placeholder="Например, Лейла" /></label>
                       <label><span>Статус</span><select value={chapterForm.status} onChange={(event) => setChapterForm({ ...chapterForm, status: event.target.value })}><option value="draft">Черновик</option><option value="published">Опубликована</option></select></label>
                       <label><span>Горячие сцены</span><select value={chapterForm.heatLevel || 0} onChange={(event) => setChapterForm({ ...chapterForm, heatLevel: Number(event.target.value) })}><option value="0">Нет</option><option value="1">Намёк · 🔥</option><option value="2">Горячая сцена · 🔥🔥</option><option value="3">Очень горячая · 🔥🔥🔥</option></select></label>
                     </div>

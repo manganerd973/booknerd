@@ -66,6 +66,26 @@ export const READER_STICKERS = [
   { id: 'crying', name: 'Плачу', column: 2, row: 7 },
   { id: 'sleepy', name: 'Хочу спать', column: 3, row: 7 },
   { id: 'exhausted', name: 'Усталость', column: 4, row: 7 },
+  { id: 'doodle-laugh', name: 'Смеюсь до слёз', sheet: 'doodles', columns: 4, rows: 5, column: 0, row: 0 },
+  { id: 'doodle-suspicious', name: 'Подозреваю', sheet: 'doodles', columns: 4, rows: 5, column: 1, row: 0 },
+  { id: 'doodle-delighted', name: 'В полном восторге', sheet: 'doodles', columns: 4, rows: 5, column: 2, row: 0 },
+  { id: 'doodle-surprise', name: 'Неожиданно!', sheet: 'doodles', columns: 4, rows: 5, column: 3, row: 0 },
+  { id: 'doodle-stunned', name: 'Ошеломление', sheet: 'doodles', columns: 4, rows: 5, column: 0, row: 1 },
+  { id: 'doodle-side-eye', name: 'Косой взгляд', sheet: 'doodles', columns: 4, rows: 5, column: 1, row: 1 },
+  { id: 'doodle-silly', name: 'Дурачусь', sheet: 'doodles', columns: 4, rows: 5, column: 2, row: 1 },
+  { id: 'doodle-dizzy', name: 'Закружилась голова', sheet: 'doodles', columns: 4, rows: 5, column: 3, row: 1 },
+  { id: 'doodle-shy', name: 'Очень смущаюсь', sheet: 'doodles', columns: 4, rows: 5, column: 0, row: 2 },
+  { id: 'doodle-unimpressed', name: 'Не впечатлена', sheet: 'doodles', columns: 4, rows: 5, column: 1, row: 2 },
+  { id: 'doodle-calm', name: 'Спокойствие', sheet: 'doodles', columns: 4, rows: 5, column: 2, row: 2 },
+  { id: 'doodle-grin', name: 'Хитрая улыбка', sheet: 'doodles', columns: 4, rows: 5, column: 3, row: 2 },
+  { id: 'doodle-grumpy', name: 'Недовольство', sheet: 'doodles', columns: 4, rows: 5, column: 0, row: 3 },
+  { id: 'doodle-furious', name: 'В ярости', sheet: 'doodles', columns: 4, rows: 5, column: 1, row: 3 },
+  { id: 'doodle-worried', name: 'Переживаю', sheet: 'doodles', columns: 4, rows: 5, column: 2, row: 3 },
+  { id: 'doodle-sobbing', name: 'Рыдаю', sheet: 'doodles', columns: 4, rows: 5, column: 3, row: 3 },
+  { id: 'doodle-tasty', name: 'Как вкусно!', sheet: 'doodles', columns: 4, rows: 5, column: 0, row: 4 },
+  { id: 'doodle-lol', name: 'Очень смешно', sheet: 'doodles', columns: 4, rows: 5, column: 1, row: 4 },
+  { id: 'doodle-uneasy', name: 'Мне тревожно', sheet: 'doodles', columns: 4, rows: 5, column: 2, row: 4 },
+  { id: 'doodle-upset', name: 'Расстроилась', sheet: 'doodles', columns: 4, rows: 5, column: 3, row: 4 },
 ];
 
 export function stickerById(id) {
@@ -75,15 +95,26 @@ export function stickerById(id) {
 export function ReaderSticker({ stickerId, size = 42, title, className = '' }) {
   const sticker = stickerById(stickerId);
   if (!sticker) return null;
-  const x = sticker.column * 25;
-  const y = sticker.row * (100 / 7);
+  const columns = sticker.columns || 5;
+  const rows = sticker.rows || 8;
+  const x = sticker.column * (100 / Math.max(1, columns - 1));
+  const y = sticker.row * (100 / Math.max(1, rows - 1));
+  const sheetStyle = sticker.sheet === 'doodles'
+    ? { backgroundImage: "url('/reader-stickers-doodles.jpg')" }
+    : {};
   return (
     <span
       className={`reader-sticker-art ${className}`.trim()}
       role="img"
       aria-label={title || sticker.name}
       title={title || sticker.name}
-      style={{ width: size, height: size, backgroundPosition: `${x}% ${y}%` }}
+      style={{
+        width: size,
+        height: size,
+        backgroundPosition: `${x}% ${y}%`,
+        backgroundSize: `${columns * 100}% ${rows * 100}%`,
+        ...sheetStyle,
+      }}
     />
   );
 }

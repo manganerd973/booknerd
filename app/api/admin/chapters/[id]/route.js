@@ -11,6 +11,7 @@ function normalizeChapter(payload = {}) {
   return {
     chapterNumber: Math.max(1, Math.floor(Number(payload.chapterNumber || 1))),
     title: String(payload.title || '').trim().slice(0, 220),
+    pointOfView: String(payload.pointOfView || '').trim().slice(0, 140),
     body: (richBody || String(payload.body || '')).trim().slice(0, 300000),
     bodyRich: richDocument.blocks.length ? serializeRichDocument(richDocument) : '',
     heatLevel: Math.max(0, Math.min(3, Math.floor(Number(payload.heatLevel || 0)))),
@@ -53,13 +54,13 @@ export async function PUT(request, { params }) {
     const publishedExpression = publishedAt === undefined ? 'published_at' : '?';
     const footnotes = JSON.stringify(normalizeFootnotes(input.footnotes));
     const statement = db.prepare(
-      `UPDATE chapters SET chapter_number = ?, title = ?, body = ?, body_rich = ?, footnotes = ?, heat_level = ?, drive_url = ?, status = ?,
+      `UPDATE chapters SET chapter_number = ?, title = ?, point_of_view = ?, body = ?, body_rich = ?, footnotes = ?, heat_level = ?, drive_url = ?, status = ?,
        published_at = ${publishedExpression}, updated_at = ? WHERE id = ?`
     );
     if (publishedAt === undefined) {
-      await statement.bind(payload.chapterNumber, payload.title, payload.body, payload.bodyRich, footnotes, payload.heatLevel, payload.driveUrl, payload.status, now, id).run();
+      await statement.bind(payload.chapterNumber, payload.title, payload.pointOfView, payload.body, payload.bodyRich, footnotes, payload.heatLevel, payload.driveUrl, payload.status, now, id).run();
     } else {
-      await statement.bind(payload.chapterNumber, payload.title, payload.body, payload.bodyRich, footnotes, payload.heatLevel, payload.driveUrl, payload.status, publishedAt, now, id).run();
+      await statement.bind(payload.chapterNumber, payload.title, payload.pointOfView, payload.body, payload.bodyRich, footnotes, payload.heatLevel, payload.driveUrl, payload.status, publishedAt, now, id).run();
     }
     if (current.status !== 'published' && payload.status === 'published') {
       await notifyPublishedChapter({ chapterId: id, requestUrl: request.url }).catch(() => {});

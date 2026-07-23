@@ -39,6 +39,7 @@ export default async function BookPage({ params }) {
           <p className="book-detail-author">{book.author}</p>
           {book.originalTitle && <p className="book-original-title">Оригинальное название: {book.originalTitle}</p>}
           {book.seriesTitle && <p className="book-series">Серия «{book.seriesTitle}»{book.seriesNumber ? ` · книга ${book.seriesNumber}` : ''}</p>}
+          {book.dedication ? <blockquote className="book-dedication"><small>Посвящение</small><p>«{book.dedication}»</p></blockquote> : null}
           <div className="book-detail-progress">
             <div><span>Готовность перевода</span><strong>{book.progress}%</strong></div>
             <div><i style={{ width: `${book.progress}%` }} /></div>
@@ -74,7 +75,7 @@ export default async function BookPage({ params }) {
               {chapters.map((chapter) => (
                 <a href={`/books/${book.slug}/chapters/${chapter.id}`} key={chapter.id}>
                   <span>{String(chapter.chapterNumber).padStart(2, '0')}</span>
-                  <div><strong>{chapter.title}</strong><small><FileText size={13} /> Опубликована</small></div>
+                  <div><strong>{chapter.title}</strong><small><FileText size={13} /> {chapter.pointOfView ? `От лица ${chapter.pointOfView}` : 'Опубликована'}</small></div>
                   <ArrowRight size={18} />
                 </a>
               ))}

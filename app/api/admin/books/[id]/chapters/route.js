@@ -13,6 +13,7 @@ function normalizeChapter(payload = {}) {
   return {
     chapterNumber: Math.max(1, Math.floor(Number(payload.chapterNumber || 1))),
     title: String(payload.title || '').trim().slice(0, 220),
+    pointOfView: String(payload.pointOfView || '').trim().slice(0, 140),
     body: (richBody || String(payload.body || '')).trim().slice(0, 300000),
     bodyRich: richDocument.blocks.length ? serializeRichDocument(richDocument) : '',
     heatLevel: Math.max(0, Math.min(3, Math.floor(Number(payload.heatLevel || 0)))),
@@ -64,10 +65,10 @@ export async function POST(request, { params }) {
     const now = new Date().toISOString();
     await db.prepare(
       `INSERT INTO chapters
-       (id, book_id, chapter_number, title, body, body_rich, footnotes, heat_level, drive_url, status, published_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (id, book_id, chapter_number, title, point_of_view, body, body_rich, footnotes, heat_level, drive_url, status, published_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
-      id, bookId, payload.chapterNumber, payload.title, payload.body, payload.bodyRich, JSON.stringify(footnotes), payload.heatLevel, payload.driveUrl, payload.status,
+      id, bookId, payload.chapterNumber, payload.title, payload.pointOfView, payload.body, payload.bodyRich, JSON.stringify(footnotes), payload.heatLevel, payload.driveUrl, payload.status,
       payload.status === 'published' ? now : null, now, now,
     ).run();
     if (payload.status === 'published') {

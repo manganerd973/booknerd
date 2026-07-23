@@ -17,6 +17,7 @@ function normalizeBookPayload(payload = {}) {
     seriesTitle: String(payload.seriesTitle || '').trim().slice(0, 180),
     seriesNumber: payload.seriesNumber ? Math.max(1, Math.floor(Number(payload.seriesNumber))) : null,
     author: String(payload.author || '').trim().slice(0, 140),
+    dedication: String(payload.dedication || '').trim().slice(0, 2000),
     synopsis: String(payload.synopsis || '').trim().slice(0, 12000),
     genres,
     tropes,
@@ -67,10 +68,10 @@ export async function POST(request) {
     const slug = await uniqueSlug(db, slugify(payload.requestedSlug || payload.title));
     await db.prepare(
       `INSERT INTO books
-       (id, slug, title, original_title, series_title, series_number, author, synopsis, genres, tropes, drive_url, status, progress, cover_key, published, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (id, slug, title, original_title, series_title, series_number, author, dedication, synopsis, genres, tropes, drive_url, status, progress, cover_key, published, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
-      id, slug, payload.title, payload.originalTitle, payload.seriesTitle, payload.seriesNumber, payload.author, payload.synopsis,
+      id, slug, payload.title, payload.originalTitle, payload.seriesTitle, payload.seriesNumber, payload.author, payload.dedication, payload.synopsis,
       JSON.stringify(payload.genres), JSON.stringify(payload.tropes), payload.driveUrl, payload.status, payload.progress, payload.coverKey,
       payload.published ? 1 : 0, now, now,
     ).run();

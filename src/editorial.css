@@ -32,6 +32,9 @@
 .editorial-kicker { color: var(--ed-mint); font-size: 10px; font-weight: 900; letter-spacing: .17em; text-transform: uppercase; }
 .book-detail-copy h1 { max-width: 780px; margin: 16px 0 8px; font-family: Georgia, serif; font-size: clamp(52px, 7vw, 94px); font-weight: 500; letter-spacing: -.06em; line-height: .93; }
 .book-detail-author { margin: 0; color: var(--ed-blue); font-family: Georgia, serif; font-size: 24px; font-style: italic; }
+.book-dedication { width: min(600px, 100%); margin: 24px 0 4px; padding: 18px 22px; border-left: 3px solid var(--ed-yellow); background: rgba(247,213,79,.13); }
+.book-dedication small { color: rgba(18,60,53,.55); font-size: 8px; font-weight: 900; letter-spacing: .15em; text-transform: uppercase; }
+.book-dedication p { margin: 8px 0 0; font-family: Georgia, serif; font-size: 17px; font-style: italic; line-height: 1.55; }
 .book-original-title { margin: 12px 0 0; color: rgba(18,60,53,.55); font-size: 12px; }
 .book-series { display: inline-block; margin: 13px 0 0; padding: 7px 10px; color: var(--ed-ink); background: var(--ed-yellow); font-size: 10px; font-weight: 900; text-transform: uppercase; }
 .book-detail-progress { width: min(520px, 100%); margin: 34px 0 22px; }
@@ -397,6 +400,7 @@
 .reader-flow-intro > span { color: var(--reader-accent); font-family: ui-sans-serif, system-ui, sans-serif; font-size: 9px; font-weight: 900; letter-spacing: .15em; text-transform: uppercase; }
 .reader-flow-intro h1 { margin: 13px auto 12px; max-width: 720px; font-family: var(--reader-font-family); font-size: clamp(38px, 6vw, 67px); font-weight: 500; letter-spacing: -.045em; line-height: 1.02; }
 .reader-flow-intro h1 small { display: block; margin-bottom: 14px; color: var(--reader-accent); font-family: ui-sans-serif, system-ui, sans-serif; font-size: 10px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.reader-chapter-pov { margin: -2px 0 14px; color: var(--reader-accent); font-family: Georgia, serif; font-size: 15px; font-style: italic; }
 .reader-flow-drive { display: inline-flex; align-items: center; gap: 6px; color: var(--reader-blue); font-family: ui-sans-serif, system-ui, sans-serif; font-size: 10px; font-weight: 850; text-decoration: none; }
 .reader-flow-rule { display: flex; align-items: center; gap: 11px; width: min(330px, 70%); margin: 22px auto 0; color: var(--reader-yellow); font-family: Georgia, serif; font-size: 13px; }
 .reader-flow-rule i { display: block; height: 1px; flex: 1; background: var(--reader-border); }
