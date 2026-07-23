@@ -1,14 +1,12 @@
 'use client';
 
-import React, { forwardRef, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { forwardRef, useImperativeHandle, useLayoutEffect, useMemo, useRef } from 'react';
 import {
   AlignCenter,
   AlignJustify,
   AlignLeft,
   AlignRight,
   Bold,
-  ChevronDown,
-  ChevronUp,
   Eraser,
   IndentDecrease,
   IndentIncrease,
@@ -17,9 +15,7 @@ import {
   ListOrdered,
   Pilcrow,
   Quote,
-  Search,
   Underline,
-  X,
 } from 'lucide-react';
 import {
   normalizeRichDocument,
@@ -184,9 +180,6 @@ function sanitizePastedHtml(html) {
 
 const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbackText, onChange, onTextSelect }, forwardedRef) {
   const editorRef = useRef(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchPosition, setSearchPosition] = useState({ current: 0, total: 0 });
-  const activeMatchRef = useRef(-1);
   useImperativeHandle(forwardedRef, () => editorRef.current);
   const initialHtml = useMemo(() => richDocumentToEditorHtml(value, fallbackText), []); // Remounted when another chapter opens.
   useLayoutEffect(() => {
@@ -208,80 +201,6 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
       bodyRich: serializeRichDocument(documentValue),
       body: richDocumentToPlainText(documentValue),
     });
-    if (searchQuery.trim()) {
-      const text = editorRef.current.textContent || '';
-      const needle = searchQuery.trim().toLocaleLowerCase('ru-RU');
-      const total = needle ? text.toLocaleLowerCase('ru-RU').split(needle).length - 1 : 0;
-      activeMatchRef.current = -1;
-      setSearchPosition({ current: 0, total });
-    }
-  };
-
-  const textMatches = () => {
-    const root = editorRef.current;
-    const needle = searchQuery.trim();
-    if (!root || !needle) return [];
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-    const nodes = [];
-    let fullText = '';
-    let node = walker.nextNode();
-    while (node) {
-      const start = fullText.length;
-      fullText += node.nodeValue || '';
-      nodes.push({ node, start, end: fullText.length });
-      node = walker.nextNode();
-    }
-    const haystack = fullText.toLocaleLowerCase('ru-RU');
-    const normalizedNeedle = needle.toLocaleLowerCase('ru-RU');
-    const matches = [];
-    let offset = 0;
-    while (offset <= haystack.length - normalizedNeedle.length) {
-      const start = haystack.indexOf(normalizedNeedle, offset);
-      if (start < 0) break;
-      matches.push({ start, end: start + normalizedNeedle.length, nodes });
-      offset = start + Math.max(1, normalizedNeedle.length);
-    }
-    return matches;
-  };
-
-  const selectMatch = (direction) => {
-    const matches = textMatches();
-    if (!matches.length) {
-      activeMatchRef.current = -1;
-      setSearchPosition({ current: 0, total: 0 });
-      return;
-    }
-    const nextIndex = direction < 0
-      ? (activeMatchRef.current <= 0 ? matches.length - 1 : activeMatchRef.current - 1)
-      : (activeMatchRef.current + 1) % matches.length;
-    activeMatchRef.current = nextIndex;
-    const match = matches[nextIndex];
-    const startEntry = match.nodes.find((entry) => match.start >= entry.start && match.start < entry.end);
-    const endEntry = [...match.nodes].reverse().find((entry) => match.end > entry.start && match.end <= entry.end);
-    if (!startEntry || !endEntry) return;
-    const range = document.createRange();
-    range.setStart(startEntry.node, match.start - startEntry.start);
-    range.setEnd(endEntry.node, match.end - endEntry.start);
-    const selection = window.getSelection();
-    selection.removeAllRanges();
-    selection.addRange(range);
-    startEntry.node.parentElement?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    setSearchPosition({ current: nextIndex + 1, total: matches.length });
-    onTextSelect?.(selection.toString().trim());
-  };
-
-  const updateSearch = (nextQuery) => {
-    setSearchQuery(nextQuery);
-    activeMatchRef.current = -1;
-    const needle = nextQuery.trim().toLocaleLowerCase('ru-RU');
-    const haystack = editorRef.current?.textContent?.toLocaleLowerCase('ru-RU') || '';
-    setSearchPosition({ current: 0, total: needle ? haystack.split(needle).length - 1 : 0 });
-  };
-
-  const clearSearch = () => {
-    updateSearch('');
-    window.getSelection()?.removeAllRanges();
-    editorRef.current?.focus();
   };
 
   const command = (name, commandValue = null) => {
@@ -329,28 +248,6 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
         <div>{toolbarButton('По левому краю', <AlignLeft size={17} />, () => command('justifyLeft'))}{toolbarButton('По центру', <AlignCenter size={17} />, () => command('justifyCenter'))}{toolbarButton('По правому краю', <AlignRight size={17} />, () => command('justifyRight'))}{toolbarButton('По ширине', <AlignJustify size={17} />, () => command('justifyFull'))}</div>
         <div>{toolbarButton('Маркированный список', <List size={17} />, () => command('insertUnorderedList'))}{toolbarButton('Нумерованный список', <ListOrdered size={17} />, () => command('insertOrderedList'))}{toolbarButton('Цитата', <Quote size={17} />, () => command('formatBlock', 'blockquote'))}</div>
         <div>{toolbarButton('Отступ первой строки', <><Pilcrow size={16} /><span>Красная строка</span></>, toggleFirstLine)}{toolbarButton('Уменьшить отступ абзаца', <IndentDecrease size={17} />, () => changeBlockIndent(-1))}{toolbarButton('Увеличить отступ абзаца', <IndentIncrease size={17} />, () => changeBlockIndent(1))}{toolbarButton('Очистить оформление', <Eraser size={17} />, () => command('removeFormat'))}</div>
-      </div>
-      <div className="admin-rich-search" role="search">
-        <label>
-          <Search size={17} />
-          <input
-            value={searchQuery}
-            onChange={(event) => updateSearch(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key !== 'Enter') return;
-              event.preventDefault();
-              selectMatch(event.shiftKey ? -1 : 1);
-            }}
-            placeholder="Найти слово или фразу в тексте главы"
-            aria-label="Поиск в тексте главы"
-          />
-        </label>
-        <span>{searchQuery.trim() ? (searchPosition.total ? `${searchPosition.current || '—'} из ${searchPosition.total}` : 'Совпадений нет') : 'Поиск по главе'}</span>
-        <div className="admin-rich-search-actions">
-          <button type="button" onClick={() => selectMatch(-1)} disabled={!searchPosition.total} title="Предыдущее совпадение" aria-label="Предыдущее совпадение"><ChevronUp size={16} /></button>
-          <button type="button" onClick={() => selectMatch(1)} disabled={!searchPosition.total} title="Следующее совпадение" aria-label="Следующее совпадение"><ChevronDown size={16} /></button>
-          <button type="button" onClick={clearSearch} disabled={!searchQuery} title="Очистить поиск" aria-label="Очистить поиск"><X size={16} /></button>
-        </div>
       </div>
       <div
         ref={editorRef}

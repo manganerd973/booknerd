@@ -8,10 +8,9 @@ function normalizeChapter(payload = {}) {
   const driveUrl = normalizeGoogleDriveUrl(payload.driveUrl);
   const richDocument = normalizeRichDocument(payload.bodyRich);
   const richBody = richDocument.blocks.length ? richDocumentToPlainText(richDocument) : '';
-  const chapterNumber = Math.max(1, Math.floor(Number(payload.chapterNumber || 1)));
   return {
-    chapterNumber,
-    title: (String(payload.title || '').trim() || `Глава ${chapterNumber}`).slice(0, 220),
+    chapterNumber: Math.max(1, Math.floor(Number(payload.chapterNumber || 1))),
+    title: String(payload.title || '').trim().slice(0, 220),
     pointOfView: String(payload.pointOfView || '').trim().slice(0, 140),
     body: (richBody || String(payload.body || '')).trim().slice(0, 300000),
     bodyRich: richDocument.blocks.length ? serializeRichDocument(richDocument) : '',
@@ -44,6 +43,7 @@ export async function PUT(request, { params }) {
     const { id } = await params;
     const input = await request.json();
     const payload = normalizeChapter(input);
+    if (!payload.title) return Response.json({ error: 'Укажите название главы.' }, { status: 400 });
     if (payload.driveUrl === null) return Response.json({ error: 'Вставьте ссылку с drive.google.com или docs.google.com.' }, { status: 400 });
     const db = await ensureDb();
     const current = await db.prepare(`SELECT status, footnotes FROM chapters WHERE id = ? LIMIT 1`).bind(id).first();

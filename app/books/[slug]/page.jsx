@@ -112,7 +112,7 @@ export default async function BookPage({ params }) {
               <a href={`/books/${book.slug}/chapters/${chapter.id}`} key={chapter.id}>
                 <span>Глава {chapter.chapterNumber}</span>
                 <strong>{chapter.title}</strong>
-                {chapter.heatPages ? <small>стр. {chapter.heatPages}</small> : null}
+                {chapter.heatPages ? <small>главы {chapter.heatPages}</small> : null}
                 <em aria-label={`Уровень горячих сцен: ${chapter.heatLevel} из 3`}>{'🔥'.repeat(chapter.heatLevel)}</em>
                 <ArrowRight size={17} />
               </a>
