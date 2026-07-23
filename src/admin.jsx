@@ -693,6 +693,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                 <div className="admin-audience-grid">
                   <article><Wifi size={23} /><strong>{audience?.onlineReaders ?? '—'}</strong><p>сейчас читают</p></article>
                   <article><Smartphone size={23} /><strong>{audience?.installs ?? '—'}</strong><p>установили на телефон</p></article>
+                  <article><Bell size={23} /><strong>{audience?.notificationSubscribers ?? '—'}</strong><p>включили уведомления</p><small>уникальные читатели</small></article>
                   <article><Send size={23} /><strong>{audience?.telegramVisitors ?? '—'}</strong><p>перешли в Telegram</p><small>{audience ? `${audience.telegramClicks} переходов всего` : 'считаем переходы по ссылке'}</small></article>
                 </div>
               </section>
