@@ -9,6 +9,7 @@ import {
   Check,
   EyeOff,
   Heart,
+  Library,
   Menu,
   MessageCircle,
   Search,
@@ -18,6 +19,8 @@ import {
 } from 'lucide-react';
 import CommentVotes from './comment-votes.jsx';
 import CommentReport from './comment-report.jsx';
+import NotificationControl from './notification-control.jsx';
+import { LIBRARY_STATUS, loadReaderLibrary, removeReaderLibraryBook, updateReaderLibrary } from './reader-library.jsx';
 
 const FEATURED_GENRES = [
   'ROMANCE',
@@ -108,7 +111,7 @@ function HeroArtwork({ books = [] }) {
       {featuredBooks.length > 1 ? <HeroBookCover book={featuredBooks[0]} className="cover-back" key={`back-${featuredBooks[0].id}`} /> : null}
       {featuredBooks.length > 1 ? <HeroBookCover book={featuredBooks[1]} className="cover-front" key={`front-${featuredBooks[1].id}`} /> : null}
       <div className="round-stamp">
-        <span>READ · FEEL · REPEAT ·</span>
+        <span><b>Читай.</b><b>Чувствуй.</b><b>Возвращайся.</b></span>
         <BookOpen size={24} />
       </div>
     </div>
@@ -137,7 +140,8 @@ function BookCover({ book }) {
   );
 }
 
-function BookCard({ book, saved, onSave, onOpen }) {
+function BookCard({ book, libraryStatus = '', onSave, onOpen }) {
+  const saved = Boolean(libraryStatus);
   return (
     <article
       className="book-card"
@@ -151,7 +155,7 @@ function BookCard({ book, saved, onSave, onOpen }) {
         <BookCover book={book} />
         <button
           className={`save-button ${saved ? 'is-saved' : ''}`}
-          onClick={(event) => { event.stopPropagation(); onSave(book.id); }}
+          onClick={(event) => { event.stopPropagation(); onSave(book); }}
           aria-label={saved ? `Убрать ${book.title} из закладок` : `Сохранить ${book.title}`}
         >
           <Bookmark size={18} fill={saved ? 'currentColor' : 'none'} />
@@ -173,6 +177,7 @@ function BookCard({ book, saved, onSave, onOpen }) {
           <span style={{ width: `${book.progress}%` }} />
         </div>
         <small className="book-note">{book.note}</small>
+        {libraryStatus ? <span className={`book-library-state is-${libraryStatus}`}>{LIBRARY_STATUS[libraryStatus]?.label}</span> : null}
       </div>
     </article>
   );
@@ -244,18 +249,47 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [notice, setNotice] = useState('');
-  const [saved, setSaved] = useState(() => {
-    if (typeof window === 'undefined') return new Set();
-    try {
-      return new Set(JSON.parse(localStorage.getItem('booknerd-saved') || '[]'));
-    } catch {
-      return new Set();
-    }
-  });
+  const [libraryItems, setLibraryItems] = useState([]);
+  const [libraryFilter, setLibraryFilter] = useState('all');
+  const libraryByBook = useMemo(() => new Map(libraryItems.map((item) => [item.bookId, item])), [libraryItems]);
+  const libraryBooks = useMemo(() => books.filter((book) => {
+    const item = libraryByBook.get(book.id);
+    return item && (libraryFilter === 'all' || item.status === libraryFilter);
+  }), [books, libraryByBook, libraryFilter]);
 
   useEffect(() => {
-    localStorage.setItem('booknerd-saved', JSON.stringify([...saved]));
-  }, [saved]);
+    let active = true;
+    const refresh = () => loadReaderLibrary().then(async (items) => {
+      let nextItems = items;
+      try {
+        const legacyIds = JSON.parse(localStorage.getItem('booknerd-saved') || '[]');
+        const missingIds = Array.isArray(legacyIds)
+          ? legacyIds.filter((id) => books.some((book) => book.id === id) && !items.some((item) => item.bookId === id))
+          : [];
+        if (missingIds.length) {
+          const migrated = await Promise.all(missingIds.map((bookId) => updateReaderLibrary({ bookId, status: 'saved' })));
+          nextItems = [...migrated, ...items];
+        }
+        localStorage.removeItem('booknerd-saved');
+      } catch {
+        // Old bookmarks are optional; the new library still works without migration.
+      }
+      if (active) setLibraryItems(nextItems);
+    }).catch(() => {});
+    refresh();
+    const onChange = (event) => {
+      const item = event.detail;
+      if (!item?.bookId) return;
+      setLibraryItems((current) => item.status
+        ? [item, ...current.filter((entry) => entry.bookId !== item.bookId)]
+        : current.filter((entry) => entry.bookId !== item.bookId));
+    };
+    window.addEventListener('booknerd-library-change', onChange);
+    return () => {
+      active = false;
+      window.removeEventListener('booknerd-library-change', onChange);
+    };
+  }, []);
 
   useEffect(() => {
     if (!notice) return undefined;
@@ -271,24 +305,28 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
   const visibleBooks = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return books.filter((book) => {
-      const inFilter = activeFilter === 'Все' || book.genre === activeFilter;
-      const inSearch = !normalized || `${book.title} ${book.author} ${book.genre} ${(book.tropes || []).join(' ')}`.toLowerCase().includes(normalized);
+      const inFilter = activeFilter === 'Все' || (book.genres || [book.genre]).includes(activeFilter);
+      const inSearch = !normalized || `${book.title} ${book.author} ${(book.genres || [book.genre]).join(' ')} ${(book.tropes || []).join(' ')}`.toLowerCase().includes(normalized);
       return inFilter && inSearch;
     });
   }, [activeFilter, query]);
 
-  const toggleSave = (id) => {
-    setSaved((current) => {
-      const next = new Set(current);
-      if (next.has(id)) {
-        next.delete(id);
-        setNotice('Убрано из закладок');
+  const toggleSave = async (book) => {
+    const current = libraryByBook.get(book.id);
+    try {
+      if (current) {
+        setLibraryItems((items) => items.filter((item) => item.bookId !== book.id));
+        await removeReaderLibraryBook(book.id);
+        setNotice('Книга убрана из вашей библиотеки');
       } else {
-        next.add(id);
-        setNotice('Добавлено в закладки');
+        const item = await updateReaderLibrary({ bookId: book.id, status: 'saved' });
+        setLibraryItems((items) => [item, ...items.filter((entry) => entry.bookId !== book.id)]);
+        setNotice('Добавлено в «Мою библиотеку»');
       }
-      return next;
-    });
+    } catch (error) {
+      setNotice(error.message);
+      loadReaderLibrary().then(setLibraryItems).catch(() => {});
+    }
   };
 
   const openBook = (book) => {
@@ -308,6 +346,7 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
           <Logo />
           <nav className="desktop-nav" aria-label="Главная навигация">
             <a href="/translations">Переводы</a>
+            <a href="#my-library">Моя библиотека</a>
             <a href="/about">О проекте</a>
             <a href="/team">Команда</a>
           </nav>
@@ -360,10 +399,52 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
             </div>
           </div>
 
+          <section className="my-library section" id="my-library">
+            <div className="section-heading">
+              <div>
+                <span className="section-number">01 / МОЯ БИБЛИОТЕКА</span>
+                <h2>Истории, которые<br /><em>уже ваши.</em></h2>
+              </div>
+              <p>Сохраняйте книги, продолжайте чтение и находите всё прочитанное в одном месте.</p>
+            </div>
+            <NotificationControl />
+            <div className="library-tabs" role="group" aria-label="Разделы моей библиотеки">
+              {[
+                ['all', 'Все'],
+                ['reading', 'Читаю'],
+                ['saved', 'Хочу прочитать'],
+                ['finished', 'Прочитано'],
+              ].map(([value, label]) => (
+                <button type="button" className={libraryFilter === value ? 'active' : ''} onClick={() => setLibraryFilter(value)} key={value}>
+                  {label}<span>{value === 'all' ? libraryItems.length : libraryItems.filter((item) => item.status === value).length}</span>
+                </button>
+              ))}
+            </div>
+            {libraryBooks.length ? (
+              <div className="book-grid library-book-grid">
+                {libraryBooks.map((book) => (
+                  <BookCard
+                    key={book.id}
+                    book={book}
+                    libraryStatus={libraryByBook.get(book.id)?.status || ''}
+                    onSave={toggleSave}
+                    onOpen={openBook}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="library-empty">
+                <Library size={34} />
+                <div><strong>{libraryItems.length ? 'В этом разделе пока пусто' : 'Ваша библиотека ждёт первую книгу'}</strong><p>Нажмите на значок закладки у любой книги — она появится здесь.</p></div>
+                <a href="#catalog">Выбрать книгу <ArrowRight size={16} /></a>
+              </div>
+            )}
+          </section>
+
           <section className="catalog section" id="catalog">
             <div className="section-heading catalog-heading">
               <div>
-                <span className="section-number">01 / БИБЛИОТЕКА</span>
+                <span className="section-number">02 / ВСЯ БИБЛИОТЕКА</span>
                 <h2>Выбирай следующую<br /><em>книжную любовь</em></h2>
               </div>
               <p>От уютной романтики до миров, где магия требует слишком высокую цену.</p>
@@ -392,7 +473,7 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
                   <BookCard
                     key={book.id}
                     book={book}
-                    saved={saved.has(book.id)}
+                    libraryStatus={libraryByBook.get(book.id)?.status || ''}
                     onSave={toggleSave}
                     onOpen={openBook}
                   />
@@ -506,10 +587,11 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
           <div className="drawer-head"><Logo /><button onClick={() => setMenuOpen(false)}><X /></button></div>
           <nav>
             <a href="/translations" onClick={() => setMenuOpen(false)}><span>01</span>Переводы</a>
-            <a href="/about" onClick={() => setMenuOpen(false)}><span>02</span>О проекте</a>
-            <a href="/team" onClick={() => setMenuOpen(false)}><span>03</span>Команда</a>
-            <a href="/go/telegram" target="_blank" rel="noreferrer" onClick={() => setMenuOpen(false)}><span>04</span>Telegram</a>
-            <a href="/admin" onClick={() => setMenuOpen(false)}><span>05</span>Редакционная</a>
+            <a href="#my-library" onClick={() => setMenuOpen(false)}><span>02</span>Моя библиотека</a>
+            <a href="/about" onClick={() => setMenuOpen(false)}><span>03</span>О проекте</a>
+            <a href="/team" onClick={() => setMenuOpen(false)}><span>04</span>Команда</a>
+            <a href="/go/telegram" target="_blank" rel="noreferrer" onClick={() => setMenuOpen(false)}><span>05</span>Telegram</a>
+            <a href="/admin" onClick={() => setMenuOpen(false)}><span>06</span>Редакционная</a>
           </nav>
           <p>Истории, которые мы хотели прочитать сами.</p>
         </div>

@@ -323,7 +323,7 @@
 .admin-chapter-list button small { color: var(--admin-ink-soft); font-size: 9px; }
 .admin-no-chapters { padding: 30px 10px; color: var(--admin-ink-soft); font-family: Georgia, serif; font-size: 14px; text-align: center; }
 .admin-chapter-editor { display: grid; grid-template-rows: auto minmax(0,1fr) auto auto; min-width: 0; padding: 24px; }
-.admin-chapter-editor-top { display: grid; grid-template-columns: 90px minmax(0,1fr) 170px; gap: 14px; }
+.admin-chapter-editor-top { display: grid; grid-template-columns: 90px minmax(0,1fr) 150px 190px; gap: 14px; }
 .admin-chapter-editor-top .grow { min-width: 0; }
 .admin-chapter-body { display: grid; gap: 8px; margin-top: 18px; }
 .admin-chapter-body > span { font-size: 10px; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; }

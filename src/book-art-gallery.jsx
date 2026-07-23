@@ -28,7 +28,7 @@ export default function BookArtGallery({ artworks = [], bookTitle = '' }) {
   return (
     <section className="book-art-section" aria-labelledby="book-art-title">
       <div className="book-art-heading">
-        <div><span className="editorial-section-number">03 / АРТЫ К КНИГЕ</span><h2 id="book-art-title">Заглянуть в историю</h2></div>
+        <div><span className="editorial-section-number">04 / АРТЫ К КНИГЕ</span><h2 id="book-art-title">Заглянуть в историю</h2></div>
         <p>Атмосфера, герои и места из мира «{bookTitle}».</p>
       </div>
       <div className={`book-art-grid ${artworks.length === 1 ? 'is-single' : ''}`}>

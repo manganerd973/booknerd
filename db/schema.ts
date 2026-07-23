@@ -30,6 +30,7 @@ export const chapters = sqliteTable('chapters', {
   body: text('body').notNull().default(''),
   bodyRich: text('body_rich').notNull().default(''),
   footnotes: text('footnotes').notNull().default('[]'),
+  heatLevel: integer('heat_level').notNull().default(0),
   driveUrl: text('drive_url').notNull().default(''),
   status: text('status').notNull().default('draft'),
   publishedAt: text('published_at'),
@@ -147,3 +148,39 @@ export const analyticsEvents = sqliteTable('analytics_events', {
   index('analytics_events_type_created_idx').on(table.eventType, table.createdAt),
   index('analytics_events_type_visitor_idx').on(table.eventType, table.visitorKey),
 ]);
+
+export const readerLibrary = sqliteTable('reader_library', {
+  visitorKey: text('visitor_key').notNull(),
+  bookId: text('book_id').notNull().references(() => books.id, { onDelete: 'cascade' }),
+  status: text('status').notNull().default('saved'),
+  lastChapterId: text('last_chapter_id').references(() => chapters.id, { onDelete: 'set null' }),
+  progress: integer('progress').notNull().default(0),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.visitorKey, table.bookId] }),
+  index('reader_library_visitor_updated_idx').on(table.visitorKey, table.updatedAt),
+]);
+
+export const pushSubscriptions = sqliteTable('push_subscriptions', {
+  endpoint: text('endpoint').primaryKey(),
+  visitorKey: text('visitor_key').notNull(),
+  p256dh: text('p256dh').notNull(),
+  auth: text('auth').notNull(),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, (table) => [
+  index('push_subscriptions_visitor_idx').on(table.visitorKey),
+]);
+
+export const vapidConfig = sqliteTable('vapid_config', {
+  id: text('id').primaryKey(),
+  publicKey: text('public_key').notNull(),
+  privateKey: text('private_key').notNull(),
+  createdAt: text('created_at').notNull(),
+});
+
+export const pushAnnouncements = sqliteTable('push_announcements', {
+  chapterId: text('chapter_id').primaryKey().references(() => chapters.id, { onDelete: 'cascade' }),
+  sentAt: text('sent_at').notNull(),
+});

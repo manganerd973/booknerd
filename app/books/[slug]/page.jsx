@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, BookOpen, Clock3, ExternalLink, FileText } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookOpen, Clock3, ExternalLink, FileText, Flame } from 'lucide-react';
 import { notFound } from 'next/navigation';
 import { getBookBySlug, listChapters } from '../../../lib/books.js';
 import { listBookArtworks } from '../../../lib/artworks.js';
@@ -7,6 +7,7 @@ import BookArtGallery from '../../../src/book-art-gallery.jsx';
 import BookRating from '../../../src/book-rating.jsx';
 import BookReviews from '../../../src/book-reviews.jsx';
 import CommentsSection from '../../../src/comments-section.jsx';
+import BookLibraryControl from '../../../src/reader-library.jsx';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +20,7 @@ export default async function BookPage({ params }) {
     listChapters(book.id),
     listBookArtworks(book.id),
   ]);
+  const heatGuide = chapters.filter((chapter) => Number(chapter.heatLevel || 0) > 0);
 
   return (
     <main className="editorial-page">
@@ -52,6 +54,7 @@ export default async function BookPage({ params }) {
             {chapters[0] ? <a className="editorial-primary" href={`/books/${book.slug}/chapters/${chapters[0].id}`}>Начать читать <ArrowRight size={18} /></a> : <span className="book-coming-soon"><Clock3 size={18} /> Первая глава готовится</span>}
             {book.driveUrl ? <a className="editorial-drive-link" href={book.driveUrl} target="_blank" rel="noreferrer">Файл книги в Google Drive <ExternalLink size={16} /></a> : null}
           </div>
+          <BookLibraryControl bookId={book.id} />
           <BookRating bookId={book.id} />
         </div>
       </section>
@@ -80,6 +83,31 @@ export default async function BookPage({ params }) {
             <div className="chapter-empty"><BookOpen size={30} /><p>Опубликованных глав пока нет.</p></div>
           )}
         </aside>
+      </section>
+
+      <section className="book-heat-guide" aria-labelledby="book-heat-guide-title">
+        <div className="book-heat-guide-heading">
+          <div>
+            <span className="editorial-section-number">03 / ПУТЕВОДИТЕЛЬ ПО ГЛАВАМ</span>
+            <h2 id="book-heat-guide-title">Горячие сцены — по желанию</h2>
+          </div>
+          <Flame size={34} />
+        </div>
+        <p>Это небольшой путеводитель по главам для любителей горячих сцен, а также для тех, кто предпочитает их избегать.</p>
+        {heatGuide.length ? (
+          <div className="book-heat-guide-list">
+            {heatGuide.map((chapter) => (
+              <a href={`/books/${book.slug}/chapters/${chapter.id}`} key={chapter.id}>
+                <span>Глава {chapter.chapterNumber}</span>
+                <strong>{chapter.title}</strong>
+                <em aria-label={`Уровень горячих сцен: ${chapter.heatLevel} из 3`}>{'🔥'.repeat(chapter.heatLevel)}</em>
+                <ArrowRight size={17} />
+              </a>
+            ))}
+          </div>
+        ) : (
+          <div className="book-heat-guide-empty"><span>♡</span><p>Для опубликованных глав отметок пока нет.</p></div>
+        )}
       </section>
 
       <BookArtGallery artworks={artworks} bookTitle={book.title} />

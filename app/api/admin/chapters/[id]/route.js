@@ -2,6 +2,7 @@ import { authorizeAdminRequest } from '../../../../../lib/admin-auth.js';
 import { ensureDb } from '../../../../../lib/runtime.js';
 import { normalizeGoogleDriveUrl } from '../../../../../lib/google-drive.js';
 import { normalizeRichDocument, richDocumentToPlainText, serializeRichDocument } from '../../../../../lib/rich-document.js';
+import { notifyPublishedChapter } from '../../../../../lib/push-notifications.js';
 
 function normalizeChapter(payload = {}) {
   const driveUrl = normalizeGoogleDriveUrl(payload.driveUrl);
@@ -12,6 +13,7 @@ function normalizeChapter(payload = {}) {
     title: String(payload.title || '').trim().slice(0, 220),
     body: (richBody || String(payload.body || '')).trim().slice(0, 300000),
     bodyRich: richDocument.blocks.length ? serializeRichDocument(richDocument) : '',
+    heatLevel: Math.max(0, Math.min(3, Math.floor(Number(payload.heatLevel || 0)))),
     driveUrl,
     status: payload.status === 'published' ? 'published' : 'draft',
   };
@@ -51,13 +53,16 @@ export async function PUT(request, { params }) {
     const publishedExpression = publishedAt === undefined ? 'published_at' : '?';
     const footnotes = JSON.stringify(normalizeFootnotes(input.footnotes));
     const statement = db.prepare(
-      `UPDATE chapters SET chapter_number = ?, title = ?, body = ?, body_rich = ?, footnotes = ?, drive_url = ?, status = ?,
+      `UPDATE chapters SET chapter_number = ?, title = ?, body = ?, body_rich = ?, footnotes = ?, heat_level = ?, drive_url = ?, status = ?,
        published_at = ${publishedExpression}, updated_at = ? WHERE id = ?`
     );
     if (publishedAt === undefined) {
-      await statement.bind(payload.chapterNumber, payload.title, payload.body, payload.bodyRich, footnotes, payload.driveUrl, payload.status, now, id).run();
+      await statement.bind(payload.chapterNumber, payload.title, payload.body, payload.bodyRich, footnotes, payload.heatLevel, payload.driveUrl, payload.status, now, id).run();
     } else {
-      await statement.bind(payload.chapterNumber, payload.title, payload.body, payload.bodyRich, footnotes, payload.driveUrl, payload.status, publishedAt, now, id).run();
+      await statement.bind(payload.chapterNumber, payload.title, payload.body, payload.bodyRich, footnotes, payload.heatLevel, payload.driveUrl, payload.status, publishedAt, now, id).run();
+    }
+    if (current.status !== 'published' && payload.status === 'published') {
+      await notifyPublishedChapter({ chapterId: id, requestUrl: request.url }).catch(() => {});
     }
     return Response.json({ id });
   } catch (error) {

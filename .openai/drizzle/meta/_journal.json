@@ -43,6 +43,13 @@
       "when": 1784367282552,
       "tag": "0005_medical_junta",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1784833802440,
+      "tag": "0006_bumpy_the_renegades",
+      "breakpoints": true
     }
   ]
 }

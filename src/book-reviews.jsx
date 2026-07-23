@@ -133,7 +133,7 @@ export default function BookReviews({ bookId }) {
   return (
     <section className="book-reviews" aria-labelledby={`book-reviews-${bookId}`}>
       <div className="book-reviews-heading">
-        <div><span className="editorial-section-number">04 / ОТЗЫВЫ ЧИТАТЕЛЕЙ</span><h2 id={`book-reviews-${bookId}`}>После последней<br /><em>страницы.</em></h2></div>
+        <div><span className="editorial-section-number">05 / ОТЗЫВЫ ЧИТАТЕЛЕЙ</span><h2 id={`book-reviews-${bookId}`}>После последней<br /><em>страницы.</em></h2></div>
         <p>Расскажите, чем запомнилась история. Отзыв появится здесь сразу после публикации.</p>
       </div>
       <div className="book-reviews-layout">

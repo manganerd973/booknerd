@@ -36,6 +36,7 @@ import CommentsSection from './comments-section.jsx';
 import { CompletionReviewForm } from './book-reviews.jsx';
 import { richDocumentFor } from '../lib/rich-document.js';
 import { trackReaderPresence } from './site-analytics.js';
+import { updateReaderLibrary } from './reader-library.jsx';
 import {
   AnnotatedParagraph,
   HIGHLIGHT_COLORS,
@@ -201,6 +202,27 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       document.removeEventListener('visibilitychange', ping);
     };
   }, [book.id, chapter.id]);
+
+  useEffect(() => {
+    const progress = Math.max(1, Math.round(((chapterIndex + 1) / Math.max(1, chapterList.length)) * 100));
+    updateReaderLibrary({
+      bookId: book.id,
+      status: 'reading',
+      lastChapterId: chapter.id,
+      progress,
+      preserveFinished: true,
+    }).catch(() => {});
+  }, [book.id, chapter.id, chapterIndex, chapterList.length]);
+
+  useEffect(() => {
+    if (!showCompletion) return;
+    updateReaderLibrary({
+      bookId: book.id,
+      status: 'finished',
+      lastChapterId: chapter.id,
+      progress: 100,
+    }).catch(() => {});
+  }, [book.id, chapter.id, showCompletion]);
   const [activeAnnotationId, setActiveAnnotationId] = useState(null);
   const [activeFootnote, setActiveFootnote] = useState(null);
   const [noteDraft, setNoteDraft] = useState(null);

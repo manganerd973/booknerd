@@ -55,6 +55,7 @@ const blankChapter = {
   body: '',
   bodyRich: '',
   footnotes: [],
+  heatLevel: 0,
   driveUrl: '',
   status: 'draft',
 };
@@ -810,7 +811,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                   <aside className="admin-chapter-list">
                     {chapters.length ? chapters.map((chapter) => (
                       <button key={chapter.id} className={chapterForm.id === chapter.id ? 'is-active' : ''} onClick={() => { setChapterForm({ ...blankChapter, ...chapter, footnotes: chapter.footnotes || [] }); setFootnoteDraft(null); }}>
-                        <span>{String(chapter.chapterNumber).padStart(2, '0')}</span><div><strong>{chapter.title}</strong><small>{chapter.status === 'published' ? 'Опубликована' : 'Черновик'}</small></div><ChevronRight size={17} />
+                        <span>{String(chapter.chapterNumber).padStart(2, '0')}</span><div><strong>{chapter.title}</strong><small>{chapter.status === 'published' ? 'Опубликована' : 'Черновик'}{chapter.heatLevel ? ` · ${'🔥'.repeat(chapter.heatLevel)}` : ''}</small></div><ChevronRight size={17} />
                       </button>
                     )) : <p className="admin-no-chapters">Глав пока нет. Создайте первую.</p>}
                   </aside>
@@ -819,6 +820,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                       <label><span>Номер</span><input type="number" min="1" value={chapterForm.chapterNumber} onChange={(event) => setChapterForm({ ...chapterForm, chapterNumber: Number(event.target.value) })} /></label>
                       <label className="grow"><span>Название главы</span><input value={chapterForm.title} onChange={(event) => setChapterForm({ ...chapterForm, title: event.target.value })} placeholder="Название главы" /></label>
                       <label><span>Статус</span><select value={chapterForm.status} onChange={(event) => setChapterForm({ ...chapterForm, status: event.target.value })}><option value="draft">Черновик</option><option value="published">Опубликована</option></select></label>
+                      <label><span>Горячие сцены</span><select value={chapterForm.heatLevel || 0} onChange={(event) => setChapterForm({ ...chapterForm, heatLevel: Number(event.target.value) })}><option value="0">Нет</option><option value="1">Намёк · 🔥</option><option value="2">Горячая сцена · 🔥🔥</option><option value="3">Очень горячая · 🔥🔥🔥</option></select></label>
                     </div>
                     <div className="admin-chapter-body"><span>Текст главы с оформлением</span><RichChapterEditor key={`${bookForm.id || 'book'}-${chapterForm.id || 'new'}-${chapterForm.chapterNumber}`} ref={chapterBodyRef} value={chapterForm.bodyRich} fallbackText={chapterForm.body} onTextSelect={(text) => { chapterSelectionRef.current = text; }} onChange={({ body, bodyRich }) => setChapterForm((current) => ({ ...current, body, bodyRich }))} /></div>
                     <section className="admin-footnotes-panel">
