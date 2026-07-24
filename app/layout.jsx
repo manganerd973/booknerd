@@ -1,3 +1,4 @@
+import '@fontsource-variable/onest';
 import '../src/styles.css';
 import '../src/admin.css';
 import '../src/editorial.css';

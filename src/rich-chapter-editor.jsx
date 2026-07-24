@@ -1,6 +1,6 @@
 'use client';
 
-import React, { forwardRef, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   AlignCenter,
   AlignJustify,
@@ -16,6 +16,8 @@ import {
   List,
   ListOrdered,
   Pilcrow,
+  Pin,
+  PinOff,
   Quote,
   Redo2,
   Search,
@@ -218,12 +220,13 @@ function sanitizePastedHtml(html) {
   return root.innerHTML;
 }
 
-const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbackText, onChange, onTextSelect }, forwardedRef) {
+const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbackText, onChange, onTextSelect, bookKey }, forwardedRef) {
   const editorRef = useRef(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchPosition, setSearchPosition] = useState({ current: 0, total: 0 });
   const [chatComposerOpen, setChatComposerOpen] = useState(false);
   const [chatDraft, setChatDraft] = useState({ sender: '', side: 'incoming' });
+  const [pinnedChatSender, setPinnedChatSender] = useState('');
   const [chatEmojiOpen, setChatEmojiOpen] = useState(false);
   const [chatEmojiCategory, setChatEmojiCategory] = useState(CHAT_EMOJI_CATEGORIES[0].id);
   const activeMatchRef = useRef(-1);
@@ -231,6 +234,23 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
   const chatEmojiAppendedRef = useRef(false);
   useImperativeHandle(forwardedRef, () => editorRef.current);
   const initialHtml = useMemo(() => richDocumentToEditorHtml(value, fallbackText), []); // Remounted when another chapter opens.
+  const chatSenderStorageKey = useMemo(() => {
+    const normalizedBookKey = String(bookKey || '').trim();
+    return normalizedBookKey ? `booknerd:chat-sender:${normalizedBookKey}` : '';
+  }, [bookKey]);
+
+  useEffect(() => {
+    let savedSender = '';
+    if (chatSenderStorageKey) {
+      try {
+        savedSender = String(window.localStorage.getItem(chatSenderStorageKey) || '').slice(0, 80);
+      } catch {
+        savedSender = '';
+      }
+    }
+    setPinnedChatSender(savedSender);
+  }, [chatSenderStorageKey]);
+
   useLayoutEffect(() => {
     if (editorRef.current) editorRef.current.innerHTML = initialHtml;
     onTextSelect?.('');
@@ -387,12 +407,39 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
     savedChatRangeRef.current = inside ? range : null;
     const block = inside ? blocksForRange(range)[0] : selectedBlock();
     setChatDraft({
-      sender: block?.dataset?.chatSender || '',
+      sender: block?.dataset?.chatSender || pinnedChatSender,
       side: block?.dataset?.chatSide === 'outgoing' ? 'outgoing' : 'incoming',
     });
     setChatEmojiOpen(false);
     chatEmojiAppendedRef.current = false;
     setChatComposerOpen(true);
+  };
+
+  const pinChatSender = () => {
+    const sender = chatDraft.sender.replace(/\s+/g, ' ').trim().slice(0, 80);
+    if (!sender || !chatSenderStorageKey) return;
+    try {
+      window.localStorage.setItem(chatSenderStorageKey, sender);
+    } catch {
+      // The name still stays pinned until the editor is closed when browser storage is unavailable.
+    }
+    setPinnedChatSender(sender);
+    setChatDraft((current) => ({ ...current, sender }));
+  };
+
+  const unpinChatSender = () => {
+    if (chatSenderStorageKey) {
+      try {
+        window.localStorage.removeItem(chatSenderStorageKey);
+      } catch {
+        // Keep the editor usable even when browser storage is unavailable.
+      }
+    }
+    setPinnedChatSender('');
+    setChatDraft((current) => ({
+      ...current,
+      sender: current.sender === pinnedChatSender ? '' : current.sender,
+    }));
   };
 
   const appendChatEmoji = (emoji) => {
@@ -500,6 +547,33 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
               autoFocus
             />
           </label>
+          <div className={`admin-chat-pinned-sender ${pinnedChatSender ? 'is-pinned' : ''}`}>
+            <div>
+              <Pin size={16} />
+              <span>
+                {pinnedChatSender
+                  ? <>Для этой книги закреплено: <strong>{pinnedChatSender}</strong></>
+                  : 'Имя пока не закреплено'}
+              </span>
+            </div>
+            <div>
+              <button
+                type="button"
+                onClick={pinChatSender}
+                disabled={!chatDraft.sender.trim() || !chatSenderStorageKey || chatDraft.sender.replace(/\s+/g, ' ').trim() === pinnedChatSender}
+              >
+                <Pin size={14} />
+                {pinnedChatSender ? 'Сменить имя' : 'Закрепить имя'}
+              </button>
+              {pinnedChatSender ? (
+                <button type="button" className="is-unpin" onClick={unpinChatSender}>
+                  <PinOff size={14} />
+                  Открепить
+                </button>
+              ) : null}
+            </div>
+            <small>Закреплённое имя автоматически подставляется в следующих сообщениях только этой книги.</small>
+          </div>
           <div className="admin-chat-side-picker" role="radiogroup" aria-label="Расположение сообщения">
             <button type="button" className={chatDraft.side === 'incoming' ? 'is-active' : ''} onClick={() => setChatDraft((current) => ({ ...current, side: 'incoming' }))} role="radio" aria-checked={chatDraft.side === 'incoming'}>
               <span className="admin-chat-side-preview is-incoming">Слева</span>
@@ -597,7 +671,7 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
           emitChange();
         }}
       />
-      <p className="admin-rich-hint"><strong>Переписка:</strong> выделите одно сообщение, нажмите «Переписка», укажите имя, сторону пузырька и при желании добавьте эмодзи. На iPhone эмодзи отображаются в стиле Apple. <strong>Случайно изменили текст?</strong> Нажмите «Отменить» или Ctrl+Z.</p>
+      <p className="admin-rich-hint"><strong>Переписка:</strong> выделите одно сообщение, нажмите «Переписка», укажите имя и при желании закрепите его для этой книги. Для другой книги имя не переносится. На iPhone эмодзи отображаются в стиле Apple. <strong>Случайно изменили текст?</strong> Нажмите «Отменить» или Ctrl+Z.</p>
     </div>
   );
 });
