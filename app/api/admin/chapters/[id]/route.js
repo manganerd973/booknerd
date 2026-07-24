@@ -79,8 +79,77 @@ export async function DELETE(request, { params }) {
   if (auth.response) return auth.response;
   try {
     const { id } = await params;
-    await (await ensureDb()).prepare(`DELETE FROM chapters WHERE id = ?`).bind(id).run();
-    return Response.json({ ok: true });
+    const db = await ensureDb();
+    const chapter = await db.prepare(
+      `SELECT id, book_id FROM chapters WHERE id = ? LIMIT 1`
+    ).bind(id).first();
+    if (!chapter) return Response.json({ error: 'Глава не найдена.' }, { status: 404 });
+
+    const now = new Date().toISOString();
+    await db.batch([
+      db.prepare(`DELETE FROM chapters WHERE id = ?`).bind(id),
+      // Temporarily move every remaining chapter to a negative number. This
+      // keeps the unique book/number index conflict-free while compacting gaps.
+      db.prepare(
+        `UPDATE chapters
+         SET chapter_number = -ABS(chapter_number)
+         WHERE book_id = ?`
+      ).bind(chapter.book_id),
+      db.prepare(
+        `WITH ranked AS (
+           SELECT
+             id,
+             ABS(chapter_number) AS previous_number,
+             ROW_NUMBER() OVER (
+               ORDER BY chapter_number DESC, created_at ASC, id ASC
+             ) AS next_number
+           FROM chapters
+           WHERE book_id = ?
+         )
+         UPDATE chapters
+         SET
+           title = CASE
+             WHEN trim(title) = 'Глава ' || (
+               SELECT previous_number FROM ranked WHERE ranked.id = chapters.id
+             )
+             THEN 'Глава ' || (
+               SELECT next_number FROM ranked WHERE ranked.id = chapters.id
+             )
+             WHEN substr(
+               trim(title),
+               1,
+               length('Глава ' || (
+                 SELECT previous_number FROM ranked WHERE ranked.id = chapters.id
+               ))
+             ) = 'Глава ' || (
+               SELECT previous_number FROM ranked WHERE ranked.id = chapters.id
+             )
+             AND substr(
+               trim(title),
+               length('Глава ' || (
+                 SELECT previous_number FROM ranked WHERE ranked.id = chapters.id
+               )) + 1,
+               1
+             ) IN ('.', ':', '-', '–', '—', ' ')
+             THEN 'Глава ' || (
+               SELECT next_number FROM ranked WHERE ranked.id = chapters.id
+             ) || substr(
+               trim(title),
+               length('Глава ' || (
+                 SELECT previous_number FROM ranked WHERE ranked.id = chapters.id
+               )) + 1
+             )
+             ELSE title
+           END,
+           chapter_number = (
+             SELECT next_number FROM ranked WHERE ranked.id = chapters.id
+           ),
+           updated_at = ?
+         WHERE book_id = ?`
+      ).bind(chapter.book_id, now, chapter.book_id),
+      db.prepare(`UPDATE books SET updated_at = ? WHERE id = ?`).bind(now, chapter.book_id),
+    ]);
+    return Response.json({ ok: true, bookId: chapter.book_id });
   } catch (error) {
     return Response.json({ error: error.message || 'Не удалось удалить главу.' }, { status: 500 });
   }

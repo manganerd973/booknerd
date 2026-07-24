@@ -18,6 +18,7 @@ import {
   Pilcrow,
   Quote,
   Search,
+  Smartphone,
   Underline,
   X,
 } from 'lucide-react';
@@ -326,6 +327,7 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
     <div className="admin-rich-editor">
       <div className="admin-rich-toolbar" aria-label="Оформление текста">
         <div>{toolbarButton('Жирный текст', <Bold size={17} />, () => command('bold'))}{toolbarButton('Курсив', <Italic size={17} />, () => command('italic'))}{toolbarButton('Подчёркивание', <Underline size={17} />, () => command('underline'))}</div>
+        <div>{toolbarButton('Шрифт для переписки из телефона', <><Smartphone size={16} /><span>Переписка</span></>, () => command('fontName', 'Arial'))}</div>
         <div>{toolbarButton('По левому краю', <AlignLeft size={17} />, () => command('justifyLeft'))}{toolbarButton('По центру', <AlignCenter size={17} />, () => command('justifyCenter'))}{toolbarButton('По правому краю', <AlignRight size={17} />, () => command('justifyRight'))}{toolbarButton('По ширине', <AlignJustify size={17} />, () => command('justifyFull'))}</div>
         <div>{toolbarButton('Маркированный список', <List size={17} />, () => command('insertUnorderedList'))}{toolbarButton('Нумерованный список', <ListOrdered size={17} />, () => command('insertOrderedList'))}{toolbarButton('Цитата', <Quote size={17} />, () => command('formatBlock', 'blockquote'))}</div>
         <div>{toolbarButton('Отступ первой строки', <><Pilcrow size={16} /><span>Красная строка</span></>, toggleFirstLine)}{toolbarButton('Уменьшить отступ абзаца', <IndentDecrease size={17} />, () => changeBlockIndent(-1))}{toolbarButton('Увеличить отступ абзаца', <IndentIncrease size={17} />, () => changeBlockIndent(1))}{toolbarButton('Очистить оформление', <Eraser size={17} />, () => command('removeFormat'))}</div>
@@ -372,7 +374,7 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
           emitChange();
         }}
       />
-      <p className="admin-rich-hint"><strong>Оформление сохраняется:</strong> шрифты, абзацы, красная строка, отступы, жирный текст, курсив, подчёркивание, списки и выравнивание.</p>
+      <p className="admin-rich-hint"><strong>Оформление сохраняется:</strong> шрифты, абзацы, красная строка, отступы, жирный текст, курсив, подчёркивание, списки и выравнивание. Для сообщений выделите переписку и нажмите «Переписка».</p>
     </div>
   );
 });

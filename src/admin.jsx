@@ -530,11 +530,13 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
     if (!chapterForm.id || !window.confirm('Удалить эту главу?')) return;
     try {
       await api(`/api/admin/chapters/${chapterForm.id}`, { method: 'DELETE' });
-      setChapters((current) => current.filter((chapter) => chapter.id !== chapterForm.id));
-      const chapterNumber = Math.max(1, chapters.length);
+      const refreshed = await api(`/api/admin/books/${bookForm.id}/chapters`);
+      const refreshedChapters = refreshed.chapters || [];
+      setChapters(refreshedChapters);
+      const chapterNumber = refreshedChapters.length + 1;
       setChapterForm({ ...blankChapter, chapterNumber, title: defaultChapterTitle(chapterNumber) });
       setFootnoteDraft(null);
-      flash('Глава удалена.');
+      flash('Глава удалена. Номера остальных глав обновлены автоматически.');
       await loadBooks();
     } catch (error) {
       flash(error.message, 'error');
@@ -702,15 +704,44 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
             </div>
 
             {currentUser.role === 'owner' ? (
-              <section className="admin-audience">
-                <div><span>ЖИВАЯ СТАТИСТИКА</span><h2>Читатели BOOKNERD</h2><p>Количество читателей обновляется примерно раз в 30 секунд.</p></div>
-                <div className="admin-audience-grid">
-                  <article><Wifi size={23} /><strong>{audience?.onlineReaders ?? '—'}</strong><p>сейчас читают</p></article>
-                  <article><Smartphone size={23} /><strong>{audience?.installs ?? '—'}</strong><p>установили на телефон</p></article>
-                  <article><Bell size={23} /><strong>{audience?.notificationSubscribers ?? '—'}</strong><p>включили уведомления</p><small>уникальные читатели</small></article>
-                  <article><Send size={23} /><strong>{audience?.telegramVisitors ?? '—'}</strong><p>перешли в Telegram</p><small>{audience ? `${audience.telegramClicks} переходов всего` : 'считаем переходы по ссылке'}</small></article>
-                </div>
-              </section>
+              <>
+                <section className="admin-audience">
+                  <div><span>ЖИВАЯ СТАТИСТИКА</span><h2>Читатели BOOKNERD</h2><p>Количество читателей обновляется примерно раз в 30 секунд.</p></div>
+                  <div className="admin-audience-grid">
+                    <article><Wifi size={23} /><strong>{audience?.onlineReaders ?? '—'}</strong><p>сейчас читают</p></article>
+                    <article><Smartphone size={23} /><strong>{audience?.installs ?? '—'}</strong><p>установили на телефон</p></article>
+                    <article><Bell size={23} /><strong>{audience?.notificationSubscribers ?? '—'}</strong><p>включили уведомления</p><small>уникальные читатели</small></article>
+                    <article><Send size={23} /><strong>{audience?.telegramVisitors ?? '—'}</strong><p>перешли в Telegram</p><small>{audience ? `${audience.telegramClicks} переходов всего` : 'считаем переходы по ссылке'}</small></article>
+                  </div>
+                </section>
+
+                <section className="admin-library-insights">
+                  <div className="admin-library-insights-head">
+                    <div><span>МОЯ БИБЛИОТЕКА</span><h2>Какие книги выбирают читатели</h2><p>{audience ? `${audience.library?.readers || 0} читателей · ${audience.library?.entries || 0} добавлений книг` : 'Собираем статистику библиотек…'}</p></div>
+                    <div className="admin-library-summary">
+                      <article><strong>{audience?.library?.saved ?? '—'}</strong><small>в планах</small></article>
+                      <article><strong>{audience?.library?.reading ?? '—'}</strong><small>читают</small></article>
+                      <article><strong>{audience?.library?.finished ?? '—'}</strong><small>прочитали</small></article>
+                    </div>
+                  </div>
+                  <div className="admin-library-table-wrap">
+                    <table className="admin-library-table">
+                      <thead><tr><th>Книга</th><th>Всего</th><th>В планах</th><th>Читают</th><th>Прочитали</th></tr></thead>
+                      <tbody>
+                        {(audience?.library?.books || []).length ? audience.library.books.map((book) => (
+                          <tr key={book.id}>
+                            <td><strong>{book.title}</strong><small>{book.author}</small></td>
+                            <td>{book.total}</td>
+                            <td>{book.saved}</td>
+                            <td><b>{book.reading}</b></td>
+                            <td>{book.finished}</td>
+                          </tr>
+                        )) : <tr><td colSpan="5" className="admin-library-empty">Пока ни одну книгу не добавили в личную библиотеку.</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              </>
             ) : null}
 
             <div className="admin-list-head">

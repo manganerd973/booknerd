@@ -97,9 +97,6 @@ export function ReaderSticker({ stickerId, size = 42, title, className = '' }) {
   if (!sticker) return null;
   const columns = sticker.columns || 5;
   const rows = sticker.rows || 8;
-  const cellAspectRatio = sticker.sheet === 'doodles'
-    ? (735 / columns) / (762 / rows)
-    : 1;
   const x = sticker.column * (100 / Math.max(1, columns - 1));
   const y = sticker.row * (100 / Math.max(1, rows - 1));
   const sheetStyle = sticker.sheet === 'doodles'
@@ -111,10 +108,9 @@ export function ReaderSticker({ stickerId, size = 42, title, className = '' }) {
       role="img"
       aria-label={title || sticker.name}
       title={title || sticker.name}
-      data-sticker-sheet={sticker.sheet || 'roundies'}
       style={{
         width: size,
-        height: Math.round(size / cellAspectRatio),
+        height: size,
         backgroundPosition: `${x}% ${y}%`,
         backgroundSize: `${columns * 100}% ${rows * 100}%`,
         ...sheetStyle,
@@ -124,57 +120,21 @@ export function ReaderSticker({ stickerId, size = 42, title, className = '' }) {
 }
 
 export function StickerPicker({ value = '', onSelect }) {
-  const selectedSticker = stickerById(value);
-  const [group, setGroup] = useState(() => (
-    selectedSticker?.sheet === 'doodles' ? 'doodles' : 'roundies'
-  ));
-  const visibleStickers = READER_STICKERS.filter((sticker) => (
-    group === 'doodles' ? sticker.sheet === 'doodles' : sticker.sheet !== 'doodles'
-  ));
-
   return (
-    <div className="reader-sticker-browser">
-      <div className="reader-sticker-tabs" role="tablist" aria-label="Наборы стикеров">
+    <div className="reader-sticker-picker" role="list" aria-label="Стикеры эмоций">
+      {READER_STICKERS.map((sticker) => (
         <button
           type="button"
-          className={group === 'roundies' ? 'is-active' : ''}
-          onClick={() => setGroup('roundies')}
-          role="tab"
-          aria-selected={group === 'roundies'}
+          className={value === sticker.id ? 'is-active' : ''}
+          onClick={() => onSelect(sticker.id)}
+          aria-label={sticker.name}
+          title={sticker.name}
+          key={sticker.id}
         >
-          Милые эмоции
-          <small>40</small>
+          <ReaderSticker stickerId={sticker.id} size={54} />
+          {value === sticker.id ? <Check size={15} /> : null}
         </button>
-        <button
-          type="button"
-          className={group === 'doodles' ? 'is-active' : ''}
-          onClick={() => setGroup('doodles')}
-          role="tab"
-          aria-selected={group === 'doodles'}
-        >
-          Яркие лица
-          <small>20</small>
-        </button>
-      </div>
-      <p className="reader-sticker-hint">Нажмите на эмоцию — стикер добавится к выделенному отрывку.</p>
-      <div className="reader-sticker-picker" role="listbox" aria-label="Стикеры эмоций">
-        {visibleStickers.map((sticker) => (
-          <button
-            type="button"
-            className={value === sticker.id ? 'is-active' : ''}
-            onClick={() => onSelect(sticker.id)}
-            aria-label={sticker.name}
-            aria-selected={value === sticker.id}
-            role="option"
-            title={sticker.name}
-            key={sticker.id}
-          >
-            <ReaderSticker stickerId={sticker.id} size={64} />
-            <span className="reader-sticker-name">{sticker.name}</span>
-            {value === sticker.id ? <Check size={15} /> : null}
-          </button>
-        ))}
-      </div>
+      ))}
     </div>
   );
 }
