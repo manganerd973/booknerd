@@ -126,15 +126,17 @@ function ChapterFlow({
       <div className="reader-flow-copy">
         {blocks.map((block, index) => {
           const text = block.runs.map((run) => run.text).join('');
-          const element = block.type === 'heading' ? 'h2' : block.type === 'subheading' ? 'h3' : block.type === 'blockquote' ? 'blockquote' : 'p';
+          const element = block.chatSide ? 'p' : block.type === 'heading' ? 'h2' : block.type === 'subheading' ? 'h3' : block.type === 'blockquote' ? 'blockquote' : 'p';
           const listMarker = block.type === 'list-item' ? block.listType === 'number' ? `${block.listIndex || index + 1}.` : '•' : '';
           return <AnnotatedParagraph
             text={text}
             runs={block.runs}
             as={element}
-            className={`reader-rich-block reader-rich-${block.type}`}
+            className={`reader-rich-block reader-rich-${block.type}${block.chatSide ? ` reader-chat-message is-${block.chatSide}` : ''}`}
             style={{ textAlign: block.align || undefined, textIndent: block.textIndent || undefined, marginLeft: block.marginLeft || undefined }}
             listMarker={listMarker}
+            chatSender={block.chatSender}
+            chatSide={block.chatSide}
             paragraphIndex={index}
             chapterId={chapter.id}
             annotations={annotations.filter((annotation) => Number(annotation.paragraphIndex) === index)}

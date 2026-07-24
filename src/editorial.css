@@ -424,7 +424,12 @@
 .reader-flow-copy { -webkit-user-select: text; user-select: text; }
 .reader-flow-copy .reader-rich-block { orphans: 3; widows: 3; white-space: pre-line; }
 .reader-flow-copy p.reader-rich-block { margin-top: 0; margin-bottom: .55em; }
-.reader-flow-copy .reader-rich-paragraph:first-child::first-letter { float: left; margin: .1em .12em 0 0; color: var(--reader-accent); font-family: Georgia, serif; font-size: 4.25em; font-weight: 600; line-height: .68; }
+.reader-flow-copy .reader-rich-paragraph:first-child:not(.reader-chat-message)::first-letter { float: left; margin: .1em .12em 0 0; color: var(--reader-accent); font-family: Georgia, serif; font-size: 4.25em; font-weight: 600; line-height: .68; }
+.reader-flow-copy .reader-chat-message { position: relative; width: fit-content; max-width: min(78%, 560px); min-width: 120px; break-inside: avoid; margin-top: .42em; margin-bottom: .42em; padding: 1.55em 1em .72em; border: 1px solid color-mix(in srgb, var(--reader-border) 72%, transparent); border-radius: 1.15em 1.15em 1.15em .32em; color: var(--reader-ink); background: color-mix(in srgb, var(--reader-control) 90%, var(--reader-accent) 10%); box-shadow: 0 .2em .7em var(--reader-shadow); font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", Arial, sans-serif; font-size: .91em; font-variant-emoji: emoji; line-height: 1.48; text-indent: 0 !important; white-space: pre-wrap; }
+.reader-flow-copy .reader-chat-message::before { position: absolute; top: .62em; left: 1.05em; overflow: hidden; max-width: calc(100% - 2.1em); color: var(--reader-accent); content: attr(data-chat-sender); font-size: .58em; font-weight: 850; letter-spacing: .015em; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
+.reader-flow-copy .reader-chat-message.is-incoming { margin-right: auto; margin-left: 0 !important; }
+.reader-flow-copy .reader-chat-message.is-outgoing { margin-right: 0; margin-left: auto !important; border-color: color-mix(in srgb, var(--reader-accent) 48%, var(--reader-border)); border-radius: 1.15em 1.15em .32em; color: #fffdf1; background: color-mix(in srgb, var(--reader-accent) 78%, #123c35 22%); }
+.reader-flow-copy .reader-chat-message.is-outgoing::before { right: 1.05em; left: auto; color: rgba(255,253,241,.78); text-align: right; }
 .reader-flow-copy h2.reader-rich-block,
 .reader-flow-copy h3.reader-rich-block { break-after: avoid; color: var(--reader-ink); font-family: var(--reader-font-family); font-weight: 700; line-height: 1.25; }
 .reader-flow-copy h2.reader-rich-block { margin: 1.35em 0 .65em; font-size: 1.55em; }
@@ -586,11 +591,18 @@
 .reader-selection-back { min-height: 38px; padding: 0 13px; border: 0; border-radius: 999px; color: #173e38; background: rgba(18,60,53,.08); font: inherit; font-size: 10px; font-weight: 850; cursor: pointer; }
 .reader-selection-stickers { padding: 8px 46px 13px 12px; }
 .reader-selection-stickers > .reader-selection-back { margin-bottom: 8px; }
-.reader-sticker-picker { display: grid; max-height: 252px; grid-template-columns: repeat(8,1fr); gap: 7px; overflow: auto; padding: 4px; scrollbar-width: thin; }
-.reader-sticker-picker > button { position: relative; display: grid; min-width: 0; aspect-ratio: 1; place-items: center; overflow: hidden; border: 1px solid rgba(18,60,53,.12); border-radius: 16px; background: #fff; cursor: pointer; }
+.reader-sticker-browser { display: grid; gap: 8px; }
+.reader-sticker-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.reader-sticker-tabs > button { display: flex; min-height: 40px; align-items: center; justify-content: center; gap: 7px; padding: 7px 10px; border: 1px solid rgba(18,60,53,.12); border-radius: 13px; color: rgba(23,62,56,.66); background: #f5f7f6; font: inherit; font-size: 10px; font-weight: 850; cursor: pointer; }
+.reader-sticker-tabs > button small { display: grid; min-width: 20px; height: 20px; place-items: center; border-radius: 999px; color: #173e38; background: rgba(18,60,53,.08); font-size: 8px; }
+.reader-sticker-tabs > button.is-active { border-color: #55a98c; color: #173e38; background: #eff9f4; box-shadow: inset 0 0 0 1px rgba(85,169,140,.18); }
+.reader-sticker-hint { margin: 0; color: rgba(23,62,56,.58); font-size: 9px; line-height: 1.35; text-align: center; }
+.reader-sticker-picker { display: grid; max-height: 270px; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 8px; overflow: auto; padding: 4px; scrollbar-width: thin; }
+.reader-sticker-picker > button { position: relative; display: flex; min-width: 0; min-height: 98px; align-items: center; justify-content: center; flex-direction: column; gap: 5px; overflow: hidden; padding: 7px 4px 6px; border: 1px solid rgba(18,60,53,.12); border-radius: 16px; color: #173e38; background: #fff; font: inherit; cursor: pointer; }
 .reader-sticker-picker > button:hover,
 .reader-sticker-picker > button.is-active { border-color: #55a98c; background: #eff9f4; box-shadow: 0 0 0 2px rgba(85,169,140,.2); }
 .reader-sticker-picker > button > svg { position: absolute; top: 4px; right: 4px; display: grid; width: 18px; height: 18px; padding: 3px; border-radius: 50%; color: #fff; background: #123c35; }
+.reader-sticker-name { display: -webkit-box; min-height: 21px; overflow: hidden; color: rgba(23,62,56,.72); font-size: 8px; font-weight: 800; line-height: 1.25; text-align: center; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 
 .reader-annotation-intro { margin: 0 0 18px; color: var(--reader-soft-ink); font-family: Georgia, serif; font-size: 14px; line-height: 1.55; }
 .reader-annotation-empty { display: grid; min-height: 230px; place-items: center; align-content: center; gap: 9px; padding: 30px; border: 1px dashed var(--reader-border); border-radius: 22px; color: var(--reader-soft-ink); text-align: center; }
@@ -708,9 +720,13 @@
   .reader-selection-colors { min-height: 61px; justify-content: flex-start; gap: 9px; overflow-x: auto; padding-right: 45px; }
   .reader-selection-colors > button:not(.reader-selection-back) { width: 30px; height: 30px; }
   .reader-selection-stickers { max-height: 58dvh; overflow: auto; padding-right: 44px; }
-  .reader-sticker-picker { max-height: 45dvh; grid-template-columns: repeat(5,1fr); }
-  .reader-sticker-picker > button { border-radius: 14px; }
-  .reader-sticker-picker .reader-sticker-art { width: 48px !important; height: 48px !important; }
+  .reader-sticker-tabs > button { min-height: 42px; font-size: 9px; }
+  .reader-sticker-hint { padding: 0 8px; }
+  .reader-sticker-picker { max-height: 43dvh; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; }
+  .reader-sticker-picker > button { min-height: 104px; border-radius: 15px; }
+  .reader-sticker-picker .reader-sticker-art { width: 64px !important; height: 64px !important; }
+  .reader-sticker-picker .reader-sticker-art[data-sticker-sheet='doodles'] { height: 53px !important; margin: 5px 0 6px; }
+  .reader-sticker-name { min-height: 23px; font-size: 9px; }
   .reader-inline-sticker { width: 38px !important; height: 38px !important; }
   .reader-annotation-list > button,
   .reader-annotation-list > a { min-height: 88px; grid-template-columns: 48px minmax(0,1fr) auto; gap: 11px; padding: 11px 12px; }

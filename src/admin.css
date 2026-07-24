@@ -354,6 +354,41 @@
 .admin-rich-toolbar button { display: inline-flex; min-width: 33px; height: 33px; align-items: center; justify-content: center; gap: 5px; padding: 0 8px; border: 1px solid transparent; color: var(--admin-ink); background: transparent; cursor: pointer; }
 .admin-rich-toolbar button span { font-size: 8px; font-weight: 900; text-transform: uppercase; }
 .admin-rich-toolbar button:hover { border-color: var(--admin-line); background: var(--admin-yellow); }
+.admin-chat-composer { display: grid; gap: 13px; padding: 15px; border-bottom: 1px solid var(--admin-line); background: linear-gradient(135deg, rgba(91,159,232,.1), rgba(85,169,140,.1)); }
+.admin-chat-composer-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.admin-chat-composer-head > div { display: grid; gap: 3px; }
+.admin-chat-composer-head strong { font-family: Georgia, serif; font-size: 18px; font-weight: 500; }
+.admin-chat-composer-head small { color: var(--admin-ink-soft); font-size: 9px; line-height: 1.4; }
+.admin-chat-composer-head > button { display: grid; width: 31px; height: 31px; flex: 0 0 auto; place-items: center; border: 1px solid var(--admin-line); color: var(--admin-ink); background: #fffef8; cursor: pointer; }
+.admin-chat-composer > label { display: grid; gap: 6px; }
+.admin-chat-composer > label > span { font-size: 9px; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; }
+.admin-chat-composer > label input { width: 100%; padding: 10px 12px; border: 1px solid var(--admin-line); color: var(--admin-ink); background: #fff; font: inherit; font-size: 13px; outline: 0; }
+.admin-chat-composer > label input:focus { border-color: var(--admin-mint); box-shadow: 0 0 0 2px rgba(85,169,140,.14); }
+.admin-chat-side-picker { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.admin-chat-side-picker > button { display: grid; min-height: 75px; align-content: center; gap: 5px; padding: 9px; border: 1px solid var(--admin-line); color: var(--admin-ink); background: #fffef8; font: inherit; cursor: pointer; }
+.admin-chat-side-picker > button.is-active { border-color: var(--admin-mint); box-shadow: inset 0 0 0 1px var(--admin-mint); background: #f2fbf7; }
+.admin-chat-side-picker small { color: var(--admin-ink-soft); font-size: 8px; }
+.admin-chat-side-preview { display: block; width: min(150px, 78%); padding: 8px 11px; border-radius: 15px 15px 15px 4px; background: #edf0ee; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 11px; font-weight: 800; text-align: left; }
+.admin-chat-side-preview.is-outgoing { justify-self: end; border-radius: 15px 15px 4px; color: #fff; background: #287b69; text-align: right; }
+.admin-chat-emoji { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--admin-line); background: rgba(255,254,248,.82); }
+.admin-chat-emoji > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.admin-chat-emoji > header > div { display: grid; gap: 3px; }
+.admin-chat-emoji > header strong { font-family: Georgia, serif; font-size: 15px; font-weight: 500; }
+.admin-chat-emoji > header small,
+.admin-chat-emoji-browser > small { color: var(--admin-ink-soft); font-size: 8px; line-height: 1.45; }
+.admin-chat-emoji > header > button { display: inline-flex; min-height: 35px; align-items: center; justify-content: center; gap: 7px; padding: 0 11px; border: 1px solid var(--admin-line); color: var(--admin-ink); background: #fff; font: inherit; font-size: 9px; font-weight: 850; cursor: pointer; }
+.admin-chat-emoji > header > button:hover { background: var(--admin-yellow); }
+.admin-chat-emoji-browser { display: grid; gap: 9px; }
+.admin-chat-emoji-browser nav { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 5px; }
+.admin-chat-emoji-browser nav button { display: inline-flex; min-height: 37px; align-items: center; justify-content: center; gap: 5px; padding: 5px; border: 1px solid var(--admin-line); color: var(--admin-ink); background: #fff; font: inherit; font-size: 8px; font-weight: 850; cursor: pointer; }
+.admin-chat-emoji-browser nav button span { font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; font-size: 16px; font-variant-emoji: emoji; }
+.admin-chat-emoji-browser nav button.is-active { border-color: var(--admin-mint); box-shadow: inset 0 0 0 1px var(--admin-mint); background: #f2fbf7; }
+.admin-chat-emoji-grid { display: grid; max-height: 210px; grid-template-columns: repeat(10, minmax(0,1fr)); gap: 5px; overflow: auto; padding: 5px; border: 1px solid var(--admin-line); background: #fff; scrollbar-width: thin; }
+.admin-chat-emoji-grid button { display: grid; aspect-ratio: 1; min-width: 0; place-items: center; padding: 0; border: 1px solid transparent; border-radius: 8px; background: transparent; font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; font-size: clamp(20px, 2.2vw, 28px); font-variant-emoji: emoji; line-height: 1; cursor: pointer; }
+.admin-chat-emoji-grid button:hover,
+.admin-chat-emoji-grid button:focus-visible { border-color: var(--admin-line); outline: 0; background: rgba(255,212,59,.22); transform: scale(1.08); }
+.admin-chat-composer-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.admin-chat-composer-actions .admin-primary:disabled { cursor: not-allowed; opacity: .45; }
 .admin-rich-search { display: grid; grid-template-columns: minmax(160px, 1fr) auto auto; align-items: center; gap: 7px; padding: 8px 10px; border-bottom: 1px solid var(--admin-line); background: #fffef8; }
 .admin-rich-search label { display: flex; min-width: 0; align-items: center; gap: 8px; }
 .admin-rich-search label > svg { flex: 0 0 auto; color: var(--admin-mint); }
@@ -368,6 +403,11 @@
 .admin-rich-content:focus { box-shadow: inset 0 0 0 2px rgba(85,169,140,.35); }
 .admin-rich-content:empty::before { color: rgba(18,60,53,.38); content: attr(data-placeholder); pointer-events: none; }
 .admin-rich-content p { margin: 0 0 .55em; }
+.admin-rich-content .admin-chat-message { position: relative; width: fit-content; max-width: 78%; min-width: 120px; margin-top: .45em; margin-bottom: .45em; padding: 25px 15px 11px; border: 1px solid rgba(18,60,53,.08); border-radius: 19px 19px 19px 5px; color: #173e38; background: #edf1ef; box-shadow: 0 4px 13px rgba(18,60,53,.08); font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", Arial, sans-serif; font-size: .94em; font-variant-emoji: emoji; line-height: 1.45; text-indent: 0 !important; white-space: pre-wrap; }
+.admin-rich-content .admin-chat-message::before { position: absolute; top: 7px; left: 15px; overflow: hidden; max-width: calc(100% - 30px); color: #498076; content: attr(data-chat-sender); font-size: 9px; font-weight: 850; letter-spacing: .01em; text-overflow: ellipsis; white-space: nowrap; }
+.admin-rich-content .admin-chat-message.is-incoming { margin-right: auto; margin-left: 0; }
+.admin-rich-content .admin-chat-message.is-outgoing { margin-right: 0; margin-left: auto; border-color: rgba(25,92,77,.35); border-radius: 19px 19px 5px; color: #fff; background: #287b69; }
+.admin-rich-content .admin-chat-message.is-outgoing::before { right: 15px; left: auto; color: #cceee5; text-align: right; }
 .admin-rich-content h2 { margin: 1.2em 0 .55em; font-size: 1.55em; }
 .admin-rich-content h3 { margin: 1.1em 0 .5em; font-size: 1.25em; }
 .admin-rich-content blockquote { margin: 1em 0; padding-left: 1.2em; border-left: 4px solid var(--admin-mint); color: var(--admin-ink-soft); }
@@ -542,6 +582,15 @@
   .admin-rich-content { min-height: 360px; max-height: 620px; padding: 18px; font-size: 16px; }
   .admin-rich-toolbar { overflow-x: auto; flex-wrap: nowrap; }
   .admin-rich-toolbar > div { flex: 0 0 auto; }
+  .admin-chat-composer { padding: 13px; }
+  .admin-chat-side-picker { grid-template-columns: 1fr; }
+  .admin-chat-emoji > header { align-items: stretch; flex-direction: column; }
+  .admin-chat-emoji > header > button { width: 100%; }
+  .admin-chat-emoji-browser nav { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .admin-chat-emoji-grid { max-height: 260px; grid-template-columns: repeat(6, minmax(0,1fr)); }
+  .admin-chat-emoji-grid button { font-size: 25px; }
+  .admin-chat-composer-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .admin-chat-composer-actions > button { width: 100%; }
   .admin-rich-search { grid-template-columns: minmax(0,1fr) auto; }
   .admin-rich-search > span { grid-column: 1 / -1; grid-row: 2; min-width: 0; text-align: left; }
   .admin-footnotes-panel > header { align-items: stretch; flex-direction: column; }

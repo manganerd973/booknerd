@@ -17,9 +17,12 @@ import {
   ListOrdered,
   Pilcrow,
   Quote,
+  Redo2,
   Search,
+  Smile,
   Smartphone,
   Underline,
+  Undo2,
   X,
 } from 'lucide-react';
 import {
@@ -31,6 +34,32 @@ import {
 
 const BLOCK_TAGS = new Set(['P', 'DIV', 'H1', 'H2', 'H3', 'BLOCKQUOTE', 'LI']);
 const ALLOWED_PASTE_TAGS = new Set(['P', 'DIV', 'BR', 'STRONG', 'B', 'EM', 'I', 'U', 'S', 'STRIKE', 'BLOCKQUOTE', 'UL', 'OL', 'LI', 'H1', 'H2', 'H3', 'SPAN', 'FONT']);
+const CHAT_EMOJI_CATEGORIES = [
+  {
+    id: 'faces',
+    name: 'Эмоции',
+    sample: '😊',
+    emojis: ['😀', '😃', '😄', '😁', '😊', '🥰', '😍', '😘', '☺️', '🥹', '😂', '🤣', '😅', '😌', '😉', '🙃', '😇', '🤭', '🫢', '🫣', '🤫', '🤔', '🫠', '😏', '😒', '🙄', '😬', '😮', '😯', '😲', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬', '😱', '😳', '🫶'],
+  },
+  {
+    id: 'hearts',
+    name: 'Сердца',
+    sample: '🩷',
+    emojis: ['❤️', '🩷', '🧡', '💛', '💚', '🩵', '💙', '💜', '🤎', '🖤', '🩶', '🤍', '♥️', '💘', '💝', '💖', '💗', '💓', '💞', '💕', '💌', '💟', '❣️', '💔', '❤️‍🔥', '❤️‍🩹', '💋', '🌹', '🌷', '✨'],
+  },
+  {
+    id: 'gestures',
+    name: 'Жесты',
+    sample: '🫶',
+    emojis: ['👋', '🤚', '🖐️', '✋', '🖖', '🫱', '🫲', '👌', '🤌', '🤏', '✌️', '🤞', '🫰', '🤟', '🤘', '🤙', '👈', '👉', '👆', '👇', '☝️', '👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '🫶', '🤝', '🙏'],
+  },
+  {
+    id: 'objects',
+    name: 'Разное',
+    sample: '✨',
+    emojis: ['✨', '⭐', '🌙', '☀️', '🔥', '💫', '🌸', '🍃', '🦋', '🐈', '🦉', '☕', '🫖', '🍰', '🍓', '🎀', '🎁', '📚', '📖', '✒️', '📱', '💬', '💭', '🎵', '🎧', '📸', '✅', '❌', '⚠️', '❓', '‼️', '💯'],
+  },
+];
 
 function sameMarks(left, right) {
   return left.bold === right.bold
@@ -91,16 +120,22 @@ function safeCssLength(value) {
 function blockFromElement(element, listType = '', listIndex = 0) {
   const tag = element.tagName;
   const runs = collectRuns(element).filter((run) => run.text);
+  const chatSide = ['incoming', 'outgoing'].includes(element.dataset?.chatSide) ? element.dataset.chatSide : '';
+  const chatSender = chatSide
+    ? String(element.dataset?.chatSender || '').replace(/\s+/g, ' ').trim().slice(0, 80)
+    : '';
   const align = ['left', 'center', 'right', 'justify'].includes(element.style?.textAlign)
     ? element.style.textAlign
     : ['left', 'center', 'right', 'justify'].includes(element.getAttribute('align')) ? element.getAttribute('align') : '';
   return {
-    type: tag === 'LI' ? 'list-item' : ['H1', 'H2'].includes(tag) ? 'heading' : tag === 'H3' ? 'subheading' : tag === 'BLOCKQUOTE' ? 'blockquote' : 'paragraph',
+    type: chatSide ? 'paragraph' : tag === 'LI' ? 'list-item' : ['H1', 'H2'].includes(tag) ? 'heading' : tag === 'H3' ? 'subheading' : tag === 'BLOCKQUOTE' ? 'blockquote' : 'paragraph',
     align,
     textIndent: safeCssLength(element.style?.textIndent),
     marginLeft: safeCssLength(element.style?.marginLeft || element.style?.paddingLeft),
     listType: tag === 'LI' ? listType || 'bullet' : '',
     listIndex: tag === 'LI' && listType === 'number' ? listIndex : 0,
+    chatSide,
+    chatSender,
     runs,
   };
 }
@@ -187,7 +222,13 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
   const editorRef = useRef(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchPosition, setSearchPosition] = useState({ current: 0, total: 0 });
+  const [chatComposerOpen, setChatComposerOpen] = useState(false);
+  const [chatDraft, setChatDraft] = useState({ sender: '', side: 'incoming' });
+  const [chatEmojiOpen, setChatEmojiOpen] = useState(false);
+  const [chatEmojiCategory, setChatEmojiCategory] = useState(CHAT_EMOJI_CATEGORIES[0].id);
   const activeMatchRef = useRef(-1);
+  const savedChatRangeRef = useRef(null);
+  const chatEmojiAppendedRef = useRef(false);
   useImperativeHandle(forwardedRef, () => editorRef.current);
   const initialHtml = useMemo(() => richDocumentToEditorHtml(value, fallbackText), []); // Remounted when another chapter opens.
   useLayoutEffect(() => {
@@ -291,11 +332,118 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
     emitChange();
   };
 
+  const handleEditorShortcut = (event) => {
+    const commandKey = event.ctrlKey || event.metaKey;
+    if (!commandKey || event.altKey) return;
+    const key = event.key.toLowerCase();
+    if (key === 'z') {
+      event.preventDefault();
+      command(event.shiftKey ? 'redo' : 'undo');
+    } else if (key === 'y') {
+      event.preventDefault();
+      command('redo');
+    }
+  };
+
   const selectedBlock = () => {
     const selection = window.getSelection();
     const anchor = selection?.anchorNode?.nodeType === Node.ELEMENT_NODE ? selection.anchorNode : selection?.anchorNode?.parentElement;
     const block = anchor?.closest?.('p,div,h1,h2,h3,blockquote,li');
     return block && editorRef.current?.contains(block) ? block : null;
+  };
+
+  const blocksForRange = (range) => {
+    const root = editorRef.current;
+    if (!root || !range) return [];
+    const candidates = [...root.querySelectorAll('p,div,h1,h2,h3,blockquote,li')]
+      .filter((element) => {
+        try {
+          return range.intersectsNode(element);
+        } catch {
+          return false;
+        }
+      });
+    const leafBlocks = candidates.filter((element) => !candidates.some((other) => other !== element && element.contains(other)));
+    if (leafBlocks.length) return leafBlocks;
+    const node = range.startContainer.nodeType === Node.ELEMENT_NODE ? range.startContainer : range.startContainer.parentElement;
+    const block = node?.closest?.('p,div,h1,h2,h3,blockquote,li');
+    return block && root.contains(block) ? [block] : [];
+  };
+
+  const restoreChatSelection = () => {
+    const range = savedChatRangeRef.current;
+    if (!range || !editorRef.current?.contains(range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE ? range.commonAncestorContainer : range.commonAncestorContainer.parentElement)) return null;
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    return range;
+  };
+
+  const openChatComposer = () => {
+    editorRef.current?.focus();
+    const selection = window.getSelection();
+    const range = selection?.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
+    const inside = range && editorRef.current?.contains(range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE ? range.commonAncestorContainer : range.commonAncestorContainer.parentElement);
+    savedChatRangeRef.current = inside ? range : null;
+    const block = inside ? blocksForRange(range)[0] : selectedBlock();
+    setChatDraft({
+      sender: block?.dataset?.chatSender || '',
+      side: block?.dataset?.chatSide === 'outgoing' ? 'outgoing' : 'incoming',
+    });
+    setChatEmojiOpen(false);
+    chatEmojiAppendedRef.current = false;
+    setChatComposerOpen(true);
+  };
+
+  const appendChatEmoji = (emoji) => {
+    const range = restoreChatSelection();
+    const blocks = range ? blocksForRange(range) : [selectedBlock()].filter(Boolean);
+    const block = blocks[0];
+    if (!block) return;
+    const currentText = block.textContent || '';
+    const prefix = !chatEmojiAppendedRef.current && currentText && !/\s$/.test(currentText) ? ' ' : '';
+    block.appendChild(document.createTextNode(`${prefix}${emoji}`));
+    const nextRange = document.createRange();
+    nextRange.selectNodeContents(block);
+    nextRange.collapse(false);
+    savedChatRangeRef.current = nextRange.cloneRange();
+    chatEmojiAppendedRef.current = true;
+    emitChange();
+  };
+
+  const applyChatStyle = () => {
+    const sender = chatDraft.sender.replace(/\s+/g, ' ').trim().slice(0, 80);
+    if (!sender) return;
+    const range = restoreChatSelection();
+    const blocks = range ? blocksForRange(range) : [selectedBlock()].filter(Boolean);
+    blocks.forEach((block) => {
+      block.dataset.chatSide = chatDraft.side;
+      block.dataset.chatSender = sender;
+      block.classList.remove('is-incoming', 'is-outgoing');
+      block.classList.add('admin-chat-message', `is-${chatDraft.side}`);
+      block.style.textIndent = '';
+      block.style.marginLeft = '';
+      block.style.paddingLeft = '';
+      block.style.textAlign = '';
+    });
+    if (!blocks.length) return;
+    setChatComposerOpen(false);
+    emitChange();
+    editorRef.current?.focus();
+  };
+
+  const removeChatStyle = () => {
+    const range = restoreChatSelection();
+    const blocks = range ? blocksForRange(range) : [selectedBlock()].filter(Boolean);
+    blocks.forEach((block) => {
+      delete block.dataset.chatSide;
+      delete block.dataset.chatSender;
+      block.classList.remove('admin-chat-message', 'is-incoming', 'is-outgoing');
+    });
+    if (!blocks.length) return;
+    setChatComposerOpen(false);
+    emitChange();
+    editorRef.current?.focus();
   };
 
   const toggleFirstLine = () => {
@@ -326,12 +474,86 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
   return (
     <div className="admin-rich-editor">
       <div className="admin-rich-toolbar" aria-label="Оформление текста">
+        <div>{toolbarButton('Отменить последнее изменение — Ctrl+Z', <><Undo2 size={16} /><span>Отменить</span></>, () => command('undo'))}{toolbarButton('Вернуть отменённое изменение — Ctrl+Y', <><Redo2 size={16} /><span>Вернуть</span></>, () => command('redo'))}</div>
         <div>{toolbarButton('Жирный текст', <Bold size={17} />, () => command('bold'))}{toolbarButton('Курсив', <Italic size={17} />, () => command('italic'))}{toolbarButton('Подчёркивание', <Underline size={17} />, () => command('underline'))}</div>
-        <div>{toolbarButton('Шрифт для переписки из телефона', <><Smartphone size={16} /><span>Переписка</span></>, () => command('fontName', 'Arial'))}</div>
+        <div>{toolbarButton('Оформить сообщение из переписки', <><Smartphone size={16} /><span>Переписка</span></>, openChatComposer)}</div>
         <div>{toolbarButton('По левому краю', <AlignLeft size={17} />, () => command('justifyLeft'))}{toolbarButton('По центру', <AlignCenter size={17} />, () => command('justifyCenter'))}{toolbarButton('По правому краю', <AlignRight size={17} />, () => command('justifyRight'))}{toolbarButton('По ширине', <AlignJustify size={17} />, () => command('justifyFull'))}</div>
         <div>{toolbarButton('Маркированный список', <List size={17} />, () => command('insertUnorderedList'))}{toolbarButton('Нумерованный список', <ListOrdered size={17} />, () => command('insertOrderedList'))}{toolbarButton('Цитата', <Quote size={17} />, () => command('formatBlock', 'blockquote'))}</div>
         <div>{toolbarButton('Отступ первой строки', <><Pilcrow size={16} /><span>Красная строка</span></>, toggleFirstLine)}{toolbarButton('Уменьшить отступ абзаца', <IndentDecrease size={17} />, () => changeBlockIndent(-1))}{toolbarButton('Увеличить отступ абзаца', <IndentIncrease size={17} />, () => changeBlockIndent(1))}{toolbarButton('Очистить оформление', <Eraser size={17} />, () => command('removeFormat'))}</div>
       </div>
+      {chatComposerOpen ? (
+        <div className="admin-chat-composer" role="dialog" aria-label="Оформление сообщения">
+          <div className="admin-chat-composer-head">
+            <div>
+              <strong>Сообщение в переписке</strong>
+              <small>Выделяйте по одному сообщению, чтобы имя и сторона были правильными.</small>
+            </div>
+            <button type="button" onClick={() => setChatComposerOpen(false)} aria-label="Закрыть оформление переписки"><X size={17} /></button>
+          </div>
+          <label>
+            <span>Имя отправителя</span>
+            <input
+              value={chatDraft.sender}
+              onChange={(event) => setChatDraft((current) => ({ ...current, sender: event.target.value }))}
+              placeholder="Например, Ализэ"
+              maxLength={80}
+              autoFocus
+            />
+          </label>
+          <div className="admin-chat-side-picker" role="radiogroup" aria-label="Расположение сообщения">
+            <button type="button" className={chatDraft.side === 'incoming' ? 'is-active' : ''} onClick={() => setChatDraft((current) => ({ ...current, side: 'incoming' }))} role="radio" aria-checked={chatDraft.side === 'incoming'}>
+              <span className="admin-chat-side-preview is-incoming">Слева</span>
+              <small>сообщение собеседника</small>
+            </button>
+            <button type="button" className={chatDraft.side === 'outgoing' ? 'is-active' : ''} onClick={() => setChatDraft((current) => ({ ...current, side: 'outgoing' }))} role="radio" aria-checked={chatDraft.side === 'outgoing'}>
+              <span className="admin-chat-side-preview is-outgoing">Справа</span>
+              <small>ответ второго героя</small>
+            </button>
+          </div>
+          <section className="admin-chat-emoji">
+            <header>
+              <div>
+                <strong>Эмодзи для сообщения</strong>
+                <small>На iPhone отображаются в оригинальном стиле Apple.</small>
+              </div>
+              <button type="button" onClick={() => setChatEmojiOpen((current) => !current)} aria-expanded={chatEmojiOpen}>
+                <Smile size={17} />
+                {chatEmojiOpen ? 'Скрыть' : 'Добавить эмодзи'}
+              </button>
+            </header>
+            {chatEmojiOpen ? (
+              <div className="admin-chat-emoji-browser">
+                <nav aria-label="Категории эмодзи">
+                  {CHAT_EMOJI_CATEGORIES.map((category) => (
+                    <button
+                      type="button"
+                      className={chatEmojiCategory === category.id ? 'is-active' : ''}
+                      onClick={() => setChatEmojiCategory(category.id)}
+                      aria-pressed={chatEmojiCategory === category.id}
+                      key={category.id}
+                    >
+                      <span>{category.sample}</span>
+                      {category.name}
+                    </button>
+                  ))}
+                </nav>
+                <div className="admin-chat-emoji-grid" aria-label="Выберите эмодзи">
+                  {(CHAT_EMOJI_CATEGORIES.find((category) => category.id === chatEmojiCategory) || CHAT_EMOJI_CATEGORIES[0]).emojis.map((emoji) => (
+                    <button type="button" onClick={() => appendChatEmoji(emoji)} title={`Добавить ${emoji}`} aria-label={`Добавить эмодзи ${emoji}`} key={emoji}>
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+                <small>Эмодзи добавится в конец выделенного сообщения. При необходимости его можно переставить в тексте.</small>
+              </div>
+            ) : null}
+          </section>
+          <div className="admin-chat-composer-actions">
+            <button type="button" className="admin-secondary" onClick={removeChatStyle}>Убрать пузырёк</button>
+            <button type="button" className="admin-primary" onClick={applyChatStyle} disabled={!chatDraft.sender.trim()}>Применить</button>
+          </div>
+        </div>
+      ) : null}
       <div className="admin-rich-search" role="search">
         <label>
           <Search size={17} />
@@ -366,6 +588,7 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
         onBlur={emitChange}
         onMouseUp={reportSelection}
         onKeyUp={reportSelection}
+        onKeyDown={handleEditorShortcut}
         onPaste={(event) => {
           const html = event.clipboardData.getData('text/html');
           if (!html) return;
@@ -374,7 +597,7 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
           emitChange();
         }}
       />
-      <p className="admin-rich-hint"><strong>Оформление сохраняется:</strong> шрифты, абзацы, красная строка, отступы, жирный текст, курсив, подчёркивание, списки и выравнивание. Для сообщений выделите переписку и нажмите «Переписка».</p>
+      <p className="admin-rich-hint"><strong>Переписка:</strong> выделите одно сообщение, нажмите «Переписка», укажите имя, сторону пузырька и при желании добавьте эмодзи. На iPhone эмодзи отображаются в стиле Apple. <strong>Случайно изменили текст?</strong> Нажмите «Отменить» или Ctrl+Z.</p>
     </div>
   );
 });
