@@ -21,6 +21,9 @@ export default async function BookPage({ params }) {
     listBookArtworks(book.id),
   ]);
   const heatGuide = chapters.filter((chapter) => Number(chapter.heatLevel || 0) > 0);
+  const hasHotScenes = Boolean(book.hasHotScenes || heatGuide.length);
+  const hotSceneChapters = book.hotSceneChapters
+    || heatGuide.map((chapter) => chapter.heatPages || String(chapter.chapterNumber)).filter(Boolean).join(', ');
 
   return (
     <main className="editorial-page">
@@ -106,6 +109,10 @@ export default async function BookPage({ params }) {
           <Flame size={34} />
         </div>
         <p>Это небольшой путеводитель по главам для любителей горячих сцен, а также для тех, кто предпочитает их избегать.</p>
+        <div className="book-heat-summary">
+          <div><span>Горячие сцены</span><strong>{hasHotScenes ? 'Да' : 'Нет'}</strong></div>
+          {hasHotScenes && hotSceneChapters ? <div><span>Главы со сценами</span><strong>{hotSceneChapters}</strong></div> : null}
+        </div>
         {heatGuide.length ? (
           <div className="book-heat-guide-list">
             {heatGuide.map((chapter) => (
@@ -119,7 +126,7 @@ export default async function BookPage({ params }) {
             ))}
           </div>
         ) : (
-          <div className="book-heat-guide-empty"><span>♡</span><p>Для опубликованных глав отметок пока нет.</p></div>
+          !hasHotScenes ? <div className="book-heat-guide-empty"><span>♡</span><p>В книге нет горячих сцен.</p></div> : null
         )}
       </section>
 

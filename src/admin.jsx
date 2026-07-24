@@ -39,6 +39,8 @@ const blankBook = {
   dedication: '',
   triggerWarnings: [],
   triggerWarningsText: '',
+  hasHotScenes: false,
+  hotSceneChapters: '',
   synopsis: '',
   genres: [],
   genresText: '',
@@ -768,6 +770,8 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                   <label className="admin-full-field"><span>Кому посвящена книга</span><textarea value={bookForm.dedication || ''} onChange={(event) => setBookForm({ ...bookForm, dedication: event.target.value })} placeholder="Например: Всем девушкам, которые однажды выбрали себя…" rows={3} /><small>Посвящение появится на главной странице книги.</small></label>
                   <label className="admin-full-field"><span>Предупреждения о триггерах</span><textarea value={bookForm.triggerWarningsText || ''} onChange={(event) => setBookForm({ ...bookForm, triggerWarningsText: event.target.value, triggerWarnings: splitBookTags(event.target.value, 40) })} placeholder="Например: насилие, утрата близкого, панические атаки" rows={3} /><small>Разделяйте предупреждения запятыми. Они появятся только на странице книги.</small></label>
                   <div className="admin-fields two-columns">
+                    <label><span>Горячие сцены</span><select value={bookForm.hasHotScenes ? 'yes' : 'no'} onChange={(event) => setBookForm({ ...bookForm, hasHotScenes: event.target.value === 'yes', hotSceneChapters: event.target.value === 'yes' ? bookForm.hotSceneChapters : '' })}><option value="no">Нет</option><option value="yes">Да</option></select></label>
+                    <label><span>Главы со сценами</span><input value={bookForm.hotSceneChapters || ''} onChange={(event) => setBookForm({ ...bookForm, hotSceneChapters: event.target.value })} placeholder="Например, 12–14" disabled={!bookForm.hasHotScenes} /><small>Будут указаны только на странице книги.</small></label>
                     <label><span>Жанры</span><input value={bookForm.genresText || ''} onChange={(event) => setBookForm({ ...bookForm, genresText: event.target.value })} placeholder="Романтика, Фэнтези, Young Adult" /><small>Разделяйте жанры запятыми.</small></label>
                     <label><span>Тропы</span><input value={bookForm.tropesText || ''} onChange={(event) => setBookForm({ ...bookForm, tropesText: event.target.value })} placeholder="Враги в возлюбленные, найденная семья" /><small>Разделяйте тропы запятыми.</small></label>
                     <label><span>Статус перевода</span><select value={bookForm.status} onChange={(event) => setBookForm({ ...bookForm, status: event.target.value })}><option>Черновик</option><option>Скоро</option><option>В работе</option><option>Новый перевод</option><option>Готово</option><option>На паузе</option></select></label>
@@ -852,8 +856,6 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                       <label className="grow"><span>Название главы</span><input value={chapterForm.title} onChange={(event) => setChapterForm({ ...chapterForm, title: event.target.value })} placeholder={defaultChapterTitle(chapterForm.chapterNumber)} /><small>Заполняется автоматически, но название можно изменить.</small></label>
                       <label className="grow"><span>От лица героя</span><input value={chapterForm.pointOfView || ''} onChange={(event) => setChapterForm({ ...chapterForm, pointOfView: event.target.value })} placeholder="Например, Лейла" /></label>
                       <label><span>Статус</span><select value={chapterForm.status} onChange={(event) => setChapterForm({ ...chapterForm, status: event.target.value })}><option value="draft">Черновик</option><option value="published">Опубликована</option></select></label>
-                      <label><span>Горячие сцены</span><select value={chapterForm.heatLevel || 0} onChange={(event) => setChapterForm({ ...chapterForm, heatLevel: Number(event.target.value) })}><option value="0">Нет</option><option value="1">Намёк · 🔥</option><option value="2">Горячая сцена · 🔥🔥</option><option value="3">Очень горячая · 🔥🔥🔥</option></select></label>
-                      <label><span>Главы со сценами</span><input value={chapterForm.heatPages || ''} onChange={(event) => setChapterForm({ ...chapterForm, heatPages: event.target.value })} placeholder="Например, 12–14" /><small>Будут указаны только на странице книги.</small></label>
                     </div>
                     <div className="admin-chapter-body"><span>Текст главы с оформлением</span><RichChapterEditor key={`${bookForm.id || 'book'}-${chapterForm.id || 'new'}-${chapterForm.chapterNumber}`} ref={chapterBodyRef} value={chapterForm.bodyRich} fallbackText={chapterForm.body} onTextSelect={(text) => { chapterSelectionRef.current = text; }} onChange={({ body, bodyRich }) => setChapterForm((current) => ({ ...current, body, bodyRich }))} /></div>
                     <section className="admin-footnotes-panel">

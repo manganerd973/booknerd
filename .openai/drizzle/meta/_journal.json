@@ -57,6 +57,13 @@
       "when": 1784834922263,
       "tag": "0007_wide_hercules",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1784843146071,
+      "tag": "0008_thick_celestials",
+      "breakpoints": true
     }
   ]
 }

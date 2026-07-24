@@ -10,6 +10,8 @@ export const books = sqliteTable('books', {
   author: text('author').notNull(),
   dedication: text('dedication').notNull().default(''),
   triggerWarnings: text('trigger_warnings').notNull().default('[]'),
+  hasHotScenes: integer('has_hot_scenes', { mode: 'boolean' }).notNull().default(false),
+  hotSceneChapters: text('hot_scene_chapters').notNull().default(''),
   synopsis: text('synopsis').notNull().default(''),
   genres: text('genres').notNull().default('[]'),
   tropes: text('tropes').notNull().default('[]'),
