@@ -17,7 +17,6 @@ import {
   ListOrdered,
   Pilcrow,
   Pin,
-  PinOff,
   Quote,
   Redo2,
   Search,
@@ -62,6 +61,27 @@ const CHAT_EMOJI_CATEGORIES = [
     emojis: ['✨', '⭐', '🌙', '☀️', '🔥', '💫', '🌸', '🍃', '🦋', '🐈', '🦉', '☕', '🫖', '🍰', '🍓', '🎀', '🎁', '📚', '📖', '✒️', '📱', '💬', '💭', '🎵', '🎧', '📸', '✅', '❌', '⚠️', '❓', '‼️', '💯'],
   },
 ];
+const MAX_PINNED_CHAT_SENDERS = 24;
+
+function normalizeChatSenderName(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+}
+
+function normalizePinnedChatSenders(value) {
+  if (!Array.isArray(value)) return [];
+  const names = new Set();
+  return value.reduce((result, item) => {
+    const name = normalizeChatSenderName(typeof item === 'string' ? item : item?.name);
+    const normalizedName = name.toLocaleLowerCase('ru-RU');
+    if (!name || names.has(normalizedName) || result.length >= MAX_PINNED_CHAT_SENDERS) return result;
+    names.add(normalizedName);
+    result.push({
+      name,
+      side: typeof item === 'object' && item?.side === 'outgoing' ? 'outgoing' : 'incoming',
+    });
+    return result;
+  }, []);
+}
 
 function sameMarks(left, right) {
   return left.bold === right.bold
@@ -226,7 +246,7 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
   const [searchPosition, setSearchPosition] = useState({ current: 0, total: 0 });
   const [chatComposerOpen, setChatComposerOpen] = useState(false);
   const [chatDraft, setChatDraft] = useState({ sender: '', side: 'incoming' });
-  const [pinnedChatSender, setPinnedChatSender] = useState('');
+  const [pinnedChatSenders, setPinnedChatSenders] = useState([]);
   const [chatEmojiOpen, setChatEmojiOpen] = useState(false);
   const [chatEmojiCategory, setChatEmojiCategory] = useState(CHAT_EMOJI_CATEGORIES[0].id);
   const activeMatchRef = useRef(-1);
@@ -234,22 +254,39 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
   const chatEmojiAppendedRef = useRef(false);
   useImperativeHandle(forwardedRef, () => editorRef.current);
   const initialHtml = useMemo(() => richDocumentToEditorHtml(value, fallbackText), []); // Remounted when another chapter opens.
-  const chatSenderStorageKey = useMemo(() => {
+  const chatSendersStorageKey = useMemo(() => {
+    const normalizedBookKey = String(bookKey || '').trim();
+    return normalizedBookKey ? `booknerd:chat-senders:${normalizedBookKey}` : '';
+  }, [bookKey]);
+  const legacyChatSenderStorageKey = useMemo(() => {
     const normalizedBookKey = String(bookKey || '').trim();
     return normalizedBookKey ? `booknerd:chat-sender:${normalizedBookKey}` : '';
   }, [bookKey]);
 
   useEffect(() => {
-    let savedSender = '';
-    if (chatSenderStorageKey) {
+    let savedSenders = [];
+    if (chatSendersStorageKey) {
       try {
-        savedSender = String(window.localStorage.getItem(chatSenderStorageKey) || '').slice(0, 80);
+        const stored = window.localStorage.getItem(chatSendersStorageKey);
+        savedSenders = normalizePinnedChatSenders(stored ? JSON.parse(stored) : []);
+        if (!savedSenders.length && legacyChatSenderStorageKey) {
+          const legacyName = normalizeChatSenderName(window.localStorage.getItem(legacyChatSenderStorageKey));
+          if (legacyName) {
+            savedSenders = [{ name: legacyName, side: 'incoming' }];
+            window.localStorage.setItem(chatSendersStorageKey, JSON.stringify(savedSenders));
+            window.localStorage.removeItem(legacyChatSenderStorageKey);
+          }
+        }
       } catch {
-        savedSender = '';
+        savedSenders = [];
       }
     }
-    setPinnedChatSender(savedSender);
-  }, [chatSenderStorageKey]);
+    setPinnedChatSenders(savedSenders);
+    setChatDraft({
+      sender: savedSenders[0]?.name || '',
+      side: savedSenders[0]?.side || 'incoming',
+    });
+  }, [chatSendersStorageKey, legacyChatSenderStorageKey]);
 
   useLayoutEffect(() => {
     if (editorRef.current) editorRef.current.innerHTML = initialHtml;
@@ -406,40 +443,61 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
     const inside = range && editorRef.current?.contains(range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE ? range.commonAncestorContainer : range.commonAncestorContainer.parentElement);
     savedChatRangeRef.current = inside ? range : null;
     const block = inside ? blocksForRange(range)[0] : selectedBlock();
+    const defaultSender = pinnedChatSenders[0];
     setChatDraft({
-      sender: block?.dataset?.chatSender || pinnedChatSender,
-      side: block?.dataset?.chatSide === 'outgoing' ? 'outgoing' : 'incoming',
+      sender: block?.dataset?.chatSender || defaultSender?.name || '',
+      side: block?.dataset?.chatSide === 'outgoing'
+        ? 'outgoing'
+        : block?.dataset?.chatSide === 'incoming'
+          ? 'incoming'
+          : defaultSender?.side || 'incoming',
     });
     setChatEmojiOpen(false);
     chatEmojiAppendedRef.current = false;
     setChatComposerOpen(true);
   };
 
-  const pinChatSender = () => {
-    const sender = chatDraft.sender.replace(/\s+/g, ' ').trim().slice(0, 80);
-    if (!sender || !chatSenderStorageKey) return;
-    try {
-      window.localStorage.setItem(chatSenderStorageKey, sender);
-    } catch {
-      // The name still stays pinned until the editor is closed when browser storage is unavailable.
-    }
-    setPinnedChatSender(sender);
-    setChatDraft((current) => ({ ...current, sender }));
-  };
-
-  const unpinChatSender = () => {
-    if (chatSenderStorageKey) {
+  const persistPinnedChatSenders = (value) => {
+    const nextSenders = normalizePinnedChatSenders(value);
+    if (chatSendersStorageKey) {
       try {
-        window.localStorage.removeItem(chatSenderStorageKey);
+        if (nextSenders.length) window.localStorage.setItem(chatSendersStorageKey, JSON.stringify(nextSenders));
+        else window.localStorage.removeItem(chatSendersStorageKey);
       } catch {
-        // Keep the editor usable even when browser storage is unavailable.
+        // The names still stay available until the editor is closed when browser storage is unavailable.
       }
     }
-    setPinnedChatSender('');
-    setChatDraft((current) => ({
-      ...current,
-      sender: current.sender === pinnedChatSender ? '' : current.sender,
-    }));
+    setPinnedChatSenders(nextSenders);
+    return nextSenders;
+  };
+
+  const selectPinnedChatSender = (sender) => {
+    setChatDraft({ sender: sender.name, side: sender.side });
+  };
+
+  const pinChatSender = () => {
+    const name = normalizeChatSenderName(chatDraft.sender);
+    if (!name || !chatSendersStorageKey) return;
+    const normalizedName = name.toLocaleLowerCase('ru-RU');
+    const existingIndex = pinnedChatSenders.findIndex((sender) => sender.name.toLocaleLowerCase('ru-RU') === normalizedName);
+    const nextSenders = [...pinnedChatSenders];
+    if (existingIndex >= 0) nextSenders[existingIndex] = { name, side: chatDraft.side };
+    else nextSenders.push({ name, side: chatDraft.side });
+    persistPinnedChatSenders(nextSenders);
+    setChatDraft({ sender: name, side: chatDraft.side });
+  };
+
+  const unpinChatSender = (name) => {
+    const normalizedName = normalizeChatSenderName(name).toLocaleLowerCase('ru-RU');
+    const nextSenders = persistPinnedChatSenders(
+      pinnedChatSenders.filter((sender) => sender.name.toLocaleLowerCase('ru-RU') !== normalizedName),
+    );
+    if (normalizeChatSenderName(chatDraft.sender).toLocaleLowerCase('ru-RU') === normalizedName) {
+      setChatDraft({
+        sender: nextSenders[0]?.name || '',
+        side: nextSenders[0]?.side || 'incoming',
+      });
+    }
   };
 
   const appendChatEmoji = (emoji) => {
@@ -459,7 +517,7 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
   };
 
   const applyChatStyle = () => {
-    const sender = chatDraft.sender.replace(/\s+/g, ' ').trim().slice(0, 80);
+    const sender = normalizeChatSenderName(chatDraft.sender);
     if (!sender) return;
     const range = restoreChatSelection();
     const blocks = range ? blocksForRange(range) : [selectedBlock()].filter(Boolean);
@@ -517,6 +575,11 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
   const toolbarButton = (label, icon, action) => (
     <button type="button" title={label} aria-label={label} onMouseDown={(event) => { event.preventDefault(); action(); }}>{icon}</button>
   );
+  const normalizedChatDraftSender = normalizeChatSenderName(chatDraft.sender);
+  const selectedPinnedChatSender = pinnedChatSenders.find(
+    (sender) => sender.name.toLocaleLowerCase('ru-RU') === normalizedChatDraftSender.toLocaleLowerCase('ru-RU'),
+  );
+  const chatSenderAlreadySaved = selectedPinnedChatSender?.side === chatDraft.side;
 
   return (
     <div className="admin-rich-editor">
@@ -547,41 +610,58 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
               autoFocus
             />
           </label>
-          <div className={`admin-chat-pinned-sender ${pinnedChatSender ? 'is-pinned' : ''}`}>
-            <div>
+          <div className={`admin-chat-pinned-senders ${pinnedChatSenders.length ? 'is-pinned' : ''}`}>
+            <header>
               <Pin size={16} />
-              <span>
-                {pinnedChatSender
-                  ? <>Для этой книги закреплено: <strong>{pinnedChatSender}</strong></>
-                  : 'Имя пока не закреплено'}
-              </span>
-            </div>
-            <div>
+              <div>
+                <strong>Герои этой книги</strong>
+                <small>{pinnedChatSenders.length ? `Закреплено имён: ${pinnedChatSenders.length}` : 'Имён пока нет'}</small>
+              </div>
+            </header>
+            {pinnedChatSenders.length ? (
+              <div className="admin-chat-sender-list" aria-label="Закреплённые имена героев">
+                {pinnedChatSenders.map((sender) => {
+                  const isSelected = sender.name.toLocaleLowerCase('ru-RU') === normalizedChatDraftSender.toLocaleLowerCase('ru-RU');
+                  return (
+                    <div className={isSelected ? 'is-selected' : ''} key={sender.name.toLocaleLowerCase('ru-RU')}>
+                      <button type="button" onClick={() => selectPinnedChatSender(sender)} aria-pressed={isSelected}>
+                        <strong>{sender.name}</strong>
+                        <small>{sender.side === 'outgoing' ? 'справа' : 'слева'}</small>
+                      </button>
+                      <button type="button" className="is-unpin" onClick={() => unpinChatSender(sender.name)} aria-label={`Открепить имя ${sender.name}`}>
+                        <X size={14} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p>Введите первое имя, выберите его обычную сторону и закрепите.</p>
+            )}
+            <div className="admin-chat-sender-actions">
               <button
                 type="button"
                 onClick={pinChatSender}
-                disabled={!chatDraft.sender.trim() || !chatSenderStorageKey || chatDraft.sender.replace(/\s+/g, ' ').trim() === pinnedChatSender}
+                disabled={!normalizedChatDraftSender || !chatSendersStorageKey || chatSenderAlreadySaved}
               >
                 <Pin size={14} />
-                {pinnedChatSender ? 'Сменить имя' : 'Закрепить имя'}
+                {selectedPinnedChatSender
+                  ? 'Сохранить сторону героя'
+                  : pinnedChatSenders.length
+                    ? 'Закрепить ещё одно имя'
+                    : 'Закрепить имя'}
               </button>
-              {pinnedChatSender ? (
-                <button type="button" className="is-unpin" onClick={unpinChatSender}>
-                  <PinOff size={14} />
-                  Открепить
-                </button>
-              ) : null}
             </div>
-            <small>Закреплённое имя автоматически подставляется в следующих сообщениях только этой книги.</small>
+            <small>Нажмите на закреплённое имя, чтобы быстро выбрать героя. У каждого имени запоминается своя обычная сторона, но её можно менять для любого сообщения.</small>
           </div>
           <div className="admin-chat-side-picker" role="radiogroup" aria-label="Расположение сообщения">
             <button type="button" className={chatDraft.side === 'incoming' ? 'is-active' : ''} onClick={() => setChatDraft((current) => ({ ...current, side: 'incoming' }))} role="radio" aria-checked={chatDraft.side === 'incoming'}>
               <span className="admin-chat-side-preview is-incoming">Слева</span>
-              <small>сообщение собеседника</small>
+              <small>сообщение выбранного героя</small>
             </button>
             <button type="button" className={chatDraft.side === 'outgoing' ? 'is-active' : ''} onClick={() => setChatDraft((current) => ({ ...current, side: 'outgoing' }))} role="radio" aria-checked={chatDraft.side === 'outgoing'}>
               <span className="admin-chat-side-preview is-outgoing">Справа</span>
-              <small>ответ второго героя</small>
+              <small>сообщение выбранного героя</small>
             </button>
           </div>
           <section className="admin-chat-emoji">
@@ -671,7 +751,7 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
           emitChange();
         }}
       />
-      <p className="admin-rich-hint"><strong>Переписка:</strong> выделите одно сообщение, нажмите «Переписка», укажите имя и при желании закрепите его для этой книги. Для другой книги имя не переносится. На iPhone эмодзи отображаются в стиле Apple. <strong>Случайно изменили текст?</strong> Нажмите «Отменить» или Ctrl+Z.</p>
+      <p className="admin-rich-hint"><strong>Переписка:</strong> выделите одно сообщение, нажмите «Переписка» и выберите героя из закреплённых имён или добавьте нового. Для каждой книги хранится свой список героев. На iPhone эмодзи отображаются в стиле Apple. <strong>Случайно изменили текст?</strong> Нажмите «Отменить» или Ctrl+Z.</p>
     </div>
   );
 });

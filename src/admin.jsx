@@ -66,19 +66,10 @@ const blankBook = {
   published: false,
 };
 
-function defaultChapterTitle(chapterNumber) {
-  const number = Math.max(1, Math.floor(Number(chapterNumber) || 1));
-  return `Глава ${number}`;
-}
-
-function isAutomaticChapterTitle(title) {
-  return /^Глава\s+\d+$/iu.test(String(title || '').trim());
-}
-
 const blankChapter = {
   id: null,
   chapterNumber: 1,
-  title: defaultChapterTitle(1),
+  title: '',
   pointOfView: '',
   body: '',
   bodyRich: '',
@@ -470,7 +461,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
 
   const startNewChapter = () => {
     const chapterNumber = chapters.length + 1;
-    setChapterForm({ ...blankChapter, chapterNumber, title: defaultChapterTitle(chapterNumber) });
+    setChapterForm({ ...blankChapter, chapterNumber, title: '' });
     setFootnoteDraft(null);
   };
 
@@ -542,9 +533,13 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
       flash('Сначала сохраните книгу.', 'error');
       return;
     }
+    if (!chapterForm.title.trim()) {
+      flash('Введите название главы вручную.', 'error');
+      return;
+    }
     const chapterToSave = {
       ...chapterForm,
-      title: chapterForm.title.trim() || defaultChapterTitle(chapterForm.chapterNumber),
+      title: chapterForm.title.trim(),
       scheduledAt: chapterForm.workflowStatus === 'scheduled' && chapterForm.scheduledAt
         ? new Date(chapterForm.scheduledAt).toISOString()
         : null,
@@ -586,7 +581,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
       const refreshedChapters = refreshed.chapters || [];
       setChapters(refreshedChapters);
       const chapterNumber = refreshedChapters.length + 1;
-      setChapterForm({ ...blankChapter, chapterNumber, title: defaultChapterTitle(chapterNumber) });
+      setChapterForm({ ...blankChapter, chapterNumber, title: '' });
       setFootnoteDraft(null);
       flash('Глава удалена. Номера остальных глав обновлены автоматически.');
       await loadBooks();
@@ -957,12 +952,9 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                         setChapterForm((current) => ({
                           ...current,
                           chapterNumber,
-                          title: !current.title.trim() || isAutomaticChapterTitle(current.title)
-                            ? defaultChapterTitle(chapterNumber)
-                            : current.title,
                         }));
                       }} /></label>
-                      <label className="grow"><span>Название главы</span><input value={chapterForm.title} onChange={(event) => setChapterForm({ ...chapterForm, title: event.target.value })} placeholder={defaultChapterTitle(chapterForm.chapterNumber)} /><small>Заполняется автоматически, но название можно изменить.</small></label>
+                      <label className="grow"><span>Название главы</span><input value={chapterForm.title} onChange={(event) => setChapterForm({ ...chapterForm, title: event.target.value })} placeholder="Например, Возвращение" required /><small>Введите название вручную. В читалке номер главы не показывается.</small></label>
                       <label className="grow"><span>От лица героя</span><input value={chapterForm.pointOfView || ''} onChange={(event) => setChapterForm({ ...chapterForm, pointOfView: event.target.value })} placeholder="Например, Лейла" /></label>
                       <label><span>Рабочий статус</span><select value={chapterForm.workflowStatus || 'draft'} onChange={(event) => setChapterForm({ ...chapterForm, workflowStatus: event.target.value, status: event.target.value === 'published' ? 'published' : 'draft' })}><option value="draft">Черновик</option><option value="translating">Переводится</option><option value="editing">На редактуре</option><option value="proofreading">На проверке</option><option value="ready">Готово</option><option value="scheduled">Запланировано</option><option value="published">Опубликовано</option></select></label>
                     </div>

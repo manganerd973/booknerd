@@ -18,7 +18,7 @@ function normalizeChapter(payload = {}) {
   const chapterNumber = Math.max(1, Math.floor(Number(payload.chapterNumber || 1)));
   return {
     chapterNumber,
-    title: (String(payload.title || '').trim() || `Глава ${chapterNumber}`).slice(0, 220),
+    title: String(payload.title || '').trim().slice(0, 220),
     pointOfView: String(payload.pointOfView || '').trim().slice(0, 140),
     body: (richBody || String(payload.body || '')).trim().slice(0, 300000),
     bodyRich: richDocument.blocks.length ? serializeRichDocument(richDocument) : '',
@@ -68,6 +68,7 @@ export async function POST(request, { params }) {
     const input = await request.json();
     const payload = normalizeChapter(input);
     const footnotes = normalizeFootnotes(input.footnotes);
+    if (!payload.title) return Response.json({ error: 'Введите название главы вручную.' }, { status: 400 });
     if (payload.driveUrl === null) return Response.json({ error: 'Вставьте ссылку с drive.google.com или docs.google.com.' }, { status: 400 });
     const db = await ensureDb();
     const book = await db.prepare(`SELECT id, slug FROM books WHERE id = ? LIMIT 1`).bind(bookId).first();

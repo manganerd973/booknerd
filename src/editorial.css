@@ -425,11 +425,82 @@
 .reader-flow-copy .reader-rich-block { orphans: 3; widows: 3; white-space: pre-line; }
 .reader-flow-copy p.reader-rich-block { margin-top: 0; margin-bottom: .55em; }
 .reader-flow-copy .reader-rich-paragraph:first-child:not(.reader-chat-message)::first-letter { float: left; margin: .1em .12em 0 0; color: var(--reader-accent); font-family: Georgia, serif; font-size: 4.25em; font-weight: 600; line-height: .68; }
-.reader-flow-copy .reader-chat-message { position: relative; width: fit-content; max-width: min(78%, 560px); min-width: 120px; break-inside: avoid; margin-top: .42em; margin-bottom: .42em; padding: 1.62em 1em .74em; border: 1px solid color-mix(in srgb, var(--reader-border) 72%, transparent); border-radius: 1.15em 1.15em 1.15em .32em; color: var(--reader-ink); background: color-mix(in srgb, var(--reader-control) 90%, var(--reader-accent) 10%); box-shadow: 0 .2em .7em var(--reader-shadow); font-family: "Onest Variable", Onest, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", Arial, sans-serif; font-size: .93em; font-weight: 470; font-variant-emoji: emoji; letter-spacing: -.006em; line-height: 1.5; text-indent: 0 !important; white-space: pre-wrap; }
-.reader-flow-copy .reader-chat-message::before { position: absolute; top: .62em; left: 1.05em; overflow: hidden; max-width: calc(100% - 2.1em); color: var(--reader-accent); content: attr(data-chat-sender); font-family: "Onest Variable", Onest, ui-sans-serif, system-ui, sans-serif; font-size: .66em; font-weight: 720; letter-spacing: .018em; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
+.reader-flow-copy .reader-chat-message {
+  --chat-bubble: #e9e9eb;
+  position: relative;
+  width: fit-content;
+  max-width: min(82%, 520px);
+  min-width: 44px;
+  break-inside: avoid;
+  margin-top: 32px !important;
+  margin-bottom: 8px !important;
+  padding: 8px 12px 9px;
+  border: 0;
+  border-radius: 18px 18px 18px 5px;
+  color: #111114;
+  background: var(--chat-bubble);
+  box-shadow: none;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", "Segoe UI", Arial, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif !important;
+  font-size: 17px;
+  font-style: normal !important;
+  font-weight: 400;
+  font-variant-emoji: emoji;
+  letter-spacing: -.01em;
+  line-height: 1.32;
+  text-align: left !important;
+  text-indent: 0 !important;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+  word-spacing: normal !important;
+}
+.reader-flow-copy .reader-chat-message > *,
+.reader-flow-copy .reader-chat-message span { font-family: inherit !important; }
+.reader-flow-copy .reader-chat-message em { font-style: normal !important; }
+.reader-flow-copy .reader-chat-message::before {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 10px;
+  overflow: hidden;
+  max-width: calc(100% - 20px);
+  color: #6e6e73;
+  content: attr(data-chat-sender);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "Segoe UI", Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .01em;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.reader-flow-copy .reader-chat-message::after {
+  position: absolute;
+  bottom: -1px;
+  left: -5px;
+  width: 13px;
+  height: 16px;
+  background: var(--chat-bubble);
+  clip-path: polygon(100% 0, 100% 100%, 0 100%, 58% 72%);
+  content: '';
+}
 .reader-flow-copy .reader-chat-message.is-incoming { margin-right: auto; margin-left: 0 !important; }
-.reader-flow-copy .reader-chat-message.is-outgoing { margin-right: 0; margin-left: auto !important; border-color: color-mix(in srgb, var(--reader-accent) 48%, var(--reader-border)); border-radius: 1.15em 1.15em .32em; color: #fffdf1; background: color-mix(in srgb, var(--reader-accent) 78%, #123c35 22%); }
-.reader-flow-copy .reader-chat-message.is-outgoing::before { right: 1.05em; left: auto; color: rgba(255,253,241,.78); text-align: right; }
+.reader-flow-copy .reader-chat-message.is-outgoing {
+  --chat-bubble: #0a84ff;
+  margin-right: 0;
+  margin-left: auto !important;
+  border-radius: 18px 18px 5px 18px;
+  color: #fff;
+}
+.reader-flow-copy .reader-chat-message.is-outgoing::before {
+  right: 10px;
+  left: auto;
+  color: #6e6e73;
+  text-align: right;
+}
+.reader-flow-copy .reader-chat-message.is-outgoing::after {
+  right: -5px;
+  left: auto;
+  clip-path: polygon(0 0, 0 100%, 100% 100%, 42% 72%);
+}
 .reader-flow-copy h2.reader-rich-block,
 .reader-flow-copy h3.reader-rich-block { break-after: avoid; color: var(--reader-ink); font-family: var(--reader-font-family); font-weight: 700; line-height: 1.25; }
 .reader-flow-copy h2.reader-rich-block { margin: 1.35em 0 .65em; font-size: 1.55em; }

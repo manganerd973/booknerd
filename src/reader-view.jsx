@@ -104,6 +104,19 @@ function clamp(value, minimum, maximum) {
   return Math.min(maximum, Math.max(minimum, value));
 }
 
+function manualChapterTitle(chapter) {
+  const title = String(chapter?.title || '').trim();
+  if (!title) return '';
+
+  const automaticPrefix = /^Глава\s+\d+(?:\s*[.:\-–—]\s*|\s+)/iu;
+  if (automaticPrefix.test(title)) return title.replace(automaticPrefix, '').trim();
+  return /^Глава\s+\d+$/iu.test(title) ? '' : title;
+}
+
+function readerChapterTitle(chapter) {
+  return manualChapterTitle(chapter) || 'Название не указано';
+}
+
 function blocksFor(chapter) {
   const documentValue = richDocumentFor(chapter.bodyRich, chapter.body);
   return documentValue.blocks.length ? documentValue.blocks : [{ type: 'paragraph', runs: [{ text: 'Текст этой главы готовится к публикации.' }] }];
@@ -120,12 +133,13 @@ function ChapterFlow({
   onSelectionEnd,
 }) {
   const blocks = useMemo(() => blocksFor(chapter), [chapter.body, chapter.bodyRich]);
+  const chapterTitle = manualChapterTitle(chapter);
 
   return (
     <article className="reader-flow-chapter">
       <header className="reader-flow-intro">
         <span>{book.title}</span>
-        <h1><small>Глава {chapter.chapterNumber}</small>{chapter.title}</h1>
+        {chapterTitle ? <h1>{chapterTitle}</h1> : null}
         {chapter.pointOfView ? <p className="reader-chapter-pov">От лица {chapter.pointOfView}</p> : null}
         {showDriveLink && chapter.driveUrl ? measuring ? (
           <span className="reader-flow-drive">Файл главы <ExternalLink size={14} /></span>
@@ -1104,14 +1118,14 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
         <ReaderSheet title="Содержание" eyebrow={`Страница ${currentBookPage} из ${totalBookPages}`} onClose={() => setPanel(null)} wide>
           <div className="reader-contents-book">
             <div className="reader-contents-cover">{book.coverUrl ? <img src={book.coverUrl} alt="" /> : <span>B</span>}</div>
-            <div><small>{book.author}</small><strong>{book.title}</strong><span>Глава {chapter.chapterNumber} · {chapter.title}{chapter.pointOfView ? ` · От лица ${chapter.pointOfView}` : ''}</span></div>
+            <div><small>{book.author}</small><strong>{book.title}</strong><span>{readerChapterTitle(chapter)}{chapter.pointOfView ? ` · От лица ${chapter.pointOfView}` : ''}</span></div>
           </div>
           <div className="reader-contents-list">
             {chapterList.map((item, index) => {
               const startsAt = pageCounts.slice(0, index).reduce((total, count) => total + count, 0) + 1;
               return (
                 <a className={item.id === chapter.id ? 'is-current' : ''} href={`/books/${book.slug}/chapters/${item.id}`} key={item.id}>
-                  <span><small>Глава {item.chapterNumber}{item.pointOfView ? ` · От лица ${item.pointOfView}` : ''}</small><strong>{item.title}</strong></span>
+                  <span>{item.pointOfView ? <small>От лица {item.pointOfView}</small> : null}<strong>{readerChapterTitle(item)}</strong></span>
                   <em>{measurementReady ? startsAt : '—'}</em>
                 </a>
               );
@@ -1127,7 +1141,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
           <div className="reader-search-results">
             {searchQuery.trim().length >= 2 && !searchResults.length ? <p>Ничего не найдено.</p> : searchResults.map((result) => (
               <a href={`/books/${book.slug}/chapters/${result.id}`} key={result.id}>
-                <small>Глава {result.chapterNumber}</small><strong>{result.title}</strong><span>{result.snippet}</span>
+                <strong>{readerChapterTitle(result)}</strong><span>{result.snippet}</span>
               </a>
             ))}
           </div>
@@ -1150,7 +1164,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
                   <article key={bookmark.id}>
                     <a href={`/books/${book.slug}/chapters/${bookmark.chapterId}?page=${Number(bookmark.page || 0) + 1}`}>
                       <span>{category.symbol}</span>
-                      <div><small>{category.label} · глава {bookmark.chapterNumber}</small><strong>{bookmark.quote ? `“${bookmark.quote}”` : bookmark.chapterTitle || 'Сохранённое место'}</strong></div>
+                      <div><small>{category.label} · {readerChapterTitle({ title: bookmark.chapterTitle, chapterNumber: bookmark.chapterNumber })}</small><strong>{bookmark.quote ? `“${bookmark.quote}”` : manualChapterTitle({ title: bookmark.chapterTitle, chapterNumber: bookmark.chapterNumber }) || 'Сохранённое место'}</strong></div>
                       <ChevronRight size={17} />
                     </a>
                     <button type="button" onClick={() => deleteBookmark(bookmark)} disabled={extraSaving} aria-label="Удалить закладку"><Trash2 size={16} /></button>
@@ -1163,7 +1177,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       ) : null}
 
       {panel === 'bookmark' && bookmarkDraft ? (
-        <ReaderSheet title="Новая закладка" eyebrow={bookmarkDraft.quote ? 'Выбранная фраза' : `Глава ${chapter.chapterNumber} · страница ${bookmarkDraft.page + 1}`} onClose={() => { setBookmarkDraft(null); setPanel(null); }}>
+        <ReaderSheet title="Новая закладка" eyebrow={bookmarkDraft.quote ? 'Выбранная фраза' : `${readerChapterTitle(chapter)} · страница ${bookmarkDraft.page + 1}`} onClose={() => { setBookmarkDraft(null); setPanel(null); }}>
           <div className="reader-bookmark-editor">
             {bookmarkDraft.quote ? <blockquote>“{bookmarkDraft.quote}”</blockquote> : <p>Сохранить это место, чтобы быстро вернуться позже.</p>}
             <div>
@@ -1179,7 +1193,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       ) : null}
 
       {panel === 'report-error' && errorDraft ? (
-        <ReaderSheet title="Сообщить об ошибке" eyebrow={`Глава ${chapter.chapterNumber} · страница ${errorDraft.page + 1}`} onClose={() => { setErrorDraft(null); setPanel(null); }} wide>
+        <ReaderSheet title="Сообщить об ошибке" eyebrow={`${readerChapterTitle(chapter)} · страница ${errorDraft.page + 1}`} onClose={() => { setErrorDraft(null); setPanel(null); }} wide>
           <div className="reader-error-report">
             <blockquote>“{errorDraft.selectedText}”</blockquote>
             <p>Команда сразу увидит книгу, главу, страницу и точный фрагмент.</p>
@@ -1215,7 +1229,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
                       {annotation.sticker ? <ReaderSticker stickerId={annotation.sticker} size={48} /> : annotation.note ? <StickyNote size={21} /> : <Highlighter size={21} />}
                     </span>
                     <span className="reader-annotation-list-copy">
-                      <small>Глава {annotation.chapterNumber} · {annotation.chapterTitle}</small>
+                      <small>{readerChapterTitle({ title: annotation.chapterTitle, chapterNumber: annotation.chapterNumber })}</small>
                       <strong>“{annotation.text}”</strong>
                       {annotation.note ? <em>{annotation.note}</em> : null}
                     </span>
@@ -1246,7 +1260,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       ) : null}
 
       {panel === 'annotation' ? (
-        <ReaderSheet title="Пометка" eyebrow={activeAnnotation ? `Глава ${activeAnnotation.chapterNumber}` : 'Моя пометка'} onClose={() => setPanel('annotations')}>
+        <ReaderSheet title="Пометка" eyebrow={activeAnnotation ? readerChapterTitle({ title: activeAnnotation.chapterTitle, chapterNumber: activeAnnotation.chapterNumber }) : 'Моя пометка'} onClose={() => setPanel('annotations')}>
           {activeAnnotation ? (
             <div className="reader-annotation-detail">
               <blockquote style={{ '--annotation-color': activeAnnotation.color || '#ffe066' }}>“{activeAnnotation.text}”</blockquote>
