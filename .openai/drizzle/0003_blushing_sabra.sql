@@ -1,1 +1,2 @@
-ALTER TABLE `chapters` ADD `footnotes` text DEFAULT '[]' NOT NULL;
+-- The footnotes column is added idempotently by lib/runtime.js.
+SELECT 1;

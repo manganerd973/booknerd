@@ -1,4 +1,4 @@
-CREATE TABLE `book_ratings` (
+CREATE TABLE IF NOT EXISTS `book_ratings` (
 	`book_id` text NOT NULL,
 	`voter_key` text NOT NULL,
 	`rating` integer NOT NULL,
@@ -8,7 +8,7 @@ CREATE TABLE `book_ratings` (
 	FOREIGN KEY (`book_id`) REFERENCES `books`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE TABLE `book_reviews` (
+CREATE TABLE IF NOT EXISTS `book_reviews` (
 	`id` text PRIMARY KEY NOT NULL,
 	`book_id` text NOT NULL,
 	`voter_key` text NOT NULL,
@@ -21,4 +21,4 @@ CREATE TABLE `book_reviews` (
 	FOREIGN KEY (`book_id`) REFERENCES `books`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `book_reviews_book_voter_unique` ON `book_reviews` (`book_id`,`voter_key`);
+CREATE UNIQUE INDEX IF NOT EXISTS `book_reviews_book_voter_unique` ON `book_reviews` (`book_id`,`voter_key`);

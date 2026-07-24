@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Eye, EyeOff, LoaderCircle, MessageCircle, Send } from 'lucide-react';
+import { Eye, EyeOff, LoaderCircle, MessageCircle, Reply, Send, X } from 'lucide-react';
 import CommentVotes from './comment-votes.jsx';
 import CommentReport from './comment-report.jsx';
+import { getVisitorKey } from './site-analytics.js';
 
 async function commentsApi(url, options) {
   const response = await fetch(url, options);
@@ -50,6 +51,7 @@ export default function CommentsSection({ bookId, chapterId = null }) {
   const [sending, setSending] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
+  const [replyingTo, setReplyingTo] = useState(null);
 
   const loadComments = useCallback(async () => {
     setLoading(true);
@@ -102,13 +104,14 @@ export default function CommentsSection({ bookId, chapterId = null }) {
       await commentsApi('/api/comments', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ bookId, chapterId, authorName, body, isSpoiler, website }),
+        body: JSON.stringify({ bookId, chapterId, parentId: replyingTo?.id || null, visitorKey: getVisitorKey(), authorName, body, isSpoiler, website }),
       });
       rememberAuthor(authorName);
       setBody('');
       setIsSpoiler(false);
       setWebsite('');
-      setNotice('Комментарий опубликован. Он уже виден другим читателям.');
+      setNotice(replyingTo ? 'Ответ опубликован. Читатель получит уведомление, если включил его.' : 'Комментарий опубликован. Он уже виден другим читателям.');
+      setReplyingTo(null);
       await loadComments();
     } catch (submitError) {
       setError(submitError.message);
@@ -130,10 +133,14 @@ export default function CommentsSection({ bookId, chapterId = null }) {
           {loading ? (
             <div className="reader-comments-empty"><LoaderCircle className="spin" size={22} /> Загружаем комментарии…</div>
           ) : comments.length ? comments.map((comment) => (
-            <article className="reader-comment" key={comment.id}>
+            <article className={`reader-comment ${comment.parentId ? 'is-reply' : ''}`} key={comment.id}>
               <div><strong>{comment.authorName}</strong><time dateTime={comment.createdAt}>{formatDate(comment.createdAt)}</time></div>
               <CommentBody comment={comment} />
-              <div className="reader-comment-actions"><CommentVotes commentId={comment.id} initialUpVotes={comment.upVotes} initialDownVotes={comment.downVotes} /><CommentReport commentId={comment.id} /></div>
+              <div className="reader-comment-actions">
+                <CommentVotes commentId={comment.id} initialUpVotes={comment.upVotes} initialDownVotes={comment.downVotes} />
+                <CommentReport commentId={comment.id} />
+                <button type="button" onClick={() => { setReplyingTo(comment); document.querySelector(`#comments-${chapterId || bookId}`)?.scrollIntoView({ behavior: 'smooth' }); }}><Reply size={15} /> Ответить</button>
+              </div>
             </article>
           )) : (
             <div className="reader-comments-empty"><MessageCircle size={25} /><span>Пока комментариев нет. Можно быть первой.</span></div>
@@ -141,7 +148,8 @@ export default function CommentsSection({ bookId, chapterId = null }) {
         </div>
 
         <form className="reader-comment-form" onSubmit={submit}>
-          <h3>Оставить комментарий</h3>
+          <h3>{replyingTo ? `Ответ для ${replyingTo.authorName}` : 'Оставить комментарий'}</h3>
+          {replyingTo ? <div className="reader-comment-replying"><Reply size={15} /><span>“{replyingTo.body.slice(0, 120)}{replyingTo.body.length > 120 ? '…' : ''}”</span><button type="button" onClick={() => setReplyingTo(null)} aria-label="Отменить ответ"><X size={15} /></button></div> : null}
           {savedAuthorName ? (
             <div className="reader-comment-identity">
               <span>Вы комментируете как <strong>{savedAuthorName}</strong></span>

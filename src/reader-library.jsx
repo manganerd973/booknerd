@@ -24,11 +24,11 @@ export async function loadReaderLibrary() {
   return Array.isArray(data.items) ? data.items : [];
 }
 
-export async function updateReaderLibrary({ bookId, status = 'saved', lastChapterId = null, progress = 0, preserveFinished = false }) {
+export async function updateReaderLibrary({ bookId, status = 'saved', lastChapterId = null, lastPage = 0, progress = 0, preserveFinished = false }) {
   const response = await fetch('/api/library', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ visitorKey: getVisitorKey(), bookId, status, lastChapterId, progress, preserveFinished }),
+    body: JSON.stringify({ visitorKey: getVisitorKey(), bookId, status, lastChapterId, lastPage, progress, preserveFinished }),
     keepalive: true,
   });
   const data = await response.json().catch(() => ({}));

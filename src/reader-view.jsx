@@ -35,7 +35,7 @@ import {
 import CommentsSection from './comments-section.jsx';
 import { CompletionReviewForm } from './book-reviews.jsx';
 import { richDocumentFor } from '../lib/rich-document.js';
-import { trackReaderPresence } from './site-analytics.js';
+import { getVisitorKey, trackReaderPresence } from './site-analytics.js';
 import { updateReaderLibrary } from './reader-library.jsx';
 import {
   AnnotatedParagraph,
@@ -47,8 +47,21 @@ import {
 } from './reader-annotations.jsx';
 
 const SETTINGS_KEY = 'booknerd-reader-settings-v2';
-const BOOKMARKS_KEY = 'booknerd-reader-bookmarks-v2';
 const ANNOTATIONS_KEY_PREFIX = 'booknerd-reader-annotations-v1';
+
+const BOOKMARK_CATEGORIES = [
+  { id: 'favorite', label: 'Любимый момент', symbol: '♡' },
+  { id: 'later', label: 'Вернуться позже', symbol: '↩' },
+  { id: 'important', label: 'Важное', symbol: '!' },
+  { id: 'funny', label: 'Смешное', symbol: '☺' },
+];
+
+const ERROR_CATEGORIES = [
+  { id: 'typo', label: 'Опечатка' },
+  { id: 'gender', label: 'Неправильный род' },
+  { id: 'missing', label: 'Пропущенный текст' },
+  { id: 'other', label: 'Другая ошибка' },
+];
 
 const DEFAULT_SETTINGS = {
   theme: 'paper',
@@ -185,6 +198,9 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
   const [panel, setPanel] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [bookmarks, setBookmarks] = useState([]);
+  const [bookmarkDraft, setBookmarkDraft] = useState(null);
+  const [errorDraft, setErrorDraft] = useState(null);
+  const [extraSaving, setExtraSaving] = useState(false);
   const [toast, setToast] = useState('');
   const [orientationLocked, setOrientationLocked] = useState(false);
   const [chromeHidden, setChromeHidden] = useState(false);
@@ -263,8 +279,6 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
         lineHeight: clamp(Number(saved.lineHeight) || DEFAULT_SETTINGS.lineHeight, 1.35, 2.1),
         brightness: clamp(Number(saved.brightness) || DEFAULT_SETTINGS.brightness, 35, 100),
       });
-      const savedBookmarks = JSON.parse(localStorage.getItem(BOOKMARKS_KEY) || '[]');
-      setBookmarks(Array.isArray(savedBookmarks) ? savedBookmarks : []);
     } catch {
       setSettings(DEFAULT_SETTINGS);
     } finally {
@@ -293,6 +307,14 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
     if (!annotationsReady) return;
     try { localStorage.setItem(annotationStorageKey, JSON.stringify(annotations)); } catch { /* device storage is optional */ }
   }, [annotationStorageKey, annotations, annotationsReady]);
+
+  useEffect(() => {
+    const query = new URLSearchParams({ visitorKey: getVisitorKey(), bookId: book.id });
+    fetch(`/api/reader-bookmarks?${query.toString()}`, { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((data) => setBookmarks(Array.isArray(data.bookmarks) ? data.bookmarks : []))
+      .catch(() => setBookmarks([]));
+  }, [book.id]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -382,7 +404,15 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
   useEffect(() => {
     if (!initialPositionApplied.current) return;
     try { localStorage.setItem(`booknerd-reader-position:${book.id}:${chapter.id}`, String(page)); } catch { /* optional */ }
-  }, [book.id, chapter.id, page]);
+    updateReaderLibrary({
+      bookId: book.id,
+      status: 'reading',
+      lastChapterId: chapter.id,
+      lastPage: page,
+      progress: Math.max(1, Math.round(((chapterIndex + (page + 1) / Math.max(1, currentChapterPages)) / Math.max(1, chapterList.length)) * 100)),
+      preserveFinished: true,
+    }).catch(() => {});
+  }, [book.id, chapter.id, chapterIndex, chapterList.length, currentChapterPages, page]);
 
   const bookPageOffset = useMemo(
     () => pageCounts.slice(0, chapterIndex).reduce((total, count) => total + count, 0),
@@ -392,8 +422,85 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
   const currentBookPage = clamp(bookPageOffset + page + 1, 1, totalBookPages);
   const percent = Math.round((currentBookPage / totalBookPages) * 100);
   const pagesLeftInChapter = Math.max(0, currentChapterPages - page - 1);
-  const bookmarkId = `${chapter.id}:${page}`;
-  const isBookmarked = bookmarks.includes(bookmarkId);
+  const currentPageBookmark = bookmarks.find((item) => item.chapterId === chapter.id && Number(item.page) === page && !item.quote);
+  const isBookmarked = Boolean(currentPageBookmark);
+  const readingStateRef = useRef({ page, percent, chapterProgress: 0 });
+  const chapterProgress = Math.round(((page + 1) / Math.max(1, currentChapterPages)) * 100);
+
+  useEffect(() => {
+    readingStateRef.current = { page, percent, chapterProgress };
+  }, [chapterProgress, page, percent]);
+
+  useEffect(() => {
+    if (!initialPositionApplied.current) return;
+    fetch('/api/reading-progress', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        visitorKey: getVisitorKey(),
+        bookId: book.id,
+        chapterId: chapter.id,
+        seconds: 0,
+        chapterProgress,
+        bookProgress: percent,
+        page,
+        completed: chapterProgress >= 100,
+      }),
+      keepalive: true,
+    }).catch(() => {});
+  }, [book.id, chapter.id, chapterProgress, page, percent]);
+
+  useEffect(() => {
+    let stopped = false;
+    const notificationReturn = (() => {
+      try { return new URLSearchParams(window.location.search).get('notification') === '1'; } catch { return false; }
+    })();
+    const record = (seconds = 0, completed = false) => {
+      if (stopped && !completed) return;
+      const currentReadingState = readingStateRef.current;
+      fetch('/api/reading-progress', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          visitorKey: getVisitorKey(),
+          bookId: book.id,
+          chapterId: chapter.id,
+          seconds,
+          chapterProgress: completed ? 100 : currentReadingState.chapterProgress,
+          bookProgress: completed && !next ? 100 : currentReadingState.percent,
+          page: currentReadingState.page,
+          completed,
+          notificationReturn,
+        }),
+        keepalive: true,
+      }).catch(() => {});
+    };
+    record(0, false);
+    const timer = window.setInterval(() => record(30, false), 30000);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [book.id, chapter.id, next?.id]);
+
+  useEffect(() => {
+    if (!showCompletion) return;
+    fetch('/api/reading-progress', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        visitorKey: getVisitorKey(),
+        bookId: book.id,
+        chapterId: chapter.id,
+        seconds: 0,
+        chapterProgress: 100,
+        bookProgress: 100,
+        page,
+        completed: true,
+      }),
+      keepalive: true,
+    }).catch(() => {});
+  }, [book.id, chapter.id, page, showCompletion]);
 
   const goBackward = useCallback(() => {
     if (settings.motion === 'scroll') {
@@ -663,11 +770,108 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [goBackward, goForward, panel]);
 
+  const openBookmarkDraft = (source = null) => {
+    setBookmarkDraft({
+      category: 'later',
+      quote: source?.text || '',
+      paragraphIndex: Number(source?.paragraphIndex || 0),
+      page: Number(source?.page ?? page),
+    });
+    clearTextSelection();
+    setPanel('bookmark');
+  };
+
+  const saveBookmark = async () => {
+    if (!bookmarkDraft) return;
+    setExtraSaving(true);
+    try {
+      const response = await fetch('/api/reader-bookmarks', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          visitorKey: getVisitorKey(),
+          bookId: book.id,
+          chapterId: chapter.id,
+          ...bookmarkDraft,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Не удалось сохранить закладку.');
+      setBookmarks((current) => [{
+        ...data.bookmark,
+        chapterNumber: chapter.chapterNumber,
+        chapterTitle: chapter.title,
+      }, ...current]);
+      setBookmarkDraft(null);
+      setPanel('bookmarks');
+      setToast('Закладка сохранена');
+    } catch (error) {
+      setToast(error.message);
+    } finally {
+      setExtraSaving(false);
+    }
+  };
+
+  const deleteBookmark = async (bookmark) => {
+    setExtraSaving(true);
+    try {
+      const query = new URLSearchParams({ visitorKey: getVisitorKey(), id: bookmark.id });
+      const response = await fetch(`/api/reader-bookmarks?${query.toString()}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Не удалось удалить закладку.');
+      setBookmarks((current) => current.filter((item) => item.id !== bookmark.id));
+      setToast('Закладка удалена');
+    } catch (error) {
+      setToast(error.message);
+    } finally {
+      setExtraSaving(false);
+    }
+  };
+
   const toggleBookmark = () => {
-    const nextBookmarks = isBookmarked ? bookmarks.filter((item) => item !== bookmarkId) : [...bookmarks, bookmarkId];
-    setBookmarks(nextBookmarks);
-    try { localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(nextBookmarks)); } catch { /* optional */ }
-    setToast(isBookmarked ? 'Закладка удалена' : 'Страница добавлена в закладки');
+    if (currentPageBookmark) {
+      deleteBookmark(currentPageBookmark);
+      return;
+    }
+    openBookmarkDraft();
+  };
+
+  const openErrorDraft = () => {
+    if (!textSelection) return;
+    setErrorDraft({
+      category: 'typo',
+      selectedText: textSelection.text,
+      paragraphIndex: textSelection.paragraphIndex,
+      page: textSelection.page,
+      details: '',
+    });
+    clearTextSelection();
+    setPanel('report-error');
+  };
+
+  const submitErrorReport = async () => {
+    if (!errorDraft) return;
+    setExtraSaving(true);
+    try {
+      const response = await fetch('/api/reader-errors', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          visitorKey: getVisitorKey(),
+          bookId: book.id,
+          chapterId: chapter.id,
+          ...errorDraft,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Не удалось отправить сообщение.');
+      setErrorDraft(null);
+      setPanel(null);
+      setToast('Спасибо! Фрагмент и место уже видны команде.');
+    } catch (error) {
+      setToast(error.message);
+    } finally {
+      setExtraSaving(false);
+    }
   };
 
   const sharePage = async () => {
@@ -843,6 +1047,12 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       </div>
 
       <section id="chapter-comments" className="reader-discussion-wrap">
+        {chapter.teamNote ? (
+          <aside className="chapter-team-note">
+            <span>✦</span>
+            <div><small>ЗАМЕТКА КОМАНДЫ</small><p>{chapter.teamNote}</p></div>
+          </aside>
+        ) : null}
         <CommentsSection bookId={book.id} chapterId={chapter.id} />
       </section>
 
@@ -851,6 +1061,8 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
         onHighlight={(color) => addAnnotation(textSelection, { color })}
         onNote={openNewNote}
         onSticker={(sticker) => addAnnotation(textSelection, { color: '#fff1a8', sticker })}
+        onBookmark={() => openBookmarkDraft(textSelection)}
+        onReport={openErrorDraft}
         onTranslate={translateSelectedText}
         onSearch={searchSelectedText}
         onCopy={copySelectedText}
@@ -874,6 +1086,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
             <button type="button" onClick={() => setPanel('contents')}><List size={22} /><span><strong>Содержание</strong><small>Все главы книги</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('search')}><Search size={22} /><span><strong>Поиск по книге</strong><small>Найти слово во всех главах</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('annotations')}><Highlighter size={22} /><span><strong>Мои пометки</strong><small>{annotations.length ? `${annotations.length} сохранено` : 'Выделения, заметки и стикеры'}</small></span><ChevronRight size={18} /></button>
+            <button type="button" onClick={() => setPanel('bookmarks')}><Bookmark size={22} /><span><strong>Мои закладки</strong><small>{bookmarks.length ? `${bookmarks.length} сохранено` : 'Любимое, важное и смешное'}</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('reading-mode')}><ReadingModeIcon mode={settings.motion} size={22} /><span><strong>Способ чтения</strong><small>{READING_MODE_OPTIONS.find((mode) => mode.id === settings.motion)?.name}</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('settings')}><SlidersHorizontal size={22} /><span><strong>Темы и настройки</strong><small>Шрифт, размер, фон и яркость</small></span><ChevronRight size={18} /></button>
             <a href="/go/telegram" target="_blank" rel="noreferrer"><ExternalLink size={22} /><span><strong>Telegram BOOKNERD</strong><small>@booknerd_tr</small></span><ChevronRight size={18} /></a>
@@ -917,6 +1130,69 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
                 <small>Глава {result.chapterNumber}</small><strong>{result.title}</strong><span>{result.snippet}</span>
               </a>
             ))}
+          </div>
+        </ReaderSheet>
+      ) : null}
+
+      {panel === 'bookmarks' ? (
+        <ReaderSheet title="Мои закладки" eyebrow={`${bookmarks.length} в этой книге`} onClose={() => setPanel('menu')} wide>
+          <div className="reader-bookmark-sheet-head">
+            <p>Закладки сохраняют не только страницу, но и выбранную фразу с её смыслом.</p>
+            <button type="button" onClick={() => openBookmarkDraft()}><Plus size={17} /> Закладка на текущем месте</button>
+          </div>
+          {!bookmarks.length ? (
+            <div className="reader-annotation-empty"><Bookmark size={31} /><strong>Закладок пока нет</strong><span>Выделите фразу или сохраните текущую страницу.</span></div>
+          ) : (
+            <div className="reader-bookmark-list">
+              {bookmarks.map((bookmark) => {
+                const category = BOOKMARK_CATEGORIES.find((item) => item.id === bookmark.category) || BOOKMARK_CATEGORIES[1];
+                return (
+                  <article key={bookmark.id}>
+                    <a href={`/books/${book.slug}/chapters/${bookmark.chapterId}?page=${Number(bookmark.page || 0) + 1}`}>
+                      <span>{category.symbol}</span>
+                      <div><small>{category.label} · глава {bookmark.chapterNumber}</small><strong>{bookmark.quote ? `“${bookmark.quote}”` : bookmark.chapterTitle || 'Сохранённое место'}</strong></div>
+                      <ChevronRight size={17} />
+                    </a>
+                    <button type="button" onClick={() => deleteBookmark(bookmark)} disabled={extraSaving} aria-label="Удалить закладку"><Trash2 size={16} /></button>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </ReaderSheet>
+      ) : null}
+
+      {panel === 'bookmark' && bookmarkDraft ? (
+        <ReaderSheet title="Новая закладка" eyebrow={bookmarkDraft.quote ? 'Выбранная фраза' : `Глава ${chapter.chapterNumber} · страница ${bookmarkDraft.page + 1}`} onClose={() => { setBookmarkDraft(null); setPanel(null); }}>
+          <div className="reader-bookmark-editor">
+            {bookmarkDraft.quote ? <blockquote>“{bookmarkDraft.quote}”</blockquote> : <p>Сохранить это место, чтобы быстро вернуться позже.</p>}
+            <div>
+              {BOOKMARK_CATEGORIES.map((category) => (
+                <button className={bookmarkDraft.category === category.id ? 'is-active' : ''} type="button" onClick={() => setBookmarkDraft({ ...bookmarkDraft, category: category.id })} key={category.id}>
+                  <span>{category.symbol}</span><strong>{category.label}</strong>{bookmarkDraft.category === category.id ? <Check size={15} /> : null}
+                </button>
+              ))}
+            </div>
+            <button className="reader-sheet-primary" type="button" onClick={saveBookmark} disabled={extraSaving}>{extraSaving ? 'Сохраняем…' : 'Сохранить закладку'}</button>
+          </div>
+        </ReaderSheet>
+      ) : null}
+
+      {panel === 'report-error' && errorDraft ? (
+        <ReaderSheet title="Сообщить об ошибке" eyebrow={`Глава ${chapter.chapterNumber} · страница ${errorDraft.page + 1}`} onClose={() => { setErrorDraft(null); setPanel(null); }} wide>
+          <div className="reader-error-report">
+            <blockquote>“{errorDraft.selectedText}”</blockquote>
+            <p>Команда сразу увидит книгу, главу, страницу и точный фрагмент.</p>
+            <div>
+              {ERROR_CATEGORIES.map((category) => (
+                <label className={errorDraft.category === category.id ? 'is-active' : ''} key={category.id}>
+                  <input type="radio" name="reader-error-category" checked={errorDraft.category === category.id} onChange={() => setErrorDraft({ ...errorDraft, category: category.id })} />
+                  <span>{errorDraft.category === category.id ? <Check size={14} /> : null}</span><strong>{category.label}</strong>
+                </label>
+              ))}
+            </div>
+            <label><span>Комментарий, если нужно</span><textarea rows="4" maxLength="2000" value={errorDraft.details} onChange={(event) => setErrorDraft({ ...errorDraft, details: event.target.value })} placeholder="Например: здесь герой говорит о себе в женском роде…" /></label>
+            <button className="reader-sheet-primary" type="button" onClick={submitErrorReport} disabled={extraSaving}>{extraSaving ? 'Отправляем…' : 'Отправить команде'}</button>
           </div>
         </ReaderSheet>
       ) : null}

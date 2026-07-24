@@ -1,11 +1,11 @@
-CREATE TABLE `admin_users` (
+CREATE TABLE IF NOT EXISTS `admin_users` (
 	`email` text PRIMARY KEY NOT NULL,
 	`role` text DEFAULT 'editor' NOT NULL,
 	`created_at` text NOT NULL,
 	`invited_by` text NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `books` (
+CREATE TABLE IF NOT EXISTS `books` (
 	`id` text PRIMARY KEY NOT NULL,
 	`slug` text NOT NULL,
 	`title` text NOT NULL,
@@ -21,8 +21,8 @@ CREATE TABLE `books` (
 	`updated_at` text NOT NULL
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `books_slug_unique` ON `books` (`slug`);--> statement-breakpoint
-CREATE TABLE `chapters` (
+CREATE UNIQUE INDEX IF NOT EXISTS `books_slug_unique` ON `books` (`slug`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `chapters` (
 	`id` text PRIMARY KEY NOT NULL,
 	`book_id` text NOT NULL,
 	`chapter_number` integer NOT NULL,
@@ -35,4 +35,4 @@ CREATE TABLE `chapters` (
 	FOREIGN KEY (`book_id`) REFERENCES `books`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `chapters_book_number_unique` ON `chapters` (`book_id`,`chapter_number`);
+CREATE UNIQUE INDEX IF NOT EXISTS `chapters_book_number_unique` ON `chapters` (`book_id`,`chapter_number`);

@@ -2,6 +2,7 @@ import { authorizeAdminRequest } from '../../../../lib/admin-auth.js';
 import { listAllBooks, slugify } from '../../../../lib/books.js';
 import { ensureDb } from '../../../../lib/runtime.js';
 import { normalizeGoogleDriveUrl } from '../../../../lib/google-drive.js';
+import { notifyBookPreferenceEvent } from '../../../../lib/push-notifications.js';
 
 function normalizeBookPayload(payload = {}) {
   const genres = Array.isArray(payload.genres)
@@ -14,11 +15,26 @@ function normalizeBookPayload(payload = {}) {
     ? payload.triggerWarnings.map((warning) => String(warning).trim()).filter(Boolean).slice(0, 40)
     : String(payload.triggerWarnings || '').split(/[,;\n]+/).map((warning) => warning.trim()).filter(Boolean).slice(0, 40);
   const driveUrl = normalizeGoogleDriveUrl(payload.driveUrl);
+  const seriesReadingOrder = Array.isArray(payload.seriesReadingOrder)
+    ? payload.seriesReadingOrder.slice(0, 80).map((item, index) => ({
+      id: String(item?.id || `series-${index + 1}`).slice(0, 100),
+      order: Math.max(1, Number(item?.order || index + 1)),
+      title: String(item?.title || '').trim().slice(0, 220),
+      kind: item?.kind === 'extra' ? 'extra' : 'main',
+      translated: item?.translated === true,
+      bookSlug: String(item?.bookSlug || '').trim().slice(0, 120),
+    })).filter((item) => item.title)
+    : [];
+  const releaseDays = Array.isArray(payload.releaseDays)
+    ? payload.releaseDays.map((day) => String(day).trim()).filter(Boolean).slice(0, 7)
+    : [];
   return {
     title: String(payload.title || '').trim().slice(0, 180),
     originalTitle: String(payload.originalTitle || '').trim().slice(0, 180),
     seriesTitle: String(payload.seriesTitle || '').trim().slice(0, 180),
     seriesNumber: payload.seriesNumber ? Math.max(1, Math.floor(Number(payload.seriesNumber))) : null,
+    seriesReadingOrder,
+    releaseDays,
     author: String(payload.author || '').trim().slice(0, 140),
     dedication: String(payload.dedication || '').trim().slice(0, 2000),
     triggerWarnings,
@@ -74,13 +90,36 @@ export async function POST(request) {
     const slug = await uniqueSlug(db, slugify(payload.requestedSlug || payload.title));
     await db.prepare(
       `INSERT INTO books
-       (id, slug, title, original_title, series_title, series_number, author, dedication, trigger_warnings, has_hot_scenes, hot_scene_chapters, synopsis, genres, tropes, drive_url, status, progress, cover_key, published, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (id, slug, title, original_title, series_title, series_number, series_reading_order, release_days, author, dedication, trigger_warnings, has_hot_scenes, hot_scene_chapters, synopsis, genres, tropes, drive_url, status, progress, cover_key, published, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
-      id, slug, payload.title, payload.originalTitle, payload.seriesTitle, payload.seriesNumber, payload.author, payload.dedication, JSON.stringify(payload.triggerWarnings), payload.hasHotScenes ? 1 : 0, payload.hotSceneChapters, payload.synopsis,
+      id, slug, payload.title, payload.originalTitle, payload.seriesTitle, payload.seriesNumber, JSON.stringify(payload.seriesReadingOrder), JSON.stringify(payload.releaseDays), payload.author, payload.dedication, JSON.stringify(payload.triggerWarnings), payload.hasHotScenes ? 1 : 0, payload.hotSceneChapters, payload.synopsis,
       JSON.stringify(payload.genres), JSON.stringify(payload.tropes), payload.driveUrl, payload.status, payload.progress, payload.coverKey,
       payload.published ? 1 : 0, now, now,
     ).run();
+    if (payload.published) {
+      await notifyBookPreferenceEvent({
+        bookId: id,
+        preference: 'authorBook',
+        title: 'Новая книга автора в BOOKNERD ✦',
+        body: `«${payload.title}» уже появилась в библиотеке.`,
+        url: `/books/${slug}`,
+        topic: `author-${id.slice(0, 18)}`,
+        requestUrl: request.url,
+        sameAuthor: true,
+      }).catch(() => {});
+      if (payload.progress >= 100) {
+        await notifyBookPreferenceEvent({
+          bookId: id,
+          preference: 'translationComplete',
+          title: 'Перевод завершён ✦',
+          body: `BOOKNERD завершил перевод книги «${payload.title}».`,
+          url: `/books/${slug}`,
+          topic: `complete-${id.slice(0, 16)}`,
+          requestUrl: request.url,
+        }).catch(() => {});
+      }
+    }
 
     return Response.json({ id, slug }, { status: 201 });
   } catch (error) {

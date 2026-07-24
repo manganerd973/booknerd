@@ -1,4 +1,4 @@
-CREATE TABLE `book_artworks` (
+CREATE TABLE IF NOT EXISTS `book_artworks` (
 	`id` text PRIMARY KEY NOT NULL,
 	`book_id` text NOT NULL,
 	`image_key` text NOT NULL,
@@ -9,7 +9,7 @@ CREATE TABLE `book_artworks` (
 	FOREIGN KEY (`book_id`) REFERENCES `books`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE TABLE `book_covers` (
+CREATE TABLE IF NOT EXISTS `book_covers` (
 	`key` text PRIMARY KEY NOT NULL,
 	`content_type` text NOT NULL,
 	`data` blob NOT NULL,
@@ -17,7 +17,7 @@ CREATE TABLE `book_covers` (
 	`uploaded_by` text NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `comment_reports` (
+CREATE TABLE IF NOT EXISTS `comment_reports` (
 	`comment_id` text NOT NULL,
 	`voter_key` text NOT NULL,
 	`reason` text NOT NULL,
@@ -28,7 +28,7 @@ CREATE TABLE `comment_reports` (
 	FOREIGN KEY (`comment_id`) REFERENCES `comments`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE TABLE `comment_votes` (
+CREATE TABLE IF NOT EXISTS `comment_votes` (
 	`comment_id` text NOT NULL,
 	`voter_key` text NOT NULL,
 	`value` integer NOT NULL,
@@ -38,7 +38,7 @@ CREATE TABLE `comment_votes` (
 	FOREIGN KEY (`comment_id`) REFERENCES `comments`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE TABLE `comments` (
+CREATE TABLE IF NOT EXISTS `comments` (
 	`id` text PRIMARY KEY NOT NULL,
 	`book_id` text NOT NULL,
 	`chapter_id` text,
@@ -52,8 +52,5 @@ CREATE TABLE `comments` (
 	FOREIGN KEY (`chapter_id`) REFERENCES `chapters`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-ALTER TABLE `books` ADD `series_title` text DEFAULT '' NOT NULL;--> statement-breakpoint
-ALTER TABLE `books` ADD `series_number` integer;--> statement-breakpoint
-ALTER TABLE `books` ADD `tropes` text DEFAULT '[]' NOT NULL;--> statement-breakpoint
-ALTER TABLE `books` ADD `drive_url` text DEFAULT '' NOT NULL;--> statement-breakpoint
-ALTER TABLE `chapters` ADD `drive_url` text DEFAULT '' NOT NULL;
+-- Columns are added idempotently by lib/runtime.js so repeated deploys cannot fail.
+SELECT 1;

@@ -21,6 +21,7 @@ import CommentVotes from './comment-votes.jsx';
 import CommentReport from './comment-report.jsx';
 import NotificationControl from './notification-control.jsx';
 import { LIBRARY_STATUS, loadReaderLibrary, removeReaderLibraryBook, updateReaderLibrary } from './reader-library.jsx';
+import { ContinueReading, ReaderStatistics, ReleaseCalendar, TranslationVoting } from './home-reader-features.jsx';
 
 const FEATURED_GENRES = [
   'ROMANCE',
@@ -347,6 +348,7 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
           <nav className="desktop-nav" aria-label="Главная навигация">
             <a href="/translations">Переводы</a>
             <a href="#my-library">Моя библиотека</a>
+            <a href="#release-calendar">Календарь глав</a>
             <a href="/about">О проекте</a>
             <a href="/team">Команда</a>
           </nav>
@@ -399,6 +401,8 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
             </div>
           </div>
 
+          <ContinueReading items={libraryItems} books={books} />
+
           <section className="my-library section" id="my-library">
             <div className="section-heading">
               <div>
@@ -440,6 +444,10 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
               </div>
             )}
           </section>
+
+          <ReleaseCalendar books={books} />
+
+          <ReaderStatistics />
 
           <section className="catalog section" id="catalog">
             <div className="section-heading catalog-heading">
@@ -489,6 +497,8 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
           </section>
 
           <PopularComments comments={initialPopularComments} />
+
+          <TranslationVoting />
 
           <section className="manifesto section" id="about">
             <div className="manifesto-card">
@@ -588,10 +598,11 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
           <nav>
             <a href="/translations" onClick={() => setMenuOpen(false)}><span>01</span>Переводы</a>
             <a href="#my-library" onClick={() => setMenuOpen(false)}><span>02</span>Моя библиотека</a>
-            <a href="/about" onClick={() => setMenuOpen(false)}><span>03</span>О проекте</a>
-            <a href="/team" onClick={() => setMenuOpen(false)}><span>04</span>Команда</a>
-            <a href="/go/telegram" target="_blank" rel="noreferrer" onClick={() => setMenuOpen(false)}><span>05</span>Telegram</a>
-            <a href="/admin" onClick={() => setMenuOpen(false)}><span>06</span>Редакционная</a>
+            <a href="#release-calendar" onClick={() => setMenuOpen(false)}><span>03</span>Календарь глав</a>
+            <a href="/about" onClick={() => setMenuOpen(false)}><span>04</span>О проекте</a>
+            <a href="/team" onClick={() => setMenuOpen(false)}><span>05</span>Команда</a>
+            <a href="/go/telegram" target="_blank" rel="noreferrer" onClick={() => setMenuOpen(false)}><span>06</span>Telegram</a>
+            <a href="/admin" onClick={() => setMenuOpen(false)}><span>07</span>Редакционная</a>
           </nav>
           <p>Истории, которые мы хотели прочитать сами.</p>
         </div>

@@ -7,6 +7,7 @@ import {
   BookOpen,
   Check,
   ChevronRight,
+  Eye,
   FileText,
   ImagePlus,
   LayoutDashboard,
@@ -27,6 +28,15 @@ import {
   X,
 } from 'lucide-react';
 import RichChapterEditor from './rich-chapter-editor.jsx';
+import AdminBookGlossary from './admin-book-glossary.jsx';
+import AdminSeriesOrder from './admin-series-order.jsx';
+import {
+  AdminErrorReports,
+  AdminRetention,
+  AdminVoting,
+  ChapterHistory,
+  ChapterPreview,
+} from './admin-platform-features.jsx';
 
 const blankBook = {
   id: null,
@@ -35,6 +45,8 @@ const blankBook = {
   originalTitle: '',
   seriesTitle: '',
   seriesNumber: '',
+  seriesReadingOrder: [],
+  releaseDays: [],
   author: '',
   dedication: '',
   triggerWarnings: [],
@@ -73,9 +85,25 @@ const blankChapter = {
   footnotes: [],
   heatLevel: 0,
   heatPages: '',
+  teamNote: '',
   driveUrl: '',
   status: 'draft',
+  workflowStatus: 'draft',
+  scheduledAt: '',
+  lastEditedBy: '',
 };
+
+const WORKFLOW_LABELS = {
+  draft: 'Черновик',
+  translating: 'Переводится',
+  editing: 'На редактуре',
+  proofreading: 'На проверке',
+  ready: 'Готово',
+  scheduled: 'Запланировано',
+  published: 'Опубликовано',
+};
+
+const RELEASE_DAYS = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
 
 async function api(url, options) {
   const response = await fetch(url, options);
@@ -86,10 +114,17 @@ async function api(url, options) {
 
 function formatAdminDate(value) {
   try {
-    return new Intl.DateTimeFormat('ru-RU', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' }).format(new Date(value));
+    return new Intl.DateTimeFormat('ru-RU', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
   } catch {
     return '';
   }
+}
+
+function localDateTimeInput(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value).slice(0, 16);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 }
 
 function splitBookTags(value, limit) {
@@ -215,6 +250,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
   const [artworkUploading, setArtworkUploading] = useState(false);
   const [notice, setNotice] = useState(null);
   const [audience, setAudience] = useState(null);
+  const [chapterPreviewOpen, setChapterPreviewOpen] = useState(false);
   const chapterBodyRef = useRef(null);
   const chapterSelectionRef = useRef('');
 
@@ -491,6 +527,15 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
     flash('Сноска удалена. Сохраните главу.');
   };
 
+  const reloadCurrentChapters = async () => {
+    if (!bookForm.id) return;
+    const refreshed = await api(`/api/admin/books/${bookForm.id}/chapters`);
+    const refreshedChapters = refreshed.chapters || [];
+    setChapters(refreshedChapters);
+    const updated = refreshedChapters.find((item) => item.id === chapterForm.id);
+    if (updated) setChapterForm({ ...blankChapter, ...updated, footnotes: updated.footnotes || [] });
+  };
+
   const saveChapter = async (event) => {
     event.preventDefault();
     if (!bookForm.id) {
@@ -500,6 +545,9 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
     const chapterToSave = {
       ...chapterForm,
       title: chapterForm.title.trim() || defaultChapterTitle(chapterForm.chapterNumber),
+      scheduledAt: chapterForm.workflowStatus === 'scheduled' && chapterForm.scheduledAt
+        ? new Date(chapterForm.scheduledAt).toISOString()
+        : null,
     };
     setSaving(true);
     try {
@@ -512,7 +560,11 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
           body: JSON.stringify(chapterToSave),
         },
       );
-      flash(chapterToSave.status === 'published' ? 'Глава опубликована.' : 'Глава сохранена в черновиках.');
+      flash(chapterToSave.workflowStatus === 'published'
+        ? 'Глава опубликована.'
+        : chapterToSave.workflowStatus === 'scheduled'
+          ? 'Глава сохранена и запланирована.'
+          : `Глава сохранена: ${String(WORKFLOW_LABELS[chapterToSave.workflowStatus] || 'черновик').toLocaleLowerCase('ru-RU')}.`);
       const refreshed = await api(`/api/admin/books/${bookForm.id}/chapters`);
       setChapters(refreshed.chapters || []);
       const updated = (refreshed.chapters || []).find((chapter) => chapter.id === (chapterToSave.id || data.id));
@@ -656,6 +708,12 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
           <button className={view === 'comments' ? 'is-active' : ''} onClick={() => navigate('comments')}>
             <MessageCircle size={19} /> Комментарии и отзывы {commentsNeedingAttention > 0 && <span>{commentsNeedingAttention}</span>}
           </button>
+          <button className={view === 'errors' ? 'is-active' : ''} onClick={() => navigate('errors')}>
+            <Settings2 size={19} /> Ошибки в тексте
+          </button>
+          <button className={view === 'voting' ? 'is-active' : ''} onClick={() => navigate('voting')}>
+            <Bell size={19} /> Голосование
+          </button>
           {currentUser.role === 'owner' && (
             <button className={view === 'team' ? 'is-active' : ''} onClick={() => navigate('team')}>
               <Users size={19} /> Команда
@@ -680,7 +738,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
           <button className="admin-menu-toggle" onClick={() => setMenuOpen(true)}><Menu size={21} /></button>
           <div>
             <span>BOOKNERD · ПАНЕЛЬ КОМАНДЫ</span>
-            <strong>{view === 'book' ? (bookForm.id ? 'Редактирование книги' : 'Новая книга') : view === 'team' ? 'Доступ команды' : view === 'comments' ? 'Комментарии и отзывы' : 'Управление библиотекой'}</strong>
+            <strong>{view === 'book' ? (bookForm.id ? 'Редактирование книги' : 'Новая книга') : view === 'team' ? 'Доступ команды' : view === 'comments' ? 'Комментарии и отзывы' : view === 'errors' ? 'Ошибки в тексте' : view === 'voting' ? 'Будущие переводы' : 'Управление библиотекой'}</strong>
           </div>
           <a href="/" target="_blank">Открыть сайт <ChevronRight size={17} /></a>
         </header>
@@ -741,6 +799,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                     </table>
                   </div>
                 </section>
+                <AdminRetention retention={audience?.retention} />
               </>
             ) : null}
 
@@ -797,6 +856,25 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                     <label><span>Номер книги в серии</span><input type="number" min="1" value={bookForm.seriesNumber || ''} onChange={(event) => setBookForm({ ...bookForm, seriesNumber: event.target.value ? Number(event.target.value) : '' })} placeholder="1" /></label>
                     <label className="admin-drive-field"><span>Файл книги в Google Drive</span><input type="url" value={bookForm.driveUrl || ''} onChange={(event) => setBookForm({ ...bookForm, driveUrl: event.target.value })} placeholder="https://drive.google.com/…" /></label>
                   </div>
+                  <div className="admin-release-days">
+                    <span>Дни выхода новых глав</span>
+                    <div>{RELEASE_DAYS.map((day) => (
+                      <label className={(bookForm.releaseDays || []).includes(day) ? 'is-active' : ''} key={day}>
+                        <input
+                          type="checkbox"
+                          checked={(bookForm.releaseDays || []).includes(day)}
+                          onChange={(event) => setBookForm({
+                            ...bookForm,
+                            releaseDays: event.target.checked
+                              ? [...(bookForm.releaseDays || []), day]
+                              : (bookForm.releaseDays || []).filter((item) => item !== day),
+                          })}
+                        />
+                        <span>{day}</span>
+                      </label>
+                    ))}</div>
+                  </div>
+                  <AdminSeriesOrder value={bookForm.seriesReadingOrder || []} onChange={(seriesReadingOrder) => setBookForm({ ...bookForm, seriesReadingOrder })} />
                   <label className="admin-full-field"><span>Аннотация</span><textarea value={bookForm.synopsis} onChange={(event) => setBookForm({ ...bookForm, synopsis: event.target.value })} placeholder="Расскажите читателю, о чём эта история…" rows={7} /><small>{bookForm.synopsis.length} / 12 000</small></label>
                   <label className="admin-full-field"><span>Кому посвящена книга</span><textarea value={bookForm.dedication || ''} onChange={(event) => setBookForm({ ...bookForm, dedication: event.target.value })} placeholder="Например: Всем девушкам, которые однажды выбрали себя…" rows={3} /><small>Посвящение появится на главной странице книги.</small></label>
                   <label className="admin-full-field"><span>Предупреждения о триггерах</span><textarea value={bookForm.triggerWarningsText || ''} onChange={(event) => setBookForm({ ...bookForm, triggerWarningsText: event.target.value, triggerWarnings: splitBookTags(event.target.value, 40) })} placeholder="Например: насилие, утрата близкого, панические атаки" rows={3} /><small>Разделяйте предупреждения запятыми. Они появятся только на странице книги.</small></label>
@@ -868,7 +946,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                   <aside className="admin-chapter-list">
                     {chapters.length ? chapters.map((chapter) => (
                       <button key={chapter.id} className={chapterForm.id === chapter.id ? 'is-active' : ''} onClick={() => { setChapterForm({ ...blankChapter, ...chapter, footnotes: chapter.footnotes || [] }); setFootnoteDraft(null); }}>
-                        <span>{String(chapter.chapterNumber).padStart(2, '0')}</span><div><strong>{chapter.title}</strong><small>{chapter.status === 'published' ? 'Опубликована' : 'Черновик'}{chapter.heatLevel ? ` · ${'🔥'.repeat(chapter.heatLevel)}` : ''}</small></div><ChevronRight size={17} />
+                        <span>{String(chapter.chapterNumber).padStart(2, '0')}</span><div><strong>{chapter.title}</strong><small>{WORKFLOW_LABELS[chapter.workflowStatus] || (chapter.status === 'published' ? 'Опубликовано' : 'Черновик')}{chapter.heatLevel ? ` · ${'🔥'.repeat(chapter.heatLevel)}` : ''}</small></div><ChevronRight size={17} />
                       </button>
                     )) : <p className="admin-no-chapters">Глав пока нет. Создайте первую.</p>}
                   </aside>
@@ -886,8 +964,11 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                       }} /></label>
                       <label className="grow"><span>Название главы</span><input value={chapterForm.title} onChange={(event) => setChapterForm({ ...chapterForm, title: event.target.value })} placeholder={defaultChapterTitle(chapterForm.chapterNumber)} /><small>Заполняется автоматически, но название можно изменить.</small></label>
                       <label className="grow"><span>От лица героя</span><input value={chapterForm.pointOfView || ''} onChange={(event) => setChapterForm({ ...chapterForm, pointOfView: event.target.value })} placeholder="Например, Лейла" /></label>
-                      <label><span>Статус</span><select value={chapterForm.status} onChange={(event) => setChapterForm({ ...chapterForm, status: event.target.value })}><option value="draft">Черновик</option><option value="published">Опубликована</option></select></label>
+                      <label><span>Рабочий статус</span><select value={chapterForm.workflowStatus || 'draft'} onChange={(event) => setChapterForm({ ...chapterForm, workflowStatus: event.target.value, status: event.target.value === 'published' ? 'published' : 'draft' })}><option value="draft">Черновик</option><option value="translating">Переводится</option><option value="editing">На редактуре</option><option value="proofreading">На проверке</option><option value="ready">Готово</option><option value="scheduled">Запланировано</option><option value="published">Опубликовано</option></select></label>
                     </div>
+                    {chapterForm.workflowStatus === 'scheduled' ? (
+                      <label className="admin-chapter-schedule"><span>Дата и время публикации</span><input type="datetime-local" value={localDateTimeInput(chapterForm.scheduledAt)} onChange={(event) => setChapterForm({ ...chapterForm, scheduledAt: event.target.value })} required /><small>BOOKNERD проверяет расписание каждую минуту, сам публикует главу и отправляет уведомления.</small></label>
+                    ) : null}
                     <div className="admin-chapter-body"><span>Текст главы с оформлением</span><RichChapterEditor key={`${bookForm.id || 'book'}-${chapterForm.id || 'new'}-${chapterForm.chapterNumber}`} bookKey={bookForm.id} ref={chapterBodyRef} value={chapterForm.bodyRich} fallbackText={chapterForm.body} onTextSelect={(text) => { chapterSelectionRef.current = text; }} onChange={({ body, bodyRich }) => setChapterForm((current) => ({ ...current, body, bodyRich }))} /></div>
                     <section className="admin-footnotes-panel">
                       <header>
@@ -914,17 +995,25 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                         ) : <p className="admin-footnote-empty">Сносок пока нет.</p>}
                     </section>
                     <label className="admin-chapter-drive"><span>Файл главы в Google Drive</span><input type="url" value={chapterForm.driveUrl || ''} onChange={(event) => setChapterForm({ ...chapterForm, driveUrl: event.target.value })} placeholder="https://drive.google.com/…" /></label>
+                    <label className="admin-chapter-team-note"><span>Заметка команды под главой</span><textarea rows="4" maxLength="4000" value={chapterForm.teamNote || ''} onChange={(event) => setChapterForm({ ...chapterForm, teamNote: event.target.value })} placeholder="Новости, пояснение переводчика, благодарность или вопрос читателям…" /><small>Появится после текста главы и перед комментариями.</small></label>
                     <div className="admin-chapter-actions">
                       {chapterForm.id && <button type="button" className="admin-danger" onClick={deleteChapter}><Trash2 size={17} /> Удалить</button>}
                       <span>{chapterForm.body.length.toLocaleString('ru-RU')} знаков</span>
+                      <button className="admin-secondary" type="button" onClick={() => setChapterPreviewOpen(true)}><Eye size={17} /> Предпросмотр</button>
+                      <ChapterHistory chapterId={chapterForm.id} onRestored={reloadCurrentChapters} onNotice={flash} />
                       <button className="admin-primary" type="submit" disabled={saving}>{saving ? <LoaderCircle className="spin" size={18} /> : <Save size={18} />} Сохранить главу</button>
                     </div>
                   </form>
                 </div>
               )}
             </section>
+            {bookForm.id ? <AdminBookGlossary bookId={bookForm.id} onNotice={flash} /> : null}
           </section>
         )}
+
+        {view === 'errors' ? <AdminErrorReports onNotice={flash} /> : null}
+
+        {view === 'voting' ? <AdminVoting onNotice={flash} /> : null}
 
         {view === 'comments' && (
           <section className="admin-content admin-comments-page">
@@ -1010,6 +1099,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
           </section>
         )}
       </main>
+      {chapterPreviewOpen ? <ChapterPreview book={bookForm} chapter={chapterForm} onClose={() => setChapterPreviewOpen(false)} /> : null}
     </div>
   );
 }
