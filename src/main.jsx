@@ -9,7 +9,6 @@ import {
   Check,
   EyeOff,
   Heart,
-  Library,
   Menu,
   MessageCircle,
   Search,
@@ -19,9 +18,8 @@ import {
 } from 'lucide-react';
 import CommentVotes from './comment-votes.jsx';
 import CommentReport from './comment-report.jsx';
-import NotificationControl from './notification-control.jsx';
 import { LIBRARY_STATUS, loadReaderLibrary, removeReaderLibraryBook, updateReaderLibrary } from './reader-library.jsx';
-import { ContinueReading, ReaderStatistics, ReleaseCalendar, TranslationVoting } from './home-reader-features.jsx';
+import { ContinueReading, TranslationVoting } from './home-reader-features.jsx';
 
 const FEATURED_GENRES = [
   'ROMANCE',
@@ -251,12 +249,7 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [notice, setNotice] = useState('');
   const [libraryItems, setLibraryItems] = useState([]);
-  const [libraryFilter, setLibraryFilter] = useState('all');
   const libraryByBook = useMemo(() => new Map(libraryItems.map((item) => [item.bookId, item])), [libraryItems]);
-  const libraryBooks = useMemo(() => books.filter((book) => {
-    const item = libraryByBook.get(book.id);
-    return item && (libraryFilter === 'all' || item.status === libraryFilter);
-  }), [books, libraryByBook, libraryFilter]);
 
   useEffect(() => {
     let active = true;
@@ -347,8 +340,8 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
           <Logo />
           <nav className="desktop-nav" aria-label="Главная навигация">
             <a href="/translations">Переводы</a>
-            <a href="#my-library">Моя библиотека</a>
-            <a href="#release-calendar">Календарь глав</a>
+            <a href="/library">Моя библиотека</a>
+            <a href="/calendar">Календарь глав</a>
             <a href="/about">О проекте</a>
             <a href="/team">Команда</a>
           </nav>
@@ -402,52 +395,6 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
           </div>
 
           <ContinueReading items={libraryItems} books={books} />
-
-          <section className="my-library section" id="my-library">
-            <div className="section-heading">
-              <div>
-                <span className="section-number">01 / МОЯ БИБЛИОТЕКА</span>
-                <h2>Истории, которые<br /><em>уже ваши.</em></h2>
-              </div>
-              <p>Сохраняйте книги, продолжайте чтение и находите всё прочитанное в одном месте.</p>
-            </div>
-            <NotificationControl />
-            <div className="library-tabs" role="group" aria-label="Разделы моей библиотеки">
-              {[
-                ['all', 'Все'],
-                ['reading', 'Читаю'],
-                ['saved', 'Хочу прочитать'],
-                ['finished', 'Прочитано'],
-              ].map(([value, label]) => (
-                <button type="button" className={libraryFilter === value ? 'active' : ''} onClick={() => setLibraryFilter(value)} key={value}>
-                  {label}<span>{value === 'all' ? libraryItems.length : libraryItems.filter((item) => item.status === value).length}</span>
-                </button>
-              ))}
-            </div>
-            {libraryBooks.length ? (
-              <div className="book-grid library-book-grid">
-                {libraryBooks.map((book) => (
-                  <BookCard
-                    key={book.id}
-                    book={book}
-                    libraryStatus={libraryByBook.get(book.id)?.status || ''}
-                    onSave={toggleSave}
-                    onOpen={openBook}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="library-empty">
-                <Library size={34} />
-                <div><strong>{libraryItems.length ? 'В этом разделе пока пусто' : 'Ваша библиотека ждёт первую книгу'}</strong><p>Нажмите на значок закладки у любой книги — она появится здесь.</p></div>
-                <a href="#catalog">Выбрать книгу <ArrowRight size={16} /></a>
-              </div>
-            )}
-          </section>
-
-          <ReleaseCalendar books={books} />
-
-          <ReaderStatistics />
 
           <section className="catalog section" id="catalog">
             <div className="section-heading catalog-heading">
@@ -557,7 +504,7 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
         <footer>
           <Logo />
           <p>Книжная команда переводов · сделано читателями для читателей</p>
-          <div><a href="/translations">Переводы</a><a href="/about">О нас</a><a href="/team">Команда</a><a href="/go/telegram" target="_blank" rel="noreferrer">Telegram</a></div>
+          <div><a href="/translations">Переводы</a><a href="/library">Моя библиотека</a><a href="/calendar">Календарь</a><a href="/about">О нас</a><a href="/team">Команда</a><a href="/go/telegram" target="_blank" rel="noreferrer">Telegram</a></div>
           <span>© 2026 BOOKNERD</span>
         </footer>
       </div>
@@ -597,8 +544,8 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
           <div className="drawer-head"><Logo /><button onClick={() => setMenuOpen(false)}><X /></button></div>
           <nav>
             <a href="/translations" onClick={() => setMenuOpen(false)}><span>01</span>Переводы</a>
-            <a href="#my-library" onClick={() => setMenuOpen(false)}><span>02</span>Моя библиотека</a>
-            <a href="#release-calendar" onClick={() => setMenuOpen(false)}><span>03</span>Календарь глав</a>
+            <a href="/library" onClick={() => setMenuOpen(false)}><span>02</span>Моя библиотека</a>
+            <a href="/calendar" onClick={() => setMenuOpen(false)}><span>03</span>Календарь глав</a>
             <a href="/about" onClick={() => setMenuOpen(false)}><span>04</span>О проекте</a>
             <a href="/team" onClick={() => setMenuOpen(false)}><span>05</span>Команда</a>
             <a href="/go/telegram" target="_blank" rel="noreferrer" onClick={() => setMenuOpen(false)}><span>06</span>Telegram</a>

@@ -246,11 +246,13 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
   const [searchPosition, setSearchPosition] = useState({ current: 0, total: 0 });
   const [chatComposerOpen, setChatComposerOpen] = useState(false);
   const [chatDraft, setChatDraft] = useState({ sender: '', side: 'incoming' });
+  const [chatTargetCount, setChatTargetCount] = useState(0);
   const [pinnedChatSenders, setPinnedChatSenders] = useState([]);
   const [chatEmojiOpen, setChatEmojiOpen] = useState(false);
   const [chatEmojiCategory, setChatEmojiCategory] = useState(CHAT_EMOJI_CATEGORIES[0].id);
   const activeMatchRef = useRef(-1);
   const savedChatRangeRef = useRef(null);
+  const savedChatBlocksRef = useRef([]);
   const chatEmojiAppendedRef = useRef(false);
   useImperativeHandle(forwardedRef, () => editorRef.current);
   const initialHtml = useMemo(() => richDocumentToEditorHtml(value, fallbackText), []); // Remounted when another chapter opens.
@@ -290,13 +292,21 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
 
   useLayoutEffect(() => {
     if (editorRef.current) editorRef.current.innerHTML = initialHtml;
+    savedChatRangeRef.current = null;
+    savedChatBlocksRef.current = [];
     onTextSelect?.('');
   }, [initialHtml]);
 
   const reportSelection = () => {
     const selection = window.getSelection?.();
-    const anchor = selection?.anchorNode;
-    const inside = anchor && editorRef.current?.contains(anchor.nodeType === 1 ? anchor : anchor.parentElement);
+    const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+    const ancestor = range?.commonAncestorContainer;
+    const ancestorElement = ancestor?.nodeType === Node.ELEMENT_NODE ? ancestor : ancestor?.parentElement;
+    const inside = Boolean(range && ancestorElement && editorRef.current?.contains(ancestorElement));
+    if (inside) {
+      savedChatRangeRef.current = range.cloneRange();
+      savedChatBlocksRef.current = blocksForRange(range);
+    }
     onTextSelect?.(inside ? selection.toString().trim() : '');
   };
 
@@ -436,13 +446,28 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
     return range;
   };
 
+  const savedChatBlocks = () => {
+    const root = editorRef.current;
+    if (!root) return [];
+    const connectedBlocks = savedChatBlocksRef.current.filter((block) => block?.isConnected && root.contains(block));
+    if (connectedBlocks.length) return connectedBlocks;
+    const range = restoreChatSelection();
+    const blocks = range ? blocksForRange(range) : [selectedBlock()].filter(Boolean);
+    savedChatBlocksRef.current = blocks;
+    return blocks;
+  };
+
   const openChatComposer = () => {
-    editorRef.current?.focus();
     const selection = window.getSelection();
     const range = selection?.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
     const inside = range && editorRef.current?.contains(range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE ? range.commonAncestorContainer : range.commonAncestorContainer.parentElement);
-    savedChatRangeRef.current = inside ? range : null;
-    const block = inside ? blocksForRange(range)[0] : selectedBlock();
+    if (inside) {
+      savedChatRangeRef.current = range;
+      savedChatBlocksRef.current = blocksForRange(range);
+    }
+    const targetBlocks = savedChatBlocks();
+    const block = targetBlocks[0];
+    setChatTargetCount(targetBlocks.length);
     const defaultSender = pinnedChatSenders[0];
     setChatDraft({
       sender: block?.dataset?.chatSender || defaultSender?.name || '',
@@ -501,8 +526,7 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
   };
 
   const appendChatEmoji = (emoji) => {
-    const range = restoreChatSelection();
-    const blocks = range ? blocksForRange(range) : [selectedBlock()].filter(Boolean);
+    const blocks = savedChatBlocks();
     const block = blocks[0];
     if (!block) return;
     const currentText = block.textContent || '';
@@ -512,6 +536,7 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
     nextRange.selectNodeContents(block);
     nextRange.collapse(false);
     savedChatRangeRef.current = nextRange.cloneRange();
+    savedChatBlocksRef.current = [block];
     chatEmojiAppendedRef.current = true;
     emitChange();
   };
@@ -519,8 +544,7 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
   const applyChatStyle = () => {
     const sender = normalizeChatSenderName(chatDraft.sender);
     if (!sender) return;
-    const range = restoreChatSelection();
-    const blocks = range ? blocksForRange(range) : [selectedBlock()].filter(Boolean);
+    const blocks = savedChatBlocks();
     blocks.forEach((block) => {
       block.dataset.chatSide = chatDraft.side;
       block.dataset.chatSender = sender;
@@ -538,8 +562,7 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
   };
 
   const removeChatStyle = () => {
-    const range = restoreChatSelection();
-    const blocks = range ? blocksForRange(range) : [selectedBlock()].filter(Boolean);
+    const blocks = savedChatBlocks();
     blocks.forEach((block) => {
       delete block.dataset.chatSide;
       delete block.dataset.chatSender;
@@ -573,7 +596,22 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
   };
 
   const toolbarButton = (label, icon, action) => (
-    <button type="button" title={label} aria-label={label} onMouseDown={(event) => { event.preventDefault(); action(); }}>{icon}</button>
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      onPointerDown={(event) => {
+        event.preventDefault();
+        action();
+      }}
+      onKeyDown={(event) => {
+        if (event.repeat || !['Enter', ' '].includes(event.key)) return;
+        event.preventDefault();
+        action();
+      }}
+    >
+      {icon}
+    </button>
   );
   const normalizedChatDraftSender = normalizeChatSenderName(chatDraft.sender);
   const selectedPinnedChatSender = pinnedChatSenders.find(
@@ -596,7 +634,13 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
           <div className="admin-chat-composer-head">
             <div>
               <strong>Сообщение в переписке</strong>
-              <small>Выделяйте по одному сообщению, чтобы имя и сторона были правильными.</small>
+              <small className={chatTargetCount ? 'admin-chat-target-ready' : 'admin-chat-target-missing'}>
+                {chatTargetCount
+                  ? chatTargetCount === 1
+                    ? 'Сообщение выбрано — укажите имя и сторону.'
+                    : `Выбрано сообщений: ${chatTargetCount}. Оформление применится ко всем.`
+                  : 'Сначала выделите сообщение в тексте, затем нажмите «Переписка».'}
+              </small>
             </div>
             <button type="button" onClick={() => setChatComposerOpen(false)} aria-label="Закрыть оформление переписки"><X size={17} /></button>
           </div>
@@ -703,8 +747,8 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
             ) : null}
           </section>
           <div className="admin-chat-composer-actions">
-            <button type="button" className="admin-secondary" onClick={removeChatStyle}>Убрать пузырёк</button>
-            <button type="button" className="admin-primary" onClick={applyChatStyle} disabled={!chatDraft.sender.trim()}>Применить</button>
+            <button type="button" className="admin-secondary" onClick={removeChatStyle} disabled={!chatTargetCount}>Убрать пузырёк</button>
+            <button type="button" className="admin-primary" onClick={applyChatStyle} disabled={!chatDraft.sender.trim() || !chatTargetCount}>Применить</button>
           </div>
         </div>
       ) : null}
@@ -740,7 +784,9 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
         data-placeholder="Вставьте сюда текст переведённой главы…"
         onInput={emitChange}
         onBlur={emitChange}
-        onMouseUp={reportSelection}
+        onPointerUp={reportSelection}
+        onTouchEnd={reportSelection}
+        onSelect={reportSelection}
         onKeyUp={reportSelection}
         onKeyDown={handleEditorShortcut}
         onPaste={(event) => {

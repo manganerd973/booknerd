@@ -18,7 +18,7 @@ export const books = sqliteTable('books', {
   genres: text('genres').notNull().default('[]'),
   tropes: text('tropes').notNull().default('[]'),
   driveUrl: text('drive_url').notNull().default(''),
-  status: text('status').notNull().default('Черновик'),
+  status: text('status').notNull().default('Анонс'),
   progress: integer('progress').notNull().default(0),
   coverKey: text('cover_key'),
   published: integer('published', { mode: 'boolean' }).notNull().default(false),

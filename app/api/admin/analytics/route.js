@@ -18,7 +18,9 @@ export async function GET(request) {
            COUNT(DISTINCT visitor_key) AS readers,
            SUM(CASE WHEN status = 'saved' THEN 1 ELSE 0 END) AS saved,
            SUM(CASE WHEN status = 'reading' THEN 1 ELSE 0 END) AS reading,
-           SUM(CASE WHEN status = 'finished' THEN 1 ELSE 0 END) AS finished
+           SUM(CASE WHEN status = 'finished' THEN 1 ELSE 0 END) AS finished,
+           SUM(CASE WHEN status = 'favorite' THEN 1 ELSE 0 END) AS favorite,
+           SUM(CASE WHEN status = 'dropped' THEN 1 ELSE 0 END) AS dropped
          FROM reader_library`
       ).first(),
       db.prepare(
@@ -29,7 +31,9 @@ export async function GET(request) {
            COUNT(rl.visitor_key) AS total,
            SUM(CASE WHEN rl.status = 'saved' THEN 1 ELSE 0 END) AS saved,
            SUM(CASE WHEN rl.status = 'reading' THEN 1 ELSE 0 END) AS reading,
-           SUM(CASE WHEN rl.status = 'finished' THEN 1 ELSE 0 END) AS finished
+           SUM(CASE WHEN rl.status = 'finished' THEN 1 ELSE 0 END) AS finished,
+           SUM(CASE WHEN rl.status = 'favorite' THEN 1 ELSE 0 END) AS favorite,
+           SUM(CASE WHEN rl.status = 'dropped' THEN 1 ELSE 0 END) AS dropped
          FROM books b
          LEFT JOIN reader_library rl ON rl.book_id = b.id
          WHERE b.published = 1
@@ -76,6 +80,8 @@ export async function GET(request) {
         saved: Number(libraryTotals?.saved || 0),
         reading: Number(libraryTotals?.reading || 0),
         finished: Number(libraryTotals?.finished || 0),
+        favorite: Number(libraryTotals?.favorite || 0),
+        dropped: Number(libraryTotals?.dropped || 0),
         books: (libraryByBook.results || []).map((book) => ({
           id: book.id,
           title: book.title,
@@ -84,6 +90,8 @@ export async function GET(request) {
           saved: Number(book.saved || 0),
           reading: Number(book.reading || 0),
           finished: Number(book.finished || 0),
+          favorite: Number(book.favorite || 0),
+          dropped: Number(book.dropped || 0),
         })),
       },
       retention: {

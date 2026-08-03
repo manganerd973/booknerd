@@ -1,13 +1,15 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Bookmark, BookOpen, Check, LoaderCircle } from 'lucide-react';
+import { Bookmark, BookOpen, Check, Heart, LoaderCircle, XCircle } from 'lucide-react';
 import { getVisitorKey } from './site-analytics.js';
 
 export const LIBRARY_STATUS = {
-  saved: { label: 'Хочу прочитать', short: 'В планах' },
-  reading: { label: 'Читаю сейчас', short: 'Читаю' },
+  saved: { label: 'В планах', short: 'В планах' },
+  reading: { label: 'Читаю', short: 'Читаю' },
   finished: { label: 'Прочитано', short: 'Прочитано' },
+  favorite: { label: 'Любимые', short: 'Любимые' },
+  dropped: { label: 'Брошено', short: 'Брошено' },
 };
 
 function announceLibraryChange(item) {
@@ -71,6 +73,7 @@ export default function BookLibraryControl({ bookId }) {
   }, [notice]);
 
   const options = useMemo(() => Object.entries(LIBRARY_STATUS), []);
+  const StatusIcon = status === 'finished' ? Check : status === 'reading' ? BookOpen : status === 'favorite' ? Heart : status === 'dropped' ? XCircle : Bookmark;
 
   const chooseStatus = async (nextStatus) => {
     setLoading(true);
@@ -101,7 +104,7 @@ export default function BookLibraryControl({ bookId }) {
   return (
     <div className="book-library-control">
       <div className="book-library-control-title">
-        {loading ? <LoaderCircle className="spin" size={18} /> : status === 'finished' ? <Check size={18} /> : status === 'reading' ? <BookOpen size={18} /> : <Bookmark size={18} />}
+        {loading ? <LoaderCircle className="spin" size={18} /> : <StatusIcon size={18} />}
         <span><small>Моя библиотека</small><strong>{status ? LIBRARY_STATUS[status].label : 'Добавить книгу'}</strong></span>
       </div>
       <div className="book-library-statuses">

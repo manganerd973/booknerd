@@ -1,6 +1,6 @@
 import { ensureDb } from '../../../lib/runtime.js';
 
-const ALLOWED_STATUSES = new Set(['saved', 'reading', 'finished']);
+const ALLOWED_STATUSES = new Set(['saved', 'reading', 'finished', 'favorite', 'dropped']);
 
 function normalizeVisitorKey(value) {
   const key = String(value || '').trim().slice(0, 120);
@@ -87,7 +87,7 @@ export async function POST(request) {
        VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
        ON CONFLICT(visitor_key, book_id) DO UPDATE SET
        status = CASE
-         WHEN ? = 1 AND reader_library.status = 'finished' AND excluded.status != 'finished' THEN reader_library.status
+         WHEN ? = 1 AND reader_library.status IN ('finished', 'favorite', 'dropped') AND excluded.status = 'reading' THEN reader_library.status
          ELSE excluded.status
        END,
        last_chapter_id = COALESCE(excluded.last_chapter_id, reader_library.last_chapter_id),

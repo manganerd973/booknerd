@@ -30,6 +30,7 @@ import {
 import RichChapterEditor from './rich-chapter-editor.jsx';
 import AdminBookGlossary from './admin-book-glossary.jsx';
 import AdminSeriesOrder from './admin-series-order.jsx';
+import { BOOK_TRANSLATION_STATUSES } from '../lib/book-status.js';
 import {
   AdminErrorReports,
   AdminRetention,
@@ -59,7 +60,7 @@ const blankBook = {
   tropes: [],
   tropesText: '',
   driveUrl: '',
-  status: 'Черновик',
+  status: 'Анонс',
   progress: 0,
   coverKey: null,
   coverUrl: null,
@@ -242,13 +243,53 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
   const [notice, setNotice] = useState(null);
   const [audience, setAudience] = useState(null);
   const [chapterPreviewOpen, setChapterPreviewOpen] = useState(false);
+  const [adminAppInstalled, setAdminAppInstalled] = useState(false);
   const chapterBodyRef = useRef(null);
   const chapterSelectionRef = useRef('');
+  const installPromptRef = useRef(null);
 
   const flash = useCallback((message, type = 'success') => {
     setNotice({ message, type });
     window.setTimeout(() => setNotice(null), 3200);
   }, []);
+
+  useEffect(() => {
+    const standalone = window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    if (standalone) setAdminAppInstalled(true);
+    const rememberPrompt = (event) => {
+      event.preventDefault();
+      installPromptRef.current = event;
+    };
+    const markInstalled = () => {
+      installPromptRef.current = null;
+      setAdminAppInstalled(true);
+    };
+    window.addEventListener('beforeinstallprompt', rememberPrompt);
+    window.addEventListener('appinstalled', markInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', rememberPrompt);
+      window.removeEventListener('appinstalled', markInstalled);
+    };
+  }, []);
+
+  const installAdminApp = async () => {
+    if (adminAppInstalled) {
+      flash('Редакционная уже открыта как приложение на телефоне.');
+      return;
+    }
+    const prompt = installPromptRef.current;
+    if (prompt) {
+      await prompt.prompt();
+      const choice = await prompt.userChoice;
+      installPromptRef.current = null;
+      if (choice?.outcome === 'accepted') {
+        setAdminAppInstalled(true);
+        flash('Редакционная BOOKNERD добавлена на телефон.');
+      }
+      return;
+    }
+    flash('На iPhone нажмите «Поделиться» → «На экран Домой». На Android откройте меню браузера → «Установить приложение».');
+  };
 
   const loadBooks = useCallback(async () => {
     setLoading(true);
@@ -735,6 +776,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
             <span>BOOKNERD · ПАНЕЛЬ КОМАНДЫ</span>
             <strong>{view === 'book' ? (bookForm.id ? 'Редактирование книги' : 'Новая книга') : view === 'team' ? 'Доступ команды' : view === 'comments' ? 'Комментарии и отзывы' : view === 'errors' ? 'Ошибки в тексте' : view === 'voting' ? 'Будущие переводы' : 'Управление библиотекой'}</strong>
           </div>
+          {currentUser.role === 'owner' ? <button className="admin-install-button" type="button" onClick={installAdminApp}><Smartphone size={17} /><span>{adminAppInstalled ? 'На телефоне' : 'Установить'}</span></button> : null}
           <a href="/" target="_blank">Открыть сайт <ChevronRight size={17} /></a>
         </header>
 
@@ -775,11 +817,13 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                       <article><strong>{audience?.library?.saved ?? '—'}</strong><small>в планах</small></article>
                       <article><strong>{audience?.library?.reading ?? '—'}</strong><small>читают</small></article>
                       <article><strong>{audience?.library?.finished ?? '—'}</strong><small>прочитали</small></article>
+                      <article><strong>{audience?.library?.favorite ?? '—'}</strong><small>любимые</small></article>
+                      <article><strong>{audience?.library?.dropped ?? '—'}</strong><small>брошено</small></article>
                     </div>
                   </div>
                   <div className="admin-library-table-wrap">
                     <table className="admin-library-table">
-                      <thead><tr><th>Книга</th><th>Всего</th><th>В планах</th><th>Читают</th><th>Прочитали</th></tr></thead>
+                      <thead><tr><th>Книга</th><th>Всего</th><th>В планах</th><th>Читают</th><th>Прочитали</th><th>Любимые</th><th>Брошено</th></tr></thead>
                       <tbody>
                         {(audience?.library?.books || []).length ? audience.library.books.map((book) => (
                           <tr key={book.id}>
@@ -788,8 +832,10 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                             <td>{book.saved}</td>
                             <td><b>{book.reading}</b></td>
                             <td>{book.finished}</td>
+                            <td>{book.favorite}</td>
+                            <td>{book.dropped}</td>
                           </tr>
-                        )) : <tr><td colSpan="5" className="admin-library-empty">Пока ни одну книгу не добавили в личную библиотеку.</td></tr>}
+                        )) : <tr><td colSpan="7" className="admin-library-empty">Пока ни одну книгу не добавили в личную библиотеку.</td></tr>}
                       </tbody>
                     </table>
                   </div>
@@ -878,7 +924,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                     <label><span>Главы со сценами</span><input value={bookForm.hotSceneChapters || ''} onChange={(event) => setBookForm({ ...bookForm, hotSceneChapters: event.target.value })} placeholder="Например, 12–14" disabled={!bookForm.hasHotScenes} /><small>Будут указаны только на странице книги.</small></label>
                     <label><span>Жанры</span><input value={bookForm.genresText || ''} onChange={(event) => setBookForm({ ...bookForm, genresText: event.target.value })} placeholder="Романтика, Фэнтези, Young Adult" /><small>Разделяйте жанры запятыми.</small></label>
                     <label><span>Тропы</span><input value={bookForm.tropesText || ''} onChange={(event) => setBookForm({ ...bookForm, tropesText: event.target.value })} placeholder="Враги в возлюбленные, найденная семья" /><small>Разделяйте тропы запятыми.</small></label>
-                    <label><span>Статус перевода</span><select value={bookForm.status} onChange={(event) => setBookForm({ ...bookForm, status: event.target.value })}><option>Черновик</option><option>Скоро</option><option>В работе</option><option>Новый перевод</option><option>Готово</option><option>На паузе</option></select></label>
+                    <label><span>Статус перевода</span><select value={bookForm.status} onChange={(event) => setBookForm({ ...bookForm, status: event.target.value })}>{BOOK_TRANSLATION_STATUSES.map((status) => <option value={status} key={status}>{status}</option>)}</select></label>
                     <label><span>Готовность перевода: {bookForm.progress}%</span><input type="range" min="0" max="100" value={bookForm.progress} onChange={(event) => setBookForm({ ...bookForm, progress: Number(event.target.value) })} /></label>
                     <label className="admin-switch-row"><span><strong>Показывать книгу на сайте</strong><small>Читатели увидят аннотацию и опубликованные главы.</small></span><input type="checkbox" checked={bookForm.published} onChange={(event) => setBookForm({ ...bookForm, published: event.target.checked })} /></label>
                   </div>

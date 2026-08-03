@@ -55,14 +55,14 @@ export function ContinueReading({ items = [], books = [] }) {
   );
 }
 
-export function ReleaseCalendar({ books = [] }) {
+export function ReleaseCalendar({ books = [], showHeading = true }) {
   const normalizedBooks = useMemo(() => new Map(books.map((book) => [book.title.toLocaleLowerCase('ru-RU'), book])), [books]);
   return (
     <section className="release-calendar section" id="release-calendar">
-      <div className="section-heading">
+      {showHeading ? <div className="section-heading">
         <div><span className="section-number">КАЛЕНДАРЬ ГЛАВ</span><h2>Когда ждать<br /><em>продолжение.</em></h2></div>
         <p>Включите напоминание только для той истории, которую действительно ждёте.</p>
-      </div>
+      </div> : null}
       <div className="release-calendar-grid">
         {RELEASES.map((release) => {
           const book = normalizedBooks.get(release.title.toLocaleLowerCase('ru-RU'));

@@ -441,7 +441,7 @@
   background: var(--chat-bubble);
   box-shadow: none;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", "Segoe UI", Arial, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif !important;
-  font-size: 17px;
+  font-size: var(--reader-font-size, 20px);
   font-style: normal !important;
   font-weight: 400;
   font-variant-emoji: emoji;

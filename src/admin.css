@@ -113,6 +113,8 @@
 .admin-topbar > div span { color: var(--admin-mint); font-size: 9px; font-weight: 900; letter-spacing: .16em; }
 .admin-topbar > div strong { font-family: Georgia, serif; font-size: 17px; }
 .admin-topbar > a { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; color: var(--admin-ink); font-size: 12px; font-weight: 800; text-decoration: none; }
+.admin-install-button { display: inline-flex; min-height: 38px; align-items: center; justify-content: center; gap: 7px; margin-left: auto; padding: 0 12px; border: 1px solid var(--admin-ink); color: #fffdf1; background: var(--admin-ink); font-size: 10px; font-weight: 850; cursor: pointer; }
+.admin-install-button + a { margin-left: 0; }
 .admin-menu-toggle { display: none; border: 0; background: transparent; cursor: pointer; }
 
 .admin-content { width: min(1240px, calc(100% - 64px)); margin: 0 auto; padding: 54px 0 82px; }
@@ -176,7 +178,7 @@
 .admin-library-insights-head > div:first-child > span { color: var(--admin-mint); font-size: 8px; font-weight: 900; letter-spacing: .15em; }
 .admin-library-insights h2 { margin: 6px 0 5px; font-family: Georgia, serif; font-size: 27px; font-weight: 500; }
 .admin-library-insights-head p { margin: 0; color: var(--admin-ink-soft); font-size: 10px; }
-.admin-library-summary { display: grid; grid-template-columns: repeat(3,minmax(76px,1fr)); border: 1px solid var(--admin-line); }
+.admin-library-summary { display: grid; grid-template-columns: repeat(5,minmax(68px,1fr)); border: 1px solid var(--admin-line); }
 .admin-library-summary article { padding: 11px 14px; text-align: center; border-right: 1px solid var(--admin-line); }
 .admin-library-summary article:last-child { border-right: 0; }
 .admin-library-summary strong { display: block; font-family: Georgia, serif; font-size: 25px; font-weight: 500; }
@@ -359,6 +361,8 @@
 .admin-chat-composer-head > div { display: grid; gap: 3px; }
 .admin-chat-composer-head strong { font-family: Georgia, serif; font-size: 18px; font-weight: 500; }
 .admin-chat-composer-head small { color: var(--admin-ink-soft); font-size: 9px; line-height: 1.4; }
+.admin-chat-composer-head small.admin-chat-target-ready { color: #26715d; font-weight: 750; }
+.admin-chat-composer-head small.admin-chat-target-missing { color: #9a3535; font-weight: 750; }
 .admin-chat-composer-head > button { display: grid; width: 31px; height: 31px; flex: 0 0 auto; place-items: center; border: 1px solid var(--admin-line); color: var(--admin-ink); background: #fffef8; cursor: pointer; }
 .admin-chat-composer > label { display: grid; gap: 6px; }
 .admin-chat-composer > label > span { font-size: 9px; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; }
@@ -442,7 +446,7 @@
   background: var(--chat-bubble);
   box-shadow: none;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", "Segoe UI", Arial, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif !important;
-  font-size: 16px;
+  font-size: inherit;
   font-style: normal !important;
   font-weight: 400;
   font-variant-emoji: emoji;
@@ -629,6 +633,8 @@
   .admin-topbar > div span { display: none; }
   .admin-topbar > div strong { font-size: 14px; }
   .admin-topbar > a { font-size: 0; }
+  .admin-install-button { min-width: 40px; padding: 0 10px; }
+  .admin-install-button span { display: none; }
   .admin-content { width: min(100% - 24px, 560px); padding: 34px 0 58px; }
   .admin-hero-row { display: grid; align-items: start; }
   .admin-hero-row h1 { font-size: 46px; }
@@ -641,6 +647,8 @@
   .admin-audience-grid article { min-height: 94px; border-right: 0; border-bottom: 1px solid var(--admin-line); }
   .admin-audience-grid article:last-child { border-bottom: 0; }
   .admin-library-insights { padding: 15px; }
+  .admin-library-summary { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .admin-library-summary article { border-bottom: 1px solid var(--admin-line); }
   .admin-list-head { display: grid; align-items: start; margin-top: 40px; }
   .admin-search { width: 100%; }
   .admin-book-grid { grid-template-columns: 1fr; }
@@ -649,6 +657,7 @@
   .admin-fields.two-columns { grid-template-columns: 1fr; }
   .admin-form-card { padding: 20px; }
   .admin-form-side { grid-template-columns: 1fr; }
+  .admin-save-book { position: sticky; z-index: 9; bottom: max(10px, env(safe-area-inset-bottom)); min-height: 52px; box-shadow: 0 12px 32px rgba(18,60,53,.24); }
   .admin-cover-preview { width: 210px; }
   .admin-artwork-workspace { grid-template-columns: 1fr; padding: 14px; }
   .admin-artwork-grid { grid-template-columns: 1fr; }
@@ -679,7 +688,7 @@
   .admin-footnotes-panel > header { align-items: stretch; flex-direction: column; }
   .admin-footnotes-panel > header > button { width: 100%; }
   .admin-footnote-editor > div { flex-direction: column; }
-  .admin-chapter-actions { flex-wrap: wrap; }
+  .admin-chapter-actions { position: sticky; z-index: 9; bottom: 0; flex-wrap: wrap; margin: 18px -16px -16px; padding: 12px 16px max(12px, env(safe-area-inset-bottom)); border-top: 1px solid var(--admin-line); background: rgba(255,253,241,.96); box-shadow: 0 -12px 28px rgba(18,60,53,.09); backdrop-filter: blur(12px); }
   .admin-chapter-actions > span { order: 3; width: 100%; margin: 0; text-align: right; }
   .admin-team-list { padding: 20px; }
   .admin-team-list article { grid-template-columns: 38px minmax(0,1fr) 32px; }
@@ -769,7 +778,7 @@
 .admin-preview-stage > article > em { display: block; margin: -20px 0 28px; color: #9a6749; }
 .admin-preview-stage article > div p,.admin-preview-stage article > div blockquote { font: 400 18px/1.7 Georgia,serif; }
 .admin-preview-stage article > div blockquote { padding-left: 18px; border-left: 3px solid #b76e43; }
-.admin-preview-stage .preview-chat { --chat-bubble: #e9e9eb; position: relative; width: fit-content; max-width: 82%; margin: 32px 0 8px; padding: 8px 12px 9px; border-radius: 18px 18px 18px 5px; color: #111114; background: var(--chat-bubble); font: 400 16px/1.32 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue","Segoe UI",Arial,sans-serif; text-align: left !important; overflow-wrap: anywhere; white-space: pre-line; word-spacing: normal; }
+.admin-preview-stage .preview-chat { --chat-bubble: #e9e9eb; position: relative; width: fit-content; max-width: 82%; margin: 32px 0 8px; padding: 8px 12px 9px; border-radius: 18px 18px 18px 5px; color: #111114; background: var(--chat-bubble); font: 400 1em/1.32 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue","Segoe UI",Arial,sans-serif; text-align: left !important; overflow-wrap: anywhere; white-space: pre-line; word-spacing: normal; }
 .admin-preview-stage .preview-chat em { font-style: normal; }
 .admin-preview-stage .preview-chat::after { position: absolute; bottom: -1px; left: -5px; width: 13px; height: 16px; background: var(--chat-bubble); clip-path: polygon(100% 0,100% 100%,0 100%,58% 72%); content: ''; }
 .admin-preview-stage .preview-chat.is-incoming { margin-right: auto; }

@@ -14,6 +14,8 @@ export function SiteLogo() {
 
 const links = [
   { href: '/translations', label: 'Переводы', key: 'translations' },
+  { href: '/library', label: 'Моя библиотека', key: 'library' },
+  { href: '/calendar', label: 'Календарь глав', key: 'calendar' },
   { href: '/about', label: 'О проекте', key: 'about' },
   { href: '/team', label: 'Команда', key: 'team' },
   { href: '/go/telegram', label: 'Telegram', key: 'telegram', external: true },
@@ -41,7 +43,7 @@ export function SiteHeader({ active = '' }) {
           <div className="drawer-head"><SiteLogo /><button onClick={() => setOpen(false)} aria-label="Закрыть меню"><X /></button></div>
           <nav>
             {links.map((link, index) => <a href={link.href} target={link.external ? '_blank' : undefined} rel={link.external ? 'noreferrer' : undefined} key={link.key}><span>0{index + 1}</span>{link.label}</a>)}
-            <a href="/admin"><span>05</span>Редакционная</a>
+            <a href="/admin"><span>07</span>Редакционная</a>
           </nav>
           <p>Истории, которые мы хотели прочитать сами.</p>
         </div>
@@ -55,7 +57,7 @@ export function SiteFooter() {
     <footer>
       <SiteLogo />
       <p>Книжная команда переводов · сделано читателями для читателей</p>
-      <div><a href="/translations">Переводы</a><a href="/about">О нас</a><a href="/team">Команда</a><a href="/go/telegram" target="_blank" rel="noreferrer">Telegram</a><a href="/admin">Редакционная</a></div>
+      <div><a href="/translations">Переводы</a><a href="/library">Моя библиотека</a><a href="/calendar">Календарь</a><a href="/about">О нас</a><a href="/team">Команда</a><a href="/go/telegram" target="_blank" rel="noreferrer">Telegram</a><a href="/admin">Редакционная</a></div>
       <span>© 2026 BOOKNERD</span>
     </footer>
   );

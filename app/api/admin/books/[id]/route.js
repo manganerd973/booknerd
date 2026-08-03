@@ -3,6 +3,7 @@ import { slugify } from '../../../../../lib/books.js';
 import { ensureDb } from '../../../../../lib/runtime.js';
 import { normalizeGoogleDriveUrl } from '../../../../../lib/google-drive.js';
 import { notifyBookPreferenceEvent } from '../../../../../lib/push-notifications.js';
+import { normalizeBookStatus } from '../../../../../lib/book-status.js';
 
 function normalizePayload(payload = {}) {
   const genres = Array.isArray(payload.genres)
@@ -44,7 +45,7 @@ function normalizePayload(payload = {}) {
     genres,
     tropes,
     driveUrl,
-    status: String(payload.status || 'Черновик').trim().slice(0, 80),
+    status: normalizeBookStatus(payload.status),
     progress: Math.max(0, Math.min(100, Number(payload.progress || 0))),
     coverKey: payload.coverKey ? String(payload.coverKey).trim() : null,
     published: Boolean(payload.published),
