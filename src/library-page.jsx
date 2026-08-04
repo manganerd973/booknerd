@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Bookmark, BookOpen, Check, Heart, Library, LoaderCircle, XCircle } from 'lucide-react';
+import { ArrowRight, Bookmark, BookOpen, Check, Grid3X3, Heart, Library, List, LoaderCircle, XCircle } from 'lucide-react';
 import { ContinueReading, ReaderStatistics } from './home-reader-features.jsx';
 import NotificationControl from './notification-control.jsx';
 import { LIBRARY_STATUS, loadReaderLibrary, updateReaderLibrary } from './reader-library.jsx';
@@ -23,6 +23,7 @@ const STATUS_ICON = {
   favorite: Heart,
   dropped: XCircle,
 };
+const LIBRARY_VIEW_STORAGE_KEY = 'booknerd:library-view';
 
 function chapterWord(value) {
   const count = Math.abs(Number(value || 0));
@@ -69,6 +70,7 @@ function LibraryBookCard({ book, item, onStatusChange }) {
 export default function LibraryPage({ initialBooks = [] }) {
   const [items, setItems] = useState([]);
   const [activeTab, setActiveTab] = useState('all');
+  const [viewMode, setViewMode] = useState('list');
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState('');
   const booksById = useMemo(() => new Map(initialBooks.map((book) => [book.id, book])), [initialBooks]);
@@ -81,6 +83,15 @@ export default function LibraryPage({ initialBooks = [] }) {
       .catch((error) => { if (active) setNotice(error.message); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    try {
+      const savedView = window.localStorage.getItem(LIBRARY_VIEW_STORAGE_KEY);
+      if (savedView === 'list' || savedView === 'grid') setViewMode(savedView);
+    } catch {
+      // Если хранилище браузера закрыто, остаётся удобный вид списком.
+    }
   }, []);
 
   useEffect(() => {
@@ -102,6 +113,15 @@ export default function LibraryPage({ initialBooks = [] }) {
     }
   };
 
+  const changeViewMode = (nextView) => {
+    setViewMode(nextView);
+    try {
+      window.localStorage.setItem(LIBRARY_VIEW_STORAGE_KEY, nextView);
+    } catch {
+      // Выбор всё равно действует до закрытия страницы.
+    }
+  };
+
   return (
     <div className="site-shell inner-site-shell library-page">
       <SiteHeader active="library" />
@@ -120,11 +140,23 @@ export default function LibraryPage({ initialBooks = [] }) {
             ))}
           </div>
 
-          <NotificationControl />
+          <div className="library-view-toolbar">
+            <div><strong>Вид книжной полки</strong><span>По умолчанию книги показаны удобным списком.</span></div>
+            <div role="group" aria-label="Выберите вид книжной полки">
+              <button type="button" className={viewMode === 'list' ? 'is-active' : ''} aria-pressed={viewMode === 'list'} onClick={() => changeViewMode('list')}>
+                <List size={17} /> Список
+              </button>
+              <button type="button" className={viewMode === 'grid' ? 'is-active' : ''} aria-pressed={viewMode === 'grid'} onClick={() => changeViewMode('grid')}>
+                <Grid3X3 size={16} /> Плитка
+              </button>
+            </div>
+          </div>
+
+          <div id="notifications" className="library-notifications-anchor"><NotificationControl /></div>
           <ContinueReading items={items} books={initialBooks} />
 
           {loading ? <div className="library-page-loading"><LoaderCircle className="spin" size={25} /> Открываем ваши полки…</div> : visibleItems.length ? (
-            <div className="library-page-grid">
+            <div className={`library-page-grid is-${viewMode}`}>
               {visibleItems.map((item) => <LibraryBookCard book={booksById.get(item.bookId)} item={item} onStatusChange={changeStatus} key={item.bookId} />)}
             </div>
           ) : (
