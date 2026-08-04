@@ -13,6 +13,7 @@ export const books = sqliteTable('books', {
   country: text('country').notNull().default(''),
   publicationYear: integer('publication_year'),
   pageCount: integer('page_count').notNull().default(0),
+  plannedChapterCount: integer('planned_chapter_count').notNull().default(0),
   authorBirthday: text('author_birthday').notNull().default(''),
   originalReleaseDate: text('original_release_date').notNull().default(''),
   translator: text('translator').notNull().default(''),

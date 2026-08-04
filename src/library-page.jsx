@@ -36,11 +36,11 @@ function chapterWord(value) {
 
 function LibraryCover({ book }) {
   const chapterCount = Number(book.publishedChapterCount ?? book.chapterCount ?? 0);
-  const completed = book.status === 'Завершено' || Number(book.progress || 0) >= 100;
+  const completed = book.status === 'Завершено';
   return (
     <div className={`library-page-cover cover-${book.cover || 'garden'} ${book.coverUrl ? 'has-image' : ''}`}>
       {book.coverUrl ? <img src={book.coverUrl} alt={`Обложка книги «${book.title}»`} /> : <><span>BOOKNERD</span><strong>{book.title}</strong><small>{book.author}</small></>}
-      <div className="library-cover-meta"><strong>{chapterCount} {chapterWord(chapterCount)}</strong><small>{completed ? 'Завершено' : 'Не завершено'}</small></div>
+      <div className="library-cover-meta"><strong>{chapterCount} {chapterWord(chapterCount)}</strong><small>{completed ? 'Завершено' : 'Онгоинг'}</small></div>
     </div>
   );
 }

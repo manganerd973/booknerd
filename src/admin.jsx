@@ -52,6 +52,8 @@ const blankBook = {
   country: '',
   publicationYear: '',
   pageCount: 0,
+  plannedChapterCount: 0,
+  publishedChapterCount: 0,
   authorBirthday: '',
   originalReleaseDate: '',
   translator: '',
@@ -308,9 +310,12 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
     setLoading(true);
     try {
       const data = await api('/api/admin/books');
-      setBooks(data.books || []);
+      const nextBooks = data.books || [];
+      setBooks(nextBooks);
+      return nextBooks;
     } catch (error) {
       flash(error.message, 'error');
+      return null;
     } finally {
       setLoading(false);
     }
@@ -425,7 +430,22 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
         body: JSON.stringify(payload),
       });
       const id = bookForm.id || data.id;
-      setBookForm((current) => ({ ...current, id, slug: data.slug, genres, tropes, triggerWarnings, searchAliases, genresText: genres.join(', '), tropesText: tropes.join(', '), triggerWarningsText: triggerWarnings.join(', '), searchAliasesText: searchAliases.join(', ') }));
+      setBookForm((current) => ({
+        ...current,
+        id,
+        slug: data.slug,
+        progress: Number(data.progress ?? current.progress ?? 0),
+        plannedChapterCount: Number(data.plannedChapterCount ?? current.plannedChapterCount ?? 0),
+        publishedChapterCount: Number(data.publishedChapterCount ?? current.publishedChapterCount ?? 0),
+        genres,
+        tropes,
+        triggerWarnings,
+        searchAliases,
+        genresText: genres.join(', '),
+        tropesText: tropes.join(', '),
+        triggerWarningsText: triggerWarnings.join(', '),
+        searchAliasesText: searchAliases.join(', '),
+      }));
       flash(editing ? 'Книга сохранена.' : 'Книга добавлена. Теперь можно создать главы.');
       await loadBooks();
     } catch (error) {
@@ -581,6 +601,9 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
     setChapters(refreshedChapters);
     const updated = refreshedChapters.find((item) => item.id === chapterForm.id);
     if (updated) setChapterForm({ ...blankChapter, ...updated, footnotes: updated.footnotes || [] });
+    const latestBooks = await loadBooks();
+    const latestBook = (latestBooks || []).find((item) => item.id === bookForm.id);
+    if (latestBook) setBookForm((current) => ({ ...current, progress: latestBook.progress, publishedChapterCount: latestBook.publishedChapterCount, plannedChapterCount: latestBook.plannedChapterCount }));
   };
 
   const saveChapter = async (event) => {
@@ -620,6 +643,12 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
       setChapters(refreshed.chapters || []);
       const updated = (refreshed.chapters || []).find((chapter) => chapter.id === (chapterToSave.id || data.id));
       setChapterForm(updated || { ...blankChapter });
+      setBookForm((current) => ({
+        ...current,
+        progress: Number(data.progress ?? current.progress ?? 0),
+        publishedChapterCount: Number(data.publishedChapterCount ?? current.publishedChapterCount ?? 0),
+        plannedChapterCount: Number(data.plannedChapterCount ?? current.plannedChapterCount ?? 0),
+      }));
       setFootnoteDraft(null);
       await loadBooks();
     } catch (error) {
@@ -632,12 +661,18 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
   const deleteChapter = async () => {
     if (!chapterForm.id || !window.confirm('Удалить эту главу?')) return;
     try {
-      await api(`/api/admin/chapters/${chapterForm.id}`, { method: 'DELETE' });
+      const data = await api(`/api/admin/chapters/${chapterForm.id}`, { method: 'DELETE' });
       const refreshed = await api(`/api/admin/books/${bookForm.id}/chapters`);
       const refreshedChapters = refreshed.chapters || [];
       setChapters(refreshedChapters);
       const chapterNumber = refreshedChapters.length + 1;
       setChapterForm({ ...blankChapter, chapterNumber, title: '' });
+      setBookForm((current) => ({
+        ...current,
+        progress: Number(data.progress ?? current.progress ?? 0),
+        publishedChapterCount: Number(data.publishedChapterCount ?? current.publishedChapterCount ?? 0),
+        plannedChapterCount: Number(data.plannedChapterCount ?? current.plannedChapterCount ?? 0),
+      }));
       setFootnoteDraft(null);
       flash('Глава удалена. Номера остальных глав обновлены автоматически.');
       await loadBooks();
@@ -909,6 +944,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                     <label><span>Страна книги</span><input value={bookForm.country || ''} onChange={(event) => setBookForm({ ...bookForm, country: event.target.value })} placeholder="Например, Сирия / США" /></label>
                     <label><span>Год выхода</span><input type="number" min="1" max="9999" value={bookForm.publicationYear || ''} onChange={(event) => setBookForm({ ...bookForm, publicationYear: event.target.value ? Number(event.target.value) : '' })} /></label>
                     <label><span>Длина книги, страниц</span><input type="number" min="0" value={bookForm.pageCount || ''} onChange={(event) => setBookForm({ ...bookForm, pageCount: Number(event.target.value || 0) })} /></label>
+                    <label><span>Всего глав в книге</span><input type="number" min="0" value={bookForm.plannedChapterCount || ''} onChange={(event) => setBookForm({ ...bookForm, plannedChapterCount: Number(event.target.value || 0) })} placeholder="Например, 40" /><small>Укажите один раз — дальше процент готовности считается сам.</small></label>
                     <label><span>День рождения автора</span><input type="date" value={bookForm.authorBirthday || ''} onChange={(event) => setBookForm({ ...bookForm, authorBirthday: event.target.value })} /></label>
                     <label><span>Дата выхода оригинала</span><input type="date" value={bookForm.originalReleaseDate || ''} onChange={(event) => setBookForm({ ...bookForm, originalReleaseDate: event.target.value })} /></label>
                     <label><span>Оригинальное название</span><input value={bookForm.originalTitle} onChange={(event) => setBookForm({ ...bookForm, originalTitle: event.target.value })} placeholder="Название на языке оригинала" /></label>
@@ -953,7 +989,14 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                     <label><span>Жанры</span><input value={bookForm.genresText || ''} onChange={(event) => setBookForm({ ...bookForm, genresText: event.target.value })} placeholder="Романтика, Фэнтези, Young Adult" /><small>Разделяйте жанры запятыми.</small></label>
                     <label><span>Тропы</span><input value={bookForm.tropesText || ''} onChange={(event) => setBookForm({ ...bookForm, tropesText: event.target.value })} placeholder="Враги в возлюбленные, найденная семья" /><small>Разделяйте тропы запятыми.</small></label>
                     <label><span>Статус перевода</span><select value={bookForm.status} onChange={(event) => setBookForm({ ...bookForm, status: event.target.value })}>{BOOK_TRANSLATION_STATUSES.map((status) => <option value={status} key={status}>{status}</option>)}</select></label>
-                    <label><span>Готовность перевода: {bookForm.progress}%</span><input type="range" min="0" max="100" value={bookForm.progress} onChange={(event) => setBookForm({ ...bookForm, progress: Number(event.target.value) })} /></label>
+                    <div className="admin-auto-progress" role="group" aria-label={`Готовность перевода ${bookForm.progress}%`}>
+                      <span>Готовность перевода</span>
+                      <div><i style={{ width: `${bookForm.progress}%` }} /></div>
+                      <strong>{bookForm.progress}%</strong>
+                      <small>{bookForm.plannedChapterCount
+                        ? `Опубликовано ${bookForm.publishedChapterCount || 0} из ${bookForm.plannedChapterCount} глав. Процент обновляется после каждой публикации.`
+                        : 'Укажите общее количество глав — редакционная начнёт считать процент автоматически.'}</small>
+                    </div>
                     <label className="admin-switch-row"><span><strong>Показывать книгу на сайте</strong><small>Читатели увидят аннотацию и опубликованные главы.</small></span><input type="checkbox" checked={bookForm.published} onChange={(event) => setBookForm({ ...bookForm, published: event.target.checked })} /></label>
                     <label className="admin-switch-row"><span><strong>Выбор команды BOOKNERD</strong><small>Книга появится в отдельной рекомендации на главной.</small></span><input type="checkbox" checked={Boolean(bookForm.teamPick)} onChange={(event) => setBookForm({ ...bookForm, teamPick: event.target.checked })} /></label>
                   </div>

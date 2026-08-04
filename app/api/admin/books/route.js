@@ -43,6 +43,7 @@ function normalizeBookPayload(payload = {}) {
     country: String(payload.country || '').trim().slice(0, 100),
     publicationYear: payload.publicationYear ? Math.max(1, Math.min(9999, Math.floor(Number(payload.publicationYear)))) : null,
     pageCount: Math.max(0, Math.min(100000, Math.floor(Number(payload.pageCount || 0)))),
+    plannedChapterCount: Math.max(0, Math.min(100000, Math.floor(Number(payload.plannedChapterCount || 0)))),
     authorBirthday: String(payload.authorBirthday || '').trim().slice(0, 10),
     originalReleaseDate: String(payload.originalReleaseDate || '').trim().slice(0, 10),
     translator: String(payload.translator || '').trim().slice(0, 240),
@@ -61,7 +62,6 @@ function normalizeBookPayload(payload = {}) {
     tropes,
     driveUrl,
     status: normalizeBookStatus(payload.status),
-    progress: Math.max(0, Math.min(100, Number(payload.progress || 0))),
     coverKey: payload.coverKey ? String(payload.coverKey).trim() : null,
     published: Boolean(payload.published),
     requestedSlug: String(payload.slug || '').trim(),
@@ -104,15 +104,16 @@ export async function POST(request) {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     const slug = await uniqueSlug(db, slugify(payload.requestedSlug || payload.title));
+    const progress = payload.status === 'Завершено' ? 100 : 0;
     await db.prepare(
       `INSERT INTO books
-       (id, slug, title, original_title, series_title, series_number, series_reading_order, release_days, author, country, publication_year, page_count, author_birthday, original_release_date, translator, editor, proofreader, playlist_url, team_pick, quote_of_day, search_aliases, dedication, trigger_warnings, has_hot_scenes, hot_scene_chapters, synopsis, genres, tropes, drive_url, status, progress, cover_key, published, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (id, slug, title, original_title, series_title, series_number, series_reading_order, release_days, author, country, publication_year, page_count, planned_chapter_count, author_birthday, original_release_date, translator, editor, proofreader, playlist_url, team_pick, quote_of_day, search_aliases, dedication, trigger_warnings, has_hot_scenes, hot_scene_chapters, synopsis, genres, tropes, drive_url, status, progress, cover_key, published, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
       id, slug, payload.title, payload.originalTitle, payload.seriesTitle, payload.seriesNumber, JSON.stringify(payload.seriesReadingOrder), JSON.stringify(payload.releaseDays), payload.author,
-      payload.country, payload.publicationYear, payload.pageCount, payload.authorBirthday, payload.originalReleaseDate, payload.translator, payload.editor, payload.proofreader, payload.playlistUrl, payload.teamPick ? 1 : 0, payload.quoteOfDay, JSON.stringify(payload.searchAliases),
+      payload.country, payload.publicationYear, payload.pageCount, payload.plannedChapterCount, payload.authorBirthday, payload.originalReleaseDate, payload.translator, payload.editor, payload.proofreader, payload.playlistUrl, payload.teamPick ? 1 : 0, payload.quoteOfDay, JSON.stringify(payload.searchAliases),
       payload.dedication, JSON.stringify(payload.triggerWarnings), payload.hasHotScenes ? 1 : 0, payload.hotSceneChapters, payload.synopsis,
-      JSON.stringify(payload.genres), JSON.stringify(payload.tropes), payload.driveUrl, payload.status, payload.progress, payload.coverKey,
+      JSON.stringify(payload.genres), JSON.stringify(payload.tropes), payload.driveUrl, payload.status, progress, payload.coverKey,
       payload.published ? 1 : 0, now, now,
     ).run();
     if (payload.published) {
@@ -126,7 +127,7 @@ export async function POST(request) {
         requestUrl: request.url,
         sameAuthor: true,
       }).catch(() => {});
-      if (payload.progress >= 100) {
+      if (progress >= 100) {
         await notifyBookPreferenceEvent({
           bookId: id,
           preference: 'translationComplete',
@@ -139,7 +140,7 @@ export async function POST(request) {
       }
     }
 
-    return Response.json({ id, slug }, { status: 201 });
+    return Response.json({ id, slug, progress, plannedChapterCount: payload.plannedChapterCount, publishedChapterCount: 0 }, { status: 201 });
   } catch (error) {
     return Response.json({ error: error.message || 'Не удалось добавить книгу.' }, { status: 500 });
   }

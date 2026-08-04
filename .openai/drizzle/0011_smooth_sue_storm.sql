@@ -1,0 +1,1 @@
+ALTER TABLE `books` ADD `planned_chapter_count` integer DEFAULT 0 NOT NULL;

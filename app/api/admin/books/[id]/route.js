@@ -1,5 +1,5 @@
 import { authorizeAdminRequest } from '../../../../../lib/admin-auth.js';
-import { slugify } from '../../../../../lib/books.js';
+import { recalculateBookProgress, slugify } from '../../../../../lib/books.js';
 import { ensureDb } from '../../../../../lib/runtime.js';
 import { normalizeGoogleDriveUrl } from '../../../../../lib/google-drive.js';
 import { notifyBookPreferenceEvent } from '../../../../../lib/push-notifications.js';
@@ -43,6 +43,7 @@ function normalizePayload(payload = {}) {
     country: String(payload.country || '').trim().slice(0, 100),
     publicationYear: payload.publicationYear ? Math.max(1, Math.min(9999, Math.floor(Number(payload.publicationYear)))) : null,
     pageCount: Math.max(0, Math.min(100000, Math.floor(Number(payload.pageCount || 0)))),
+    plannedChapterCount: Math.max(0, Math.min(100000, Math.floor(Number(payload.plannedChapterCount || 0)))),
     authorBirthday: String(payload.authorBirthday || '').trim().slice(0, 10),
     originalReleaseDate: String(payload.originalReleaseDate || '').trim().slice(0, 10),
     translator: String(payload.translator || '').trim().slice(0, 240),
@@ -61,7 +62,6 @@ function normalizePayload(payload = {}) {
     tropes,
     driveUrl,
     status: normalizeBookStatus(payload.status),
-    progress: Math.max(0, Math.min(100, Number(payload.progress || 0))),
     coverKey: payload.coverKey ? String(payload.coverKey).trim() : null,
     published: Boolean(payload.published),
     requestedSlug: String(payload.slug || '').trim(),
@@ -89,21 +89,22 @@ export async function PUT(request, { params }) {
     if (conflict) slug = `${slug}-${id.slice(0, 6)}`;
 
     await db.prepare(
-      `UPDATE books SET slug = ?, title = ?, original_title = ?, series_title = ?, series_number = ?, series_reading_order = ?, release_days = ?, author = ?, country = ?, publication_year = ?, page_count = ?, author_birthday = ?, original_release_date = ?, translator = ?, editor = ?, proofreader = ?, playlist_url = ?, team_pick = ?, quote_of_day = ?, search_aliases = ?, dedication = ?, trigger_warnings = ?, has_hot_scenes = ?, hot_scene_chapters = ?, synopsis = ?, genres = ?, tropes = ?, drive_url = ?,
-       status = ?, progress = ?, cover_key = ?, published = ?, updated_at = ? WHERE id = ?`
+      `UPDATE books SET slug = ?, title = ?, original_title = ?, series_title = ?, series_number = ?, series_reading_order = ?, release_days = ?, author = ?, country = ?, publication_year = ?, page_count = ?, planned_chapter_count = ?, author_birthday = ?, original_release_date = ?, translator = ?, editor = ?, proofreader = ?, playlist_url = ?, team_pick = ?, quote_of_day = ?, search_aliases = ?, dedication = ?, trigger_warnings = ?, has_hot_scenes = ?, hot_scene_chapters = ?, synopsis = ?, genres = ?, tropes = ?, drive_url = ?,
+       status = ?, cover_key = ?, published = ?, updated_at = ? WHERE id = ?`
     ).bind(
       slug, payload.title, payload.originalTitle, payload.seriesTitle, payload.seriesNumber, JSON.stringify(payload.seriesReadingOrder), JSON.stringify(payload.releaseDays), payload.author,
-      payload.country, payload.publicationYear, payload.pageCount, payload.authorBirthday, payload.originalReleaseDate, payload.translator, payload.editor, payload.proofreader, payload.playlistUrl, payload.teamPick ? 1 : 0, payload.quoteOfDay, JSON.stringify(payload.searchAliases),
+      payload.country, payload.publicationYear, payload.pageCount, payload.plannedChapterCount, payload.authorBirthday, payload.originalReleaseDate, payload.translator, payload.editor, payload.proofreader, payload.playlistUrl, payload.teamPick ? 1 : 0, payload.quoteOfDay, JSON.stringify(payload.searchAliases),
       payload.dedication, JSON.stringify(payload.triggerWarnings), payload.hasHotScenes ? 1 : 0, payload.hotSceneChapters, payload.synopsis,
-      JSON.stringify(payload.genres), JSON.stringify(payload.tropes), payload.driveUrl, payload.status, payload.progress, payload.coverKey,
+      JSON.stringify(payload.genres), JSON.stringify(payload.tropes), payload.driveUrl, payload.status, payload.coverKey,
       payload.published ? 1 : 0, new Date().toISOString(), id,
     ).run();
+    const progressState = await recalculateBookProgress(id, db);
     if (current.cover_key && current.cover_key !== payload.coverKey) {
       await db.prepare(`DELETE FROM book_covers WHERE key = ?`).bind(current.cover_key).run();
     }
     if (
       payload.published
-      && payload.progress >= 100
+      && progressState.progress >= 100
       && (Number(current.progress || 0) < 100 || !current.published)
     ) {
       await notifyBookPreferenceEvent({
@@ -128,7 +129,7 @@ export async function PUT(request, { params }) {
         sameAuthor: true,
       }).catch(() => {});
     }
-    return Response.json({ id, slug });
+    return Response.json({ id, slug, ...progressState });
   } catch (error) {
     return Response.json({ error: error.message || 'Не удалось сохранить книгу.' }, { status: 500 });
   }

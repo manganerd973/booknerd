@@ -215,6 +215,7 @@ function ReadingModeIcon({ mode, size = 22 }) {
 export default function ReaderView({ book, chapter, chapters = [], previous, next }) {
   const chapterList = useMemo(() => chapters.length ? chapters : [chapter], [chapters, chapter]);
   const chapterIndex = Math.max(0, chapterList.findIndex((item) => item.id === chapter.id));
+  const translationCompleted = book.status === 'Завершено';
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [settingsReady, setSettingsReady] = useState(false);
   const [page, setPage] = useState(0);
@@ -263,14 +264,14 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
   }, [book.id, chapter.id, chapterIndex, chapterList.length]);
 
   useEffect(() => {
-    if (!showCompletion || next) return;
+    if (!showCompletion || next || !translationCompleted) return;
     updateReaderLibrary({
       bookId: book.id,
       status: 'finished',
       lastChapterId: chapter.id,
       progress: 100,
     }).catch(() => {});
-  }, [book.id, chapter.id, next, showCompletion]);
+  }, [book.id, chapter.id, next, showCompletion, translationCompleted]);
   const [activeAnnotationId, setActiveAnnotationId] = useState(null);
   const [activeFootnote, setActiveFootnote] = useState(null);
   const [noteDraft, setNoteDraft] = useState(null);
@@ -523,7 +524,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
           chapterId: chapter.id,
           seconds,
           chapterProgress: completed ? 100 : currentReadingState.chapterProgress,
-          bookProgress: completed && !next ? 100 : currentReadingState.percent,
+          bookProgress: completed && !next && translationCompleted ? 100 : currentReadingState.percent,
           page: currentReadingState.page,
           completed,
           notificationReturn,
@@ -537,7 +538,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       stopped = true;
       window.clearInterval(timer);
     };
-  }, [book.id, chapter.id, next?.id]);
+  }, [book.id, chapter.id, next?.id, translationCompleted]);
 
   useEffect(() => {
     if (!showCompletion) return;
@@ -550,13 +551,13 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
         chapterId: chapter.id,
         seconds: 0,
         chapterProgress: 100,
-        bookProgress: next ? percent : 100,
+        bookProgress: next || !translationCompleted ? percent : 100,
         page,
         completed: true,
       }),
       keepalive: true,
     }).catch(() => {});
-  }, [book.id, chapter.id, next, page, percent, showCompletion]);
+  }, [book.id, chapter.id, next, page, percent, showCompletion, translationCompleted]);
 
   const goBackward = useCallback(() => {
     if (settings.motion === 'scroll') {
@@ -1668,11 +1669,20 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       ) : null}
 
       {showCompletion ? (
-        <ReaderSheet title={next ? 'Глава прочитана!' : 'Спасибо, что прочитали!'} eyebrow={next ? readerChapterTitle(chapter) : `Вы закончили «${book.title}»`} onClose={() => setShowCompletion(false)} wide>
+        <ReaderSheet
+          title={next ? 'Глава прочитана!' : translationCompleted ? 'Спасибо, что прочитали!' : 'Продолжение скоро'}
+          eyebrow={next ? readerChapterTitle(chapter) : translationCompleted ? `Вы закончили «${book.title}»` : `Последняя опубликованная глава «${book.title}»`}
+          onClose={() => setShowCompletion(false)}
+          wide
+        >
           <div className="reader-completion">
             <div className="reader-completion-copy">
               <Check size={28} />
-              <p>{next ? 'Вы дошли до конца главы. Отметьте эмоцию — она попадёт на общую эмоциональную карту книги.' : 'Вы дошли до последней страницы. Оставьте оценку и отзыв — он сразу появится на главной странице этой книги.'}</p>
+              <p>{next
+                ? 'Вы дошли до конца главы. Отметьте эмоцию — она попадёт на общую эмоциональную карту книги.'
+                : translationCompleted
+                  ? 'Вы дошли до последней страницы. Оставьте оценку и отзыв — он сразу появится на главной странице этой книги.'
+                  : 'Вы прочитали всё, что уже опубликовано. Книга автоматически остаётся в разделе «Читаю», а после выхода новой главы можно будет продолжить с этого места.'}</p>
             </div>
             <section className="reader-emotion-map">
               <small>Какая эмоция осталась после главы?</small>
@@ -1684,8 +1694,14 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
               </div>
               <p>Так постепенно складывается эмоциональная карта всей книги.</p>
             </section>
-            {!next ? <CompletionReviewForm bookId={book.id} /> : null}
-            {next ? <a href={`/books/${book.slug}/chapters/${next.id}`}>Читать дальше <ArrowRight size={18} /></a> : <><a href={`/community?book=${encodeURIComponent(book.id)}&kind=poll`}>Ответить на опрос после книги <MessageCircle size={18} /></a><a href={`/books/${book.slug}`}>Перейти на страницу книги <ArrowRight size={18} /></a></>}
+            {!next && translationCompleted ? <CompletionReviewForm bookId={book.id} /> : null}
+            {next ? (
+              <a href={`/books/${book.slug}/chapters/${next.id}`}>Читать дальше <ArrowRight size={18} /></a>
+            ) : translationCompleted ? (
+              <><a href={`/community?book=${encodeURIComponent(book.id)}&kind=poll`}>Ответить на опрос после книги <MessageCircle size={18} /></a><a href={`/books/${book.slug}`}>Перейти на страницу книги <ArrowRight size={18} /></a></>
+            ) : (
+              <><a href="/library">Открыть раздел «Читаю» <BookOpen size={18} /></a><a href={`/books/${book.slug}`}>Вернуться к книге <ArrowRight size={18} /></a></>
+            )}
           </div>
         </ReaderSheet>
       ) : null}

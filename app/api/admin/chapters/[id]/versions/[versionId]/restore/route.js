@@ -1,5 +1,6 @@
 import { authorizeAdminRequest } from '../../../../../../../../lib/admin-auth.js';
 import { ensureDb } from '../../../../../../../../lib/runtime.js';
+import { recalculateBookProgress } from '../../../../../../../../lib/books.js';
 
 export async function POST(request, { params }) {
   const auth = await authorizeAdminRequest(request);
@@ -42,7 +43,8 @@ export async function POST(request, { params }) {
         crypto.randomUUID(), id, current.workflow_status || 'draft', version.workflow_status || 'draft', editor, now,
       ),
     ]);
-    return Response.json({ ok: true, id });
+    const progressState = await recalculateBookProgress(current.book_id, db);
+    return Response.json({ ok: true, id, ...progressState });
   } catch (error) {
     return Response.json({ error: error.message || 'Не удалось восстановить версию.' }, { status: 500 });
   }

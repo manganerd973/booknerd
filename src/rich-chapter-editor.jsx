@@ -253,6 +253,7 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
   const activeMatchRef = useRef(-1);
   const savedChatRangeRef = useRef(null);
   const savedChatBlocksRef = useRef([]);
+  const chatScrollSnapshotRef = useRef(null);
   const chatEmojiAppendedRef = useRef(false);
   useImperativeHandle(forwardedRef, () => editorRef.current);
   const initialHtml = useMemo(() => richDocumentToEditorHtml(value, fallbackText), []); // Remounted when another chapter opens.
@@ -457,7 +458,36 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
     return blocks;
   };
 
+  const rememberChatScroll = () => {
+    chatScrollSnapshotRef.current = {
+      editorTop: editorRef.current?.scrollTop || 0,
+      windowX: window.scrollX,
+      windowY: window.scrollY,
+    };
+  };
+
+  const restoreChatScroll = ({ focusEditor = false } = {}) => {
+    const snapshot = chatScrollSnapshotRef.current;
+    if (!snapshot) return;
+    const restore = () => {
+      if (editorRef.current) editorRef.current.scrollTop = snapshot.editorTop;
+      window.scrollTo(snapshot.windowX, snapshot.windowY);
+      if (focusEditor) editorRef.current?.focus?.({ preventScroll: true });
+    };
+    restore();
+    window.requestAnimationFrame(() => {
+      restore();
+      window.requestAnimationFrame(restore);
+    });
+  };
+
+  const closeChatComposer = () => {
+    setChatComposerOpen(false);
+    restoreChatScroll();
+  };
+
   const openChatComposer = () => {
+    rememberChatScroll();
     const selection = window.getSelection();
     const range = selection?.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
     const inside = range && editorRef.current?.contains(range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE ? range.commonAncestorContainer : range.commonAncestorContainer.parentElement);
@@ -480,6 +510,7 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
     setChatEmojiOpen(false);
     chatEmojiAppendedRef.current = false;
     setChatComposerOpen(true);
+    restoreChatScroll();
   };
 
   const persistPinnedChatSenders = (value) => {
@@ -558,7 +589,7 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
     if (!blocks.length) return;
     setChatComposerOpen(false);
     emitChange();
-    editorRef.current?.focus();
+    restoreChatScroll({ focusEditor: true });
   };
 
   const removeChatStyle = () => {
@@ -571,7 +602,7 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
     if (!blocks.length) return;
     setChatComposerOpen(false);
     emitChange();
-    editorRef.current?.focus();
+    restoreChatScroll({ focusEditor: true });
   };
 
   const toggleFirstLine = () => {
@@ -642,7 +673,7 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
                   : 'Сначала выделите сообщение в тексте, затем нажмите «Переписка».'}
               </small>
             </div>
-            <button type="button" onClick={() => setChatComposerOpen(false)} aria-label="Закрыть оформление переписки"><X size={17} /></button>
+            <button type="button" onClick={closeChatComposer} aria-label="Закрыть оформление переписки"><X size={17} /></button>
           </div>
           <label>
             <span>Имя отправителя</span>
@@ -651,7 +682,6 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
               onChange={(event) => setChatDraft((current) => ({ ...current, sender: event.target.value }))}
               placeholder="Например, Ализэ"
               maxLength={80}
-              autoFocus
             />
           </label>
           <div className={`admin-chat-pinned-senders ${pinnedChatSenders.length ? 'is-pinned' : ''}`}>

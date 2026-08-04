@@ -1,5 +1,5 @@
 import { authorizeAdminRequest } from '../../../../../../lib/admin-auth.js';
-import { listChapters } from '../../../../../../lib/books.js';
+import { listChapters, recalculateBookProgress } from '../../../../../../lib/books.js';
 import { ensureDb } from '../../../../../../lib/runtime.js';
 import { normalizeGoogleDriveUrl } from '../../../../../../lib/google-drive.js';
 import { normalizeRichDocument, richDocumentToPlainText, serializeRichDocument } from '../../../../../../lib/rich-document.js';
@@ -87,6 +87,7 @@ export async function POST(request, { params }) {
       `INSERT INTO chapter_audit (id, chapter_id, action, from_status, to_status, editor_email, created_at)
        VALUES (?, ?, 'created', '', ?, ?, ?)`
     ).bind(crypto.randomUUID(), id, payload.workflowStatus, auth.email || auth.displayName || '', now).run();
+    const progressState = await recalculateBookProgress(bookId, db);
     if (payload.status === 'published') {
       await notifyPublishedChapter({ chapterId: id, requestUrl: request.url }).catch(() => {});
       if (payload.teamNote) {
@@ -101,7 +102,7 @@ export async function POST(request, { params }) {
         }).catch(() => {});
       }
     }
-    return Response.json({ id }, { status: 201 });
+    return Response.json({ id, ...progressState }, { status: 201 });
   } catch (error) {
     const message = String(error.message || 'Не удалось добавить главу.');
     const status = message.includes('UNIQUE') ? 409 : 500;

@@ -333,7 +333,7 @@
   .process-grid article { min-height: 230px; border-right: 0; border-bottom: 1px solid var(--line); }
   .process-grid h3 { margin-top: 70px; }
   .team-roles { grid-template-columns: repeat(2, 1fr); }
-  .library-page-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .library-page-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
   .team-roles article:nth-child(2) { border-right: 1px solid var(--line); }
   .team-roles article:nth-child(n+3) { border-top: 0; }
 }
@@ -347,8 +347,22 @@
   .translations-grid { grid-template-columns: 1fr; }
   .library-page-content { padding-top: 20px; }
   .library-page-tabs { margin-bottom: 18px; }
-  .library-page-grid { grid-template-columns: 1fr; gap: 48px; margin-top: 38px; }
-  .library-page-cover { width: min(360px,88%); margin: auto; }
+  .library-page-grid { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 34px 10px; margin-top: 38px; }
+  .library-page-cover { width: 100%; margin: 0; padding: 12px; box-shadow: 5px 7px 0 var(--yellow-soft); }
+  .library-page-cover > strong { max-width: 100%; font-size: clamp(14px,4.4vw,22px); }
+  .library-page-cover > small { margin-top: 7px; font-size: 6px; }
+  .library-cover-meta { right: 5px; bottom: 5px; min-width: 0; padding: 5px 6px; }
+  .library-cover-meta strong { font-size: 7px; }
+  .library-cover-meta small { font-size: 6px; }
+  .library-page-card-copy { padding: 13px 1px 0; }
+  .library-page-card-copy > span { font-size: 7px; letter-spacing: .02em; }
+  .library-page-card-copy h2 { display: -webkit-box; overflow: hidden; margin: 7px 0 3px; font-size: 14px; line-height: 1.05; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+  .library-page-card-copy > p { display: -webkit-box; overflow: hidden; font-size: 8px; -webkit-box-orient: vertical; -webkit-line-clamp: 1; }
+  .library-page-card-copy label { margin-top: 10px; }
+  .library-page-card-copy label > span { display: none; }
+  .library-page-card-copy select { min-height: 36px; padding: 0 5px; font-size: 8px; }
+  .library-page-open { margin-top: 10px; font-size: 8px; }
+  .library-page-open svg { display: none; }
   .library-page-empty { align-items: flex-start; flex-direction: column; }
   .library-page-empty > a { margin-left: 0; }
   .library-page-content > .reader-personal-stats { margin-top: 64px; border-radius: 20px; }

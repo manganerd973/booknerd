@@ -3,6 +3,7 @@ import { ensureDb } from '../../../../../lib/runtime.js';
 import { normalizeGoogleDriveUrl } from '../../../../../lib/google-drive.js';
 import { normalizeRichDocument, richDocumentToPlainText, serializeRichDocument } from '../../../../../lib/rich-document.js';
 import { notifyBookPreferenceEvent, notifyPublishedChapter } from '../../../../../lib/push-notifications.js';
+import { recalculateBookProgress } from '../../../../../lib/books.js';
 
 const WORKFLOW_STATUSES = new Set(['draft', 'translating', 'editing', 'proofreading', 'ready', 'scheduled', 'published']);
 
@@ -93,6 +94,7 @@ export async function PUT(request, { params }) {
       current.workflow_status || (current.status === 'published' ? 'published' : 'draft'),
       payload.workflowStatus, auth.email || auth.displayName || '', now,
     ).run();
+    const progressState = await recalculateBookProgress(current.book_id, db);
     if (current.status !== 'published' && payload.status === 'published') {
       await notifyPublishedChapter({ chapterId: id, requestUrl: request.url }).catch(() => {});
     }
@@ -107,7 +109,7 @@ export async function PUT(request, { params }) {
         requestUrl: request.url,
       }).catch(() => {});
     }
-    return Response.json({ id });
+    return Response.json({ id, ...progressState });
   } catch (error) {
     const message = String(error.message || 'Не удалось сохранить главу.');
     const status = message.includes('UNIQUE') ? 409 : 500;
@@ -190,7 +192,8 @@ export async function DELETE(request, { params }) {
       ).bind(chapter.book_id, now, chapter.book_id),
       db.prepare(`UPDATE books SET updated_at = ? WHERE id = ?`).bind(now, chapter.book_id),
     ]);
-    return Response.json({ ok: true, bookId: chapter.book_id });
+    const progressState = await recalculateBookProgress(chapter.book_id, db);
+    return Response.json({ ok: true, bookId: chapter.book_id, ...progressState });
   } catch (error) {
     return Response.json({ error: error.message || 'Не удалось удалить главу.' }, { status: 500 });
   }
