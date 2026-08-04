@@ -57,15 +57,32 @@ export function ContinueReading({ items = [], books = [] }) {
 
 export function ReleaseCalendar({ books = [], showHeading = true }) {
   const normalizedBooks = useMemo(() => new Map(books.map((book) => [book.title.toLocaleLowerCase('ru-RU'), book])), [books]);
+  const releases = useMemo(() => {
+    const configured = books.filter((book) => (book.releaseDays || []).length).map((book) => ({
+      title: book.title,
+      days: book.releaseDays,
+      short: book.releaseDays.map((day) => day.slice(0, 2).toLocaleUpperCase('ru-RU')),
+      book,
+    }));
+    return configured.length ? configured : RELEASES.map((release) => ({ ...release, book: normalizedBooks.get(release.title.toLocaleLowerCase('ru-RU')) }));
+  }, [books, normalizedBooks]);
+  const dayNames = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
+  const todayName = dayNames[new Date().getDay()];
+  const tomorrowName = dayNames[(new Date().getDay() + 1) % 7];
   return (
     <section className="release-calendar section" id="release-calendar">
       {showHeading ? <div className="section-heading">
         <div><span className="section-number">КАЛЕНДАРЬ ГЛАВ</span><h2>Когда ждать<br /><em>продолжение.</em></h2></div>
         <p>Включите напоминание только для той истории, которую действительно ждёте.</p>
       </div> : null}
+      <div className="release-calendar-summary">
+        <article><small>СЕГОДНЯ · {todayName}</small><strong>{releases.filter((item) => item.days.includes(todayName)).length || '—'}</strong><span>ожидаемых продолжений</span></article>
+        <article><small>ЗАВТРА · {tomorrowName}</small><strong>{releases.filter((item) => item.days.includes(tomorrowName)).length || '—'}</strong><span>ожидаемых продолжений</span></article>
+        <article><small>НЕДЕЛЯ РЕЛИЗОВ</small><strong>{releases.length}</strong><span>книг в расписании</span></article>
+      </div>
       <div className="release-calendar-grid">
-        {RELEASES.map((release) => {
-          const book = normalizedBooks.get(release.title.toLocaleLowerCase('ru-RU'));
+        {releases.map((release) => {
+          const book = release.book || normalizedBooks.get(release.title.toLocaleLowerCase('ru-RU'));
           return (
             <article key={release.title}>
               <CalendarDays size={24} />

@@ -30,6 +30,12 @@ import {
   Sun,
   Trash2,
   Type,
+  BookMarked,
+  Film,
+  Map,
+  Music2,
+  Volume2,
+  VolumeX,
   X,
 } from 'lucide-react';
 import CommentsSection from './comments-section.jsx';
@@ -50,10 +56,10 @@ const SETTINGS_KEY = 'booknerd-reader-settings-v2';
 const ANNOTATIONS_KEY_PREFIX = 'booknerd-reader-annotations-v1';
 
 const BOOKMARK_CATEGORIES = [
-  { id: 'favorite', label: 'Любимый момент', symbol: '♡' },
-  { id: 'later', label: 'Вернуться позже', symbol: '↩' },
-  { id: 'important', label: 'Важное', symbol: '!' },
-  { id: 'funny', label: 'Смешное', symbol: '☺' },
+  { id: 'favorite', label: 'Любимый момент', symbol: '♡', color: '#ec8dad' },
+  { id: 'later', label: 'Вернуться позже', symbol: '↩', color: '#8ca9d8' },
+  { id: 'important', label: 'Важное', symbol: '!', color: '#ddae58' },
+  { id: 'funny', label: 'Смешное', symbol: '☺', color: '#77ad82' },
 ];
 
 const ERROR_CATEGORIES = [
@@ -83,11 +89,11 @@ const READING_MODE_OPTIONS = [
 
 const THEME_OPTIONS = [
   { id: 'original', name: 'Оригинал', sample: 'Aa' },
-  { id: 'night', name: 'Тишина', sample: 'Aa' },
-  { id: 'paper', name: 'Бумага', sample: 'Aa' },
-  { id: 'bold', name: 'Контраст', sample: 'Aa' },
-  { id: 'calm', name: 'Спокойствие', sample: 'Aa' },
-  { id: 'focus', name: 'Фокус', sample: 'Aa' },
+  { id: 'night', name: 'Звёздная ночь', sample: 'Aa' },
+  { id: 'paper', name: 'Старинный архив', sample: 'Aa' },
+  { id: 'bold', name: 'Лесная библиотека', sample: 'Aa' },
+  { id: 'calm', name: 'Японский сад', sample: 'Aa' },
+  { id: 'focus', name: 'Осеннее кафе', sample: 'Aa' },
 ];
 
 const FONT_OPTIONS = [
@@ -166,7 +172,13 @@ function ChapterFlow({
             chatSide={block.chatSide}
             paragraphIndex={index}
             chapterId={chapter.id}
-            annotations={annotations.filter((annotation) => Number(annotation.paragraphIndex) === index)}
+            annotations={annotations.flatMap((annotation) => {
+              const segment = Array.isArray(annotation.segments)
+                ? annotation.segments.find((item) => Number(item.paragraphIndex) === index)
+                : null;
+              if (segment) return [{ ...annotation, ...segment, text: segment.text }];
+              return Number(annotation.paragraphIndex) === index ? [annotation] : [];
+            })}
             footnotes={chapter.footnotes || []}
             onOpenAnnotation={measuring ? undefined : onOpenAnnotation}
             onOpenFootnote={measuring ? undefined : onOpenFootnote}
@@ -222,6 +234,9 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
   const [annotations, setAnnotations] = useState([]);
   const [annotationsReady, setAnnotationsReady] = useState(false);
   const [textSelection, setTextSelection] = useState(null);
+  const [readerHub, setReaderHub] = useState({ dictionary: [], reactions: [], emotionTotals: [], myEmotions: [] });
+  const [dictionaryDraft, setDictionaryDraft] = useState(null);
+  const [ambientSound, setAmbientSound] = useState('');
 
   useEffect(() => {
     const ping = () => {
@@ -248,14 +263,14 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
   }, [book.id, chapter.id, chapterIndex, chapterList.length]);
 
   useEffect(() => {
-    if (!showCompletion) return;
+    if (!showCompletion || next) return;
     updateReaderLibrary({
       bookId: book.id,
       status: 'finished',
       lastChapterId: chapter.id,
       progress: 100,
     }).catch(() => {});
-  }, [book.id, chapter.id, showCompletion]);
+  }, [book.id, chapter.id, next, showCompletion]);
   const [activeAnnotationId, setActiveAnnotationId] = useState(null);
   const [activeFootnote, setActiveFootnote] = useState(null);
   const [noteDraft, setNoteDraft] = useState(null);
@@ -264,6 +279,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
   const initialPositionApplied = useRef(false);
   const touchStart = useRef(null);
   const readerTap = useRef({ tracking: false, x: 0, y: 0, last: 0 });
+  const ambientAudioRef = useRef(null);
 
   const annotationStorageKey = `${ANNOTATIONS_KEY_PREFIX}:${book.id}`;
   const chapterAnnotations = useMemo(
@@ -329,6 +345,28 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       .then((data) => setBookmarks(Array.isArray(data.bookmarks) ? data.bookmarks : []))
       .catch(() => setBookmarks([]));
   }, [book.id]);
+
+  const refreshReaderHub = useCallback(() => {
+    const query = new URLSearchParams({ visitorKey: getVisitorKey(), bookId: book.id, chapterId: chapter.id });
+    return fetch(`/api/reader-hub?${query.toString()}`, { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((data) => setReaderHub({
+        dictionary: Array.isArray(data.dictionary) ? data.dictionary : [],
+        reactions: Array.isArray(data.reactions) ? data.reactions : [],
+        emotionTotals: Array.isArray(data.emotionTotals) ? data.emotionTotals : [],
+        myEmotions: Array.isArray(data.myEmotions) ? data.myEmotions : [],
+      }))
+      .catch(() => {});
+  }, [book.id, chapter.id]);
+
+  useEffect(() => { refreshReaderHub(); }, [refreshReaderHub]);
+
+  useEffect(() => () => {
+    if (ambientAudioRef.current) {
+      ambientAudioRef.current.close?.().catch?.(() => {});
+      ambientAudioRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -436,6 +474,10 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
   const currentBookPage = clamp(bookPageOffset + page + 1, 1, totalBookPages);
   const percent = Math.round((currentBookPage / totalBookPages) * 100);
   const pagesLeftInChapter = Math.max(0, currentChapterPages - page - 1);
+  const estimatedMinutesLeft = Math.max(1, Math.ceil((totalBookPages - currentBookPage) * 1.8));
+  const chapterBlockCount = Math.max(1, blocksFor(chapter).length);
+  const currentChapterEmotionTotals = readerHub.emotionTotals.filter((item) => item.chapter_id === chapter.id);
+  const myChapterEmotion = readerHub.myEmotions.find((item) => item.chapter_id === chapter.id)?.emoji || '';
   const currentPageBookmark = bookmarks.find((item) => item.chapterId === chapter.id && Number(item.page) === page && !item.quote);
   const isBookmarked = Boolean(currentPageBookmark);
   const readingStateRef = useRef({ page, percent, chapterProgress: 0 });
@@ -508,13 +550,13 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
         chapterId: chapter.id,
         seconds: 0,
         chapterProgress: 100,
-        bookProgress: 100,
+        bookProgress: next ? percent : 100,
         page,
         completed: true,
       }),
       keepalive: true,
     }).catch(() => {});
-  }, [book.id, chapter.id, page, showCompletion]);
+  }, [book.id, chapter.id, next, page, percent, showCompletion]);
 
   const goBackward = useCallback(() => {
     if (settings.motion === 'scroll') {
@@ -543,8 +585,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       setPage((current) => current + 1);
       return;
     }
-    if (next) window.location.href = `/books/${book.slug}/chapters/${next.id}`;
-    else setShowCompletion(true);
+    setShowCompletion(true);
   }, [book.slug, currentChapterPages, next, page, settings.motion]);
 
   const startReaderTap = (event) => {
@@ -586,35 +627,54 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       const endNode = range.endContainer.nodeType === 1 ? range.endContainer : range.endContainer.parentElement;
       const startParagraph = startNode?.closest?.('[data-reader-paragraph="true"]');
       const endParagraph = endNode?.closest?.('[data-reader-paragraph="true"]');
-      if (!startParagraph || !endParagraph || startParagraph !== endParagraph) {
-        if (selection.toString().trim()) setToast('Пока можно помечать фразу внутри одного абзаца.');
-        return;
-      }
-      if (startParagraph.dataset.chapterId !== chapter.id) return;
+      if (!startParagraph || !endParagraph) return;
+      if (startParagraph.dataset.chapterId !== chapter.id || endParagraph.dataset.chapterId !== chapter.id) return;
 
-      const offsetInParagraph = (node, offset) => {
+      const flow = startParagraph.closest('.reader-visible-flow');
+      if (!flow || flow !== endParagraph.closest('.reader-visible-flow')) return;
+      const paragraphs = [...flow.querySelectorAll('[data-reader-paragraph="true"]')];
+      const firstIndex = paragraphs.indexOf(startParagraph);
+      const lastIndex = paragraphs.indexOf(endParagraph);
+      if (firstIndex < 0 || lastIndex < firstIndex) return;
+
+      const offsetInParagraph = (paragraph, node, offset) => {
         const helper = document.createRange();
-        helper.selectNodeContents(startParagraph);
+        helper.selectNodeContents(paragraph);
         helper.setEnd(node, offset);
         return helper.toString().length;
       };
 
-      const rawText = range.toString();
-      const leadingSpace = rawText.match(/^\s*/)?.[0]?.length || 0;
-      const selectedText = rawText.trim();
+      const selectedText = range.toString().trim();
       if (!selectedText) return;
-      if (selectedText.length > 800) {
-        setToast('Для пометки выберите отрывок короче 800 знаков.');
-        return;
-      }
-      const start = offsetInParagraph(range.startContainer, range.startOffset) + leadingSpace;
+      const segments = paragraphs.slice(firstIndex, lastIndex + 1).map((paragraph, relativeIndex, selectedParagraphs) => {
+        const paragraphRange = document.createRange();
+        paragraphRange.selectNodeContents(paragraph);
+        if (relativeIndex === 0) paragraphRange.setStart(range.startContainer, range.startOffset);
+        if (relativeIndex === selectedParagraphs.length - 1) paragraphRange.setEnd(range.endContainer, range.endOffset);
+        const rawText = paragraphRange.toString();
+        const leadingSpace = rawText.match(/^\s*/)?.[0]?.length || 0;
+        const trailingSpace = rawText.match(/\s*$/)?.[0]?.length || 0;
+        const start = relativeIndex === 0
+          ? offsetInParagraph(paragraph, range.startContainer, range.startOffset) + leadingSpace
+          : leadingSpace;
+        const text = rawText.trim();
+        return {
+          paragraphIndex: Number(paragraph.dataset.paragraphIndex),
+          start,
+          end: Math.max(start, start + rawText.length - leadingSpace - trailingSpace),
+          text,
+        };
+      }).filter((segment) => segment.text && segment.end > segment.start);
+      if (!segments.length) return;
+
       setChromeHidden(false);
       setTextSelection({
         chapterId: chapter.id,
-        paragraphIndex: Number(startParagraph.dataset.paragraphIndex),
-        start,
-        end: start + selectedText.length,
+        paragraphIndex: segments[0].paragraphIndex,
+        start: segments[0].start,
+        end: segments[0].end,
         text: selectedText,
+        segments,
         page,
       });
     }, 10);
@@ -635,6 +695,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       start: source.start,
       end: source.end,
       text: source.text,
+      segments: Array.isArray(source.segments) ? source.segments : undefined,
       page: Number(source.page) || 0,
       color: patch.color || '#ffe066',
       note: String(patch.note || '').trim(),
@@ -642,15 +703,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       createdAt: now,
       updatedAt: now,
     };
-    setAnnotations((current) => [
-      ...current.filter((item) => (
-        item.chapterId !== annotation.chapterId
-        || Number(item.paragraphIndex) !== Number(annotation.paragraphIndex)
-        || Number(item.end) <= annotation.start
-        || Number(item.start) >= annotation.end
-      )),
-      annotation,
-    ]);
+    setAnnotations((current) => [...current, annotation]);
     clearTextSelection();
     setToast(patch.note ? 'Заметка сохранена' : patch.sticker ? 'Стикер добавлен' : 'Фраза выделена');
     return id;
@@ -750,6 +803,130 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       if (error?.name !== 'AbortError') setToast('Не удалось поделиться отрывком');
     }
   }, [book.title, chapter.title, clearTextSelection, textSelection]);
+
+  const reactToSelection = useCallback(async (emoji) => {
+    if (!textSelection?.text) return;
+    try {
+      const response = await fetch('/api/reader-hub', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          action: 'reaction',
+          visitorKey: getVisitorKey(),
+          bookId: book.id,
+          chapterId: chapter.id,
+          paragraphIndex: textSelection.paragraphIndex,
+          selectedText: textSelection.text,
+          emoji,
+        }),
+      });
+      if (!response.ok) throw new Error('Не удалось поставить реакцию.');
+      clearTextSelection();
+      await refreshReaderHub();
+      setToast(`Реакция ${emoji} сохранена`);
+    } catch (error) {
+      setToast(error.message);
+    }
+  }, [book.id, chapter.id, clearTextSelection, refreshReaderHub, textSelection]);
+
+  const openDictionaryDraft = useCallback(() => {
+    if (!textSelection?.text) return;
+    setDictionaryDraft({ word: textSelection.text.slice(0, 240), meaning: '', quote: textSelection.text });
+    clearTextSelection();
+    setPanel('dictionary-edit');
+  }, [clearTextSelection, textSelection]);
+
+  const saveDictionaryEntry = useCallback(async () => {
+    if (!dictionaryDraft?.word?.trim()) return;
+    setExtraSaving(true);
+    try {
+      const response = await fetch('/api/reader-hub', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          action: 'dictionary',
+          visitorKey: getVisitorKey(),
+          bookId: book.id,
+          chapterId: chapter.id,
+          ...dictionaryDraft,
+        }),
+      });
+      if (!response.ok) throw new Error('Не удалось сохранить слово.');
+      setDictionaryDraft(null);
+      await refreshReaderHub();
+      setPanel('dictionary');
+      setToast('Слово добавлено в личный словарь');
+    } catch (error) {
+      setToast(error.message);
+    } finally {
+      setExtraSaving(false);
+    }
+  }, [book.id, chapter.id, dictionaryDraft, refreshReaderHub]);
+
+  const deleteDictionaryEntry = useCallback(async (id) => {
+    await fetch('/api/reader-hub', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ action: 'deleteDictionary', visitorKey: getVisitorKey(), id }),
+    }).catch(() => {});
+    refreshReaderHub();
+  }, [refreshReaderHub]);
+
+  const saveChapterEmotion = useCallback(async (emoji) => {
+    try {
+      const response = await fetch('/api/reader-hub', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'emotion', visitorKey: getVisitorKey(), bookId: book.id, chapterId: chapter.id, emoji }),
+      });
+      if (!response.ok) throw new Error('Не удалось сохранить эмоцию.');
+      await refreshReaderHub();
+      setToast(`Эмоция главы ${emoji} сохранена`);
+    } catch (error) {
+      setToast(error.message);
+    }
+  }, [book.id, chapter.id, refreshReaderHub]);
+
+  const stopAmbientSound = useCallback(() => {
+    const context = ambientAudioRef.current;
+    ambientAudioRef.current = null;
+    setAmbientSound('');
+    context?.close?.().catch?.(() => {});
+  }, []);
+
+  const toggleAmbientSound = useCallback((kind) => {
+    if (ambientSound === kind) {
+      stopAmbientSound();
+      return;
+    }
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) {
+      setToast('Этот браузер не поддерживает фоновые звуки.');
+      return;
+    }
+    const previous = ambientAudioRef.current;
+    previous?.close?.().catch?.(() => {});
+    const context = new AudioContext();
+    const duration = 3;
+    const buffer = context.createBuffer(1, context.sampleRate * duration, context.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let index = 0; index < data.length; index += 1) {
+      const noise = Math.random() * 2 - 1;
+      data[index] = kind === 'fire' ? noise * (Math.random() > .985 ? .9 : .12) : noise;
+    }
+    const source = context.createBufferSource();
+    const filter = context.createBiquadFilter();
+    const gain = context.createGain();
+    source.buffer = buffer;
+    source.loop = true;
+    filter.type = kind === 'rain' ? 'highpass' : 'lowpass';
+    filter.frequency.value = kind === 'rain' ? 1200 : kind === 'forest' ? 900 : 520;
+    gain.gain.value = kind === 'rain' ? .035 : kind === 'forest' ? .018 : .045;
+    source.connect(filter).connect(gain).connect(context.destination);
+    source.start();
+    ambientAudioRef.current = context;
+    setAmbientSound(kind);
+  }, [ambientSound, stopAmbientSound]);
 
   useEffect(() => {
     const node = viewportRef.current;
@@ -993,7 +1170,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
 
         <div className="reader-stage">
           <div className="reader-pages-left" aria-live="polite">
-            {!measurementReady ? 'Считаем страницы…' : pagesLeftInChapter > 0 ? `Осталось ${pagesLeftInChapter} стр. в главе` : 'Последняя страница главы'}
+            {!measurementReady ? 'Считаем страницы…' : pagesLeftInChapter > 0 ? `Осталось ${pagesLeftInChapter} стр. · около ${estimatedMinutesLeft} мин до конца книги` : 'Последняя страница главы'}
           </div>
           <button type="button" className="reader-page-arrow reader-page-arrow-left" onClick={goBackward} disabled={!previous && page === 0} aria-label="Предыдущая страница"><ArrowLeft size={22} /></button>
           <div
@@ -1075,6 +1252,8 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
         onHighlight={(color) => addAnnotation(textSelection, { color })}
         onNote={openNewNote}
         onSticker={(sticker) => addAnnotation(textSelection, { color: '#fff1a8', sticker })}
+        onReaction={reactToSelection}
+        onDictionary={openDictionaryDraft}
         onBookmark={() => openBookmarkDraft(textSelection)}
         onReport={openErrorDraft}
         onTranslate={translateSelectedText}
@@ -1100,7 +1279,11 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
             <button type="button" onClick={() => setPanel('contents')}><List size={22} /><span><strong>Содержание</strong><small>Все главы книги</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('search')}><Search size={22} /><span><strong>Поиск по книге</strong><small>Найти слово во всех главах</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('annotations')}><Highlighter size={22} /><span><strong>Мои пометки</strong><small>{annotations.length ? `${annotations.length} сохранено` : 'Выделения, заметки и стикеры'}</small></span><ChevronRight size={18} /></button>
+            <button type="button" onClick={() => setPanel('chapter-map')}><Map size={22} /><span><strong>Мини‑карта главы</strong><small>Все пометки и эмоции по ходу текста</small></span><ChevronRight size={18} /></button>
+            <button type="button" onClick={() => setPanel('dictionary')}><BookMarked size={22} /><span><strong>Личный словарь</strong><small>{readerHub.dictionary.length ? `${readerHub.dictionary.length} слов` : 'Незнакомые слова и пояснения'}</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('bookmarks')}><Bookmark size={22} /><span><strong>Мои закладки</strong><small>{bookmarks.length ? `${bookmarks.length} сохранено` : 'Любимое, важное и смешное'}</small></span><ChevronRight size={18} /></button>
+            <button type="button" onClick={() => setPanel('atmosphere')}><Music2 size={22} /><span><strong>Атмосфера чтения</strong><small>Музыка, дождь, лес или камин</small></span><ChevronRight size={18} /></button>
+            <button type="button" onClick={() => { setPanel(null); setChromeHidden(true); }}><Film size={22} /><span><strong>Режим кино</strong><small>Оставить на экране только текст</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('reading-mode')}><ReadingModeIcon mode={settings.motion} size={22} /><span><strong>Способ чтения</strong><small>{READING_MODE_OPTIONS.find((mode) => mode.id === settings.motion)?.name}</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('settings')}><SlidersHorizontal size={22} /><span><strong>Темы и настройки</strong><small>Шрифт, размер, фон и яркость</small></span><ChevronRight size={18} /></button>
             <a href="/go/telegram" target="_blank" rel="noreferrer"><ExternalLink size={22} /><span><strong>Telegram BOOKNERD</strong><small>@booknerd_tr</small></span><ChevronRight size={18} /></a>
@@ -1148,6 +1331,77 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
         </ReaderSheet>
       ) : null}
 
+      {panel === 'chapter-map' ? (
+        <ReaderSheet title="Мини‑карта главы" eyebrow={readerChapterTitle(chapter)} onClose={() => setPanel('menu')} wide>
+          <div className="reader-mini-map">
+            <div className="reader-mini-map-track" aria-hidden="true">
+              {[...chapterAnnotations, ...readerHub.reactions.map((reaction) => ({
+                id: `reaction-${reaction.id}`,
+                paragraphIndex: reaction.paragraph_index,
+                color: '#ec8dad',
+              }))].map((item) => (
+                <i
+                  style={{ top: `${clamp((Number(item.paragraphIndex) / chapterBlockCount) * 100, 1, 98)}%`, '--map-color': item.color || '#7fa889' }}
+                  key={item.id}
+                />
+              ))}
+            </div>
+            <div className="reader-mini-map-copy">
+              <strong>{chapterAnnotations.length} пометок · {readerHub.reactions.length} реакций</strong>
+              <p>Метки показывают, где в главе вы оставляли заметки, стикеры и эмоции.</p>
+              {!chapterAnnotations.length && !readerHub.reactions.length ? <span>Выделите любой фрагмент текста — даже несколько абзацев или всю страницу.</span> : null}
+              {chapterAnnotations.map((annotation) => (
+                <button type="button" onClick={() => { setPage(clamp(Number(annotation.page) || 0, 0, currentChapterPages - 1)); setActiveAnnotationId(annotation.id); setPanel('annotation'); }} key={annotation.id}>
+                  <i style={{ '--map-color': annotation.color || '#ffe066' }} />
+                  <span><small>{Math.round((Number(annotation.paragraphIndex) / chapterBlockCount) * 100)}% главы</small><strong>“{annotation.text.slice(0, 110)}{annotation.text.length > 110 ? '…' : ''}”</strong></span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </ReaderSheet>
+      ) : null}
+
+      {panel === 'dictionary' ? (
+        <ReaderSheet title="Личный словарь" eyebrow={`${readerHub.dictionary.length} сохранено`} onClose={() => setPanel('menu')} wide>
+          {!readerHub.dictionary.length ? (
+            <div className="reader-annotation-empty"><BookMarked size={31} /><strong>Словарь пока пуст</strong><span>Выделите слово или фразу и выберите «В словарь».</span></div>
+          ) : (
+            <div className="reader-dictionary-list">
+              {readerHub.dictionary.map((entry) => (
+                <article key={entry.id}>
+                  <div><small>{entry.chapter_title || readerChapterTitle(chapter)}</small><strong>{entry.word}</strong><p>{entry.meaning || 'Пояснение можно добавить позже.'}</p>{entry.quote ? <blockquote>“{entry.quote}”</blockquote> : null}</div>
+                  <button type="button" onClick={() => deleteDictionaryEntry(entry.id)} aria-label="Удалить из словаря"><Trash2 size={17} /></button>
+                </article>
+              ))}
+            </div>
+          )}
+        </ReaderSheet>
+      ) : null}
+
+      {panel === 'dictionary-edit' && dictionaryDraft ? (
+        <ReaderSheet title="Добавить в словарь" eyebrow="Личная запись" onClose={() => { setDictionaryDraft(null); setPanel(null); }}>
+          <div className="reader-dictionary-editor">
+            <label><span>Слово или выражение</span><input value={dictionaryDraft.word} onChange={(event) => setDictionaryDraft((current) => ({ ...current, word: event.target.value }))} /></label>
+            <label><span>Значение</span><textarea rows="5" value={dictionaryDraft.meaning} onChange={(event) => setDictionaryDraft((current) => ({ ...current, meaning: event.target.value }))} placeholder="Запишите перевод или объяснение своими словами…" /></label>
+            <button className="reader-sheet-primary" type="button" disabled={extraSaving} onClick={saveDictionaryEntry}>{extraSaving ? 'Сохраняем…' : 'Сохранить в словарь'}</button>
+          </div>
+        </ReaderSheet>
+      ) : null}
+
+      {panel === 'atmosphere' ? (
+        <ReaderSheet title="Атмосфера чтения" eyebrow="Звук можно выключить в любой момент" onClose={() => setPanel('menu')}>
+          <div className="reader-atmosphere-panel">
+            {book.playlistUrl ? <a href={book.playlistUrl} target="_blank" rel="noreferrer"><Music2 size={22} /><span><strong>Плейлист книги</strong><small>Открыть музыкальную подборку команды</small></span><ExternalLink size={17} /></a> : null}
+            {[['rain', 'Дождь', 'Мягкий шум за окном'], ['forest', 'Лес', 'Тихая природная атмосфера'], ['fire', 'Камин', 'Тёплое потрескивание']].map(([id, title, description]) => (
+              <button type="button" className={ambientSound === id ? 'is-active' : ''} onClick={() => toggleAmbientSound(id)} key={id}>
+                {ambientSound === id ? <VolumeX size={22} /> : <Volume2 size={22} />}
+                <span><strong>{title}</strong><small>{ambientSound === id ? 'Нажмите, чтобы выключить' : description}</small></span>
+              </button>
+            ))}
+          </div>
+        </ReaderSheet>
+      ) : null}
+
       {panel === 'bookmarks' ? (
         <ReaderSheet title="Мои закладки" eyebrow={`${bookmarks.length} в этой книге`} onClose={() => setPanel('menu')} wide>
           <div className="reader-bookmark-sheet-head">
@@ -1162,7 +1416,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
                 const category = BOOKMARK_CATEGORIES.find((item) => item.id === bookmark.category) || BOOKMARK_CATEGORIES[1];
                 return (
                   <article key={bookmark.id}>
-                    <a href={`/books/${book.slug}/chapters/${bookmark.chapterId}?page=${Number(bookmark.page || 0) + 1}`}>
+                    <a href={`/books/${book.slug}/chapters/${bookmark.chapterId}?page=${Number(bookmark.page || 0) + 1}`} style={{ '--bookmark-color': category.color }}>
                       <span>{category.symbol}</span>
                       <div><small>{category.label} · {readerChapterTitle({ title: bookmark.chapterTitle, chapterNumber: bookmark.chapterNumber })}</small><strong>{bookmark.quote ? `“${bookmark.quote}”` : manualChapterTitle({ title: bookmark.chapterTitle, chapterNumber: bookmark.chapterNumber }) || 'Сохранённое место'}</strong></div>
                       <ChevronRight size={17} />
@@ -1182,7 +1436,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
             {bookmarkDraft.quote ? <blockquote>“{bookmarkDraft.quote}”</blockquote> : <p>Сохранить это место, чтобы быстро вернуться позже.</p>}
             <div>
               {BOOKMARK_CATEGORIES.map((category) => (
-                <button className={bookmarkDraft.category === category.id ? 'is-active' : ''} type="button" onClick={() => setBookmarkDraft({ ...bookmarkDraft, category: category.id })} key={category.id}>
+                <button className={bookmarkDraft.category === category.id ? 'is-active' : ''} style={{ '--bookmark-color': category.color }} type="button" onClick={() => setBookmarkDraft({ ...bookmarkDraft, category: category.id })} key={category.id}>
                   <span>{category.symbol}</span><strong>{category.label}</strong>{bookmarkDraft.category === category.id ? <Check size={15} /> : null}
                 </button>
               ))}
@@ -1414,14 +1668,24 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       ) : null}
 
       {showCompletion ? (
-        <ReaderSheet title="Спасибо, что прочитали!" eyebrow={`Вы закончили «${book.title}»`} onClose={() => setShowCompletion(false)} wide>
+        <ReaderSheet title={next ? 'Глава прочитана!' : 'Спасибо, что прочитали!'} eyebrow={next ? readerChapterTitle(chapter) : `Вы закончили «${book.title}»`} onClose={() => setShowCompletion(false)} wide>
           <div className="reader-completion">
             <div className="reader-completion-copy">
               <Check size={28} />
-              <p>Вы дошли до последней страницы. Оставьте оценку и отзыв — он сразу появится на главной странице этой книги.</p>
+              <p>{next ? 'Вы дошли до конца главы. Отметьте эмоцию — она попадёт на общую эмоциональную карту книги.' : 'Вы дошли до последней страницы. Оставьте оценку и отзыв — он сразу появится на главной странице этой книги.'}</p>
             </div>
-            <CompletionReviewForm bookId={book.id} />
-            <a href={`/books/${book.slug}`}>Перейти на страницу книги <ArrowRight size={18} /></a>
+            <section className="reader-emotion-map">
+              <small>Какая эмоция осталась после главы?</small>
+              <div>
+                {['😭', '😍', '😡', '😱', '🤍'].map((emoji) => {
+                  const total = Number(currentChapterEmotionTotals.find((item) => item.emoji === emoji)?.total || 0);
+                  return <button type="button" className={myChapterEmotion === emoji ? 'is-active' : ''} onClick={() => saveChapterEmotion(emoji)} key={emoji}><span>{emoji}</span><strong>{total}</strong></button>;
+                })}
+              </div>
+              <p>Так постепенно складывается эмоциональная карта всей книги.</p>
+            </section>
+            {!next ? <CompletionReviewForm bookId={book.id} /> : null}
+            {next ? <a href={`/books/${book.slug}/chapters/${next.id}`}>Читать дальше <ArrowRight size={18} /></a> : <><a href={`/community?book=${encodeURIComponent(book.id)}&kind=poll`}>Ответить на опрос после книги <MessageCircle size={18} /></a><a href={`/books/${book.slug}`}>Перейти на страницу книги <ArrowRight size={18} /></a></>}
           </div>
         </ReaderSheet>
       ) : null}

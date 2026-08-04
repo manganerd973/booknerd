@@ -4,9 +4,11 @@ import React, { useMemo, useState } from 'react';
 import {
   Check,
   Bookmark,
+  BookOpen,
   Copy,
   Flag,
   Highlighter,
+  Heart,
   Languages,
   MoreHorizontal,
   Search,
@@ -336,7 +338,7 @@ export function AnnotatedParagraph({ text, runs = [], as: Element = 'p', classNa
   );
 }
 
-export function SelectionAnnotationBar({ selection, onHighlight, onNote, onSticker, onBookmark, onReport, onTranslate, onSearch, onCopy, onShare, onClose }) {
+export function SelectionAnnotationBar({ selection, onHighlight, onNote, onSticker, onBookmark, onReaction, onDictionary, onReport, onTranslate, onSearch, onCopy, onShare, onClose }) {
   const [view, setView] = useState('actions');
   if (!selection) return null;
 
@@ -348,6 +350,7 @@ export function SelectionAnnotationBar({ selection, onHighlight, onNote, onStick
           <button type="button" onClick={() => setView('colors')}><Highlighter size={19} /><span>Выделить</span></button>
           <button type="button" onClick={onNote}><StickyNote size={19} /><span>Заметка</span></button>
           <button type="button" onClick={() => setView('stickers')}><SmilePlus size={19} /><span>Стикер</span></button>
+          <button type="button" onClick={() => setView('reactions')}><Heart size={19} /><span>Реакция</span></button>
           <button type="button" onClick={onTranslate}><Languages size={19} /><span>Перевести</span></button>
           <button type="button" onClick={() => setView('more')}><MoreHorizontal size={20} /><span>Ещё</span></button>
         </div>
@@ -369,9 +372,17 @@ export function SelectionAnnotationBar({ selection, onHighlight, onNote, onStick
         </div>
       ) : null}
 
+      {view === 'reactions' ? (
+        <div className="reader-selection-reactions">
+          <button className="reader-selection-back" type="button" onClick={() => setView('actions')}>Назад</button>
+          {['😭', '😍', '😡', '😱', '🤍'].map((emoji) => <button type="button" onClick={() => onReaction?.(emoji)} aria-label={`Поставить реакцию ${emoji}`} key={emoji}>{emoji}</button>)}
+        </div>
+      ) : null}
+
       {view === 'more' ? (
         <div className="reader-selection-actions reader-selection-more">
           <button type="button" onClick={onBookmark}><Bookmark size={19} /><span>Закладка</span></button>
+          <button type="button" onClick={onDictionary}><BookOpen size={19} /><span>В словарь</span></button>
           <button type="button" onClick={onReport}><Flag size={19} /><span>Ошибка</span></button>
           <button type="button" onClick={onCopy}><Copy size={19} /><span>Копировать</span></button>
           <button type="button" onClick={onSearch}><Search size={19} /><span>Поиск</span></button>

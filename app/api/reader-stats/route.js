@@ -43,9 +43,12 @@ export async function GET(request) {
     const monthStart = new Date();
     monthStart.setUTCDate(1);
     monthStart.setUTCHours(0, 0, 0, 0);
-    const [library, sessions, totals, month] = await Promise.all([
+    const weekStart = new Date();
+    weekStart.setUTCDate(weekStart.getUTCDate() - 6);
+    weekStart.setUTCHours(0, 0, 0, 0);
+    const [library, sessions, totals, month, week, readingDays, activeHours] = await Promise.all([
       db.prepare(
-        `SELECT rl.status, b.genres, b.tropes
+        `SELECT rl.status, b.genres, b.tropes, b.author, b.country
          FROM reader_library rl JOIN books b ON b.id = rl.book_id
          WHERE rl.visitor_key = ?`
       ).bind(visitorKey).all(),
@@ -68,11 +71,25 @@ export async function GET(request) {
          FROM reading_sessions
          WHERE visitor_key = ? AND updated_at >= ?`
       ).bind(visitorKey, monthStart.toISOString()).first(),
+      db.prepare(
+        `SELECT COUNT(DISTINCT chapter_id) AS chapters, COUNT(DISTINCT book_id) AS books, COALESCE(SUM(seconds), 0) AS seconds
+         FROM reading_sessions WHERE visitor_key = ? AND updated_at >= ?`
+      ).bind(visitorKey, weekStart.toISOString()).first(),
+      db.prepare(
+        `SELECT reading_date, SUM(seconds) AS seconds FROM reading_sessions WHERE visitor_key = ? GROUP BY reading_date ORDER BY seconds DESC`
+      ).bind(visitorKey).all(),
+      db.prepare(
+        `SELECT CAST(strftime('%H', updated_at) AS INTEGER) AS hour, SUM(seconds) AS seconds FROM reading_sessions WHERE visitor_key = ? GROUP BY hour ORDER BY seconds DESC`
+      ).bind(visitorKey).all(),
     ]);
     const libraryRows = library.results || [];
     const genres = libraryRows.flatMap((row) => parseList(row.genres));
     const tropes = libraryRows.flatMap((row) => parseList(row.tropes));
+    const authors = libraryRows.map((row) => row.author).filter(Boolean);
+    const countries = libraryRows.map((row) => row.country).filter(Boolean);
     const booksRead = libraryRows.filter((row) => row.status === 'finished').length;
+    const topDay = (readingDays.results || [])[0];
+    const mostReadDay = topDay?.reading_date ? new Intl.DateTimeFormat('ru-RU', { weekday: 'long', timeZone: 'UTC' }).format(new Date(`${topDay.reading_date}T00:00:00Z`)) : '';
     return Response.json({
       stats: {
         booksRead,
@@ -80,7 +97,16 @@ export async function GET(request) {
         readingSeconds: Number(totals?.seconds || 0),
         favoriteGenres: mostFrequent(genres),
         favoriteTropes: mostFrequent(tropes),
+        favoriteAuthors: mostFrequent(authors),
+        favoriteCountries: mostFrequent(countries),
+        mostReadDay,
+        activeHours: activeHours.results || [],
         longestStreak: longestStreak((sessions.results || []).map((row) => row.reading_date)),
+        week: {
+          books: Number(week?.books || 0),
+          chapters: Number(week?.chapters || 0),
+          seconds: Number(week?.seconds || 0),
+        },
         wrapped: {
           month: new Intl.DateTimeFormat('ru-RU', { month: 'long', timeZone: 'UTC' }).format(new Date()),
           books: Number(month?.books || 0),

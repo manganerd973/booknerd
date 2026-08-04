@@ -11,6 +11,8 @@ import BookLibraryControl from '../../../src/reader-library.jsx';
 import BookNotificationPreferences from '../../../src/book-notifications.jsx';
 import BookGlossary from '../../../src/book-glossary.jsx';
 import SeriesReadingOrder from '../../../src/series-reading-order.jsx';
+import BookUniverse from '../../../src/book-universe.jsx';
+import OfflineBookButton from '../../../src/offline-book-button.jsx';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,6 +46,7 @@ export default async function BookPage({ params }) {
           <span className="editorial-kicker">{book.status} · {book.genre}</span>
           <h1>{book.title}</h1>
           <p className="book-detail-author">{book.author}</p>
+          {(book.country || book.publicationYear || book.pageCount) ? <p className="book-original-title">{[book.country, book.publicationYear, book.pageCount ? `${book.pageCount} стр.` : ''].filter(Boolean).join(' · ')}</p> : null}
           {book.originalTitle && <p className="book-original-title">Оригинальное название: {book.originalTitle}</p>}
           {book.seriesTitle && <p className="book-series">Серия «{book.seriesTitle}»{book.seriesNumber ? ` · книга ${book.seriesNumber}` : ''}</p>}
           {book.dedication ? <blockquote className="book-dedication"><small>Посвящение</small><p>«{book.dedication}»</p></blockquote> : null}
@@ -61,7 +64,9 @@ export default async function BookPage({ params }) {
           <div className="book-detail-actions">
             {chapters[0] ? <a className="editorial-primary" href={`/books/${book.slug}/chapters/${chapters[0].id}`}>Начать читать <ArrowRight size={18} /></a> : <span className="book-coming-soon"><Clock3 size={18} /> Первая глава готовится</span>}
             {book.driveUrl ? <a className="editorial-drive-link" href={book.driveUrl} target="_blank" rel="noreferrer">Файл книги в Google Drive <ExternalLink size={16} /></a> : null}
+            {book.playlistUrl ? <a className="editorial-drive-link" href={book.playlistUrl} target="_blank" rel="noreferrer">Музыкальный плейлист книги <ExternalLink size={16} /></a> : null}
           </div>
+          <OfflineBookButton book={book} chapters={chapters} />
           <BookLibraryControl bookId={book.id} />
           <BookNotificationPreferences bookKey={book.slug} bookTitle={book.title} />
           <BookRating bookId={book.id} />
@@ -96,7 +101,15 @@ export default async function BookPage({ params }) {
 
       <SeriesReadingOrder book={book} seriesBooks={seriesBooks} />
 
+      {(book.translator || book.editor || book.proofreader || book.quoteOfDay) ? <section className="book-credits">
+        <div><span className="editorial-section-number">НАД КНИГОЙ РАБОТАЛИ</span><h2>Команда перевода</h2></div>
+        <div>{book.translator ? <article><small>Перевод</small><strong>{book.translator}</strong></article> : null}{book.editor ? <article><small>Редактура</small><strong>{book.editor}</strong></article> : null}{book.proofreader ? <article><small>Корректура</small><strong>{book.proofreader}</strong></article> : null}</div>
+        {book.quoteOfDay ? <blockquote>«{book.quoteOfDay}»</blockquote> : null}
+      </section> : null}
+
       <BookGlossary bookId={book.id} />
+
+      <BookUniverse book={{ ...book, chapters }} />
 
       {(book.triggerWarnings || []).length ? (
         <section className="book-trigger-warnings" aria-labelledby="book-trigger-warnings-title">

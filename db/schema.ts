@@ -10,6 +10,18 @@ export const books = sqliteTable('books', {
   seriesReadingOrder: text('series_reading_order').notNull().default('[]'),
   releaseDays: text('release_days').notNull().default('[]'),
   author: text('author').notNull(),
+  country: text('country').notNull().default(''),
+  publicationYear: integer('publication_year'),
+  pageCount: integer('page_count').notNull().default(0),
+  authorBirthday: text('author_birthday').notNull().default(''),
+  originalReleaseDate: text('original_release_date').notNull().default(''),
+  translator: text('translator').notNull().default(''),
+  editor: text('editor').notNull().default(''),
+  proofreader: text('proofreader').notNull().default(''),
+  playlistUrl: text('playlist_url').notNull().default(''),
+  teamPick: integer('team_pick', { mode: 'boolean' }).notNull().default(false),
+  quoteOfDay: text('quote_of_day').notNull().default(''),
+  searchAliases: text('search_aliases').notNull().default('[]'),
   dedication: text('dedication').notNull().default(''),
   triggerWarnings: text('trigger_warnings').notNull().default('[]'),
   hasHotScenes: integer('has_hot_scenes', { mode: 'boolean' }).notNull().default(false),
@@ -328,4 +340,92 @@ export const translationVotes = sqliteTable('translation_votes', {
   createdAt: text('created_at').notNull(),
 }, (table) => [
   primaryKey({ columns: [table.candidateId, table.visitorKey] }),
+]);
+
+export const readerProfiles = sqliteTable('reader_profiles', {
+  visitorKey: text('visitor_key').primaryKey(),
+  displayName: text('display_name').notNull().default('Читатель BOOKNERD'),
+  banner: text('banner').notNull().default('books'),
+  favoriteCharacters: text('favorite_characters').notNull().default('[]'),
+  favoriteQuotes: text('favorite_quotes').notNull().default('[]'),
+  appTheme: text('app_theme').notNull().default('original'),
+  atmosphere: text('atmosphere').notNull().default('auto'),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});
+
+export const paragraphReactions = sqliteTable('paragraph_reactions', {
+  id: text('id').primaryKey(),
+  visitorKey: text('visitor_key').notNull(),
+  bookId: text('book_id').notNull().references(() => books.id, { onDelete: 'cascade' }),
+  chapterId: text('chapter_id').notNull().references(() => chapters.id, { onDelete: 'cascade' }),
+  paragraphIndex: integer('paragraph_index').notNull().default(0),
+  emoji: text('emoji').notNull(),
+  selectedText: text('selected_text').notNull().default(''),
+  createdAt: text('created_at').notNull(),
+}, (table) => [
+  uniqueIndex('paragraph_reactions_reader_unique').on(table.visitorKey, table.chapterId, table.paragraphIndex, table.emoji),
+  index('paragraph_reactions_chapter_idx').on(table.chapterId, table.paragraphIndex),
+]);
+
+export const readerDictionary = sqliteTable('reader_dictionary', {
+  id: text('id').primaryKey(),
+  visitorKey: text('visitor_key').notNull(),
+  bookId: text('book_id').notNull().references(() => books.id, { onDelete: 'cascade' }),
+  chapterId: text('chapter_id').notNull().references(() => chapters.id, { onDelete: 'cascade' }),
+  word: text('word').notNull(),
+  meaning: text('meaning').notNull().default(''),
+  quote: text('quote').notNull().default(''),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, (table) => [
+  index('reader_dictionary_visitor_book_idx').on(table.visitorKey, table.bookId, table.createdAt),
+]);
+
+export const chapterEmotions = sqliteTable('chapter_emotions', {
+  visitorKey: text('visitor_key').notNull(),
+  bookId: text('book_id').notNull().references(() => books.id, { onDelete: 'cascade' }),
+  chapterId: text('chapter_id').notNull().references(() => chapters.id, { onDelete: 'cascade' }),
+  emoji: text('emoji').notNull(),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.visitorKey, table.chapterId] }),
+  index('chapter_emotions_book_idx').on(table.bookId, table.chapterId),
+]);
+
+export const readerTimeCapsules = sqliteTable('reader_time_capsules', {
+  visitorKey: text('visitor_key').notNull(),
+  bookId: text('book_id').notNull().references(() => books.id, { onDelete: 'cascade' }),
+  firstImpression: text('first_impression').notNull().default(''),
+  finalImpression: text('final_impression').notNull().default(''),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.visitorKey, table.bookId] }),
+]);
+
+export const communityPosts = sqliteTable('community_posts', {
+  id: text('id').primaryKey(),
+  visitorKey: text('visitor_key').notNull(),
+  bookId: text('book_id').references(() => books.id, { onDelete: 'set null' }),
+  kind: text('kind').notNull().default('theory'),
+  authorName: text('author_name').notNull(),
+  title: text('title').notNull(),
+  body: text('body').notNull().default(''),
+  isSpoiler: integer('is_spoiler', { mode: 'boolean' }).notNull().default(false),
+  status: text('status').notNull().default('approved'),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, (table) => [
+  index('community_posts_kind_created_idx').on(table.kind, table.createdAt),
+  index('community_posts_book_created_idx').on(table.bookId, table.createdAt),
+]);
+
+export const communityVotes = sqliteTable('community_votes', {
+  postId: text('post_id').notNull().references(() => communityPosts.id, { onDelete: 'cascade' }),
+  visitorKey: text('visitor_key').notNull(),
+  createdAt: text('created_at').notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.postId, table.visitorKey] }),
 ]);

@@ -8,6 +8,7 @@ const CATEGORY = {
   character: { label: 'Персонажи', icon: UserRound },
   place: { label: 'Страны и места', icon: MapPinned },
   term: { label: 'Термины мира', icon: Sparkles },
+  timeline: { label: 'События', icon: BookMarked },
 };
 
 export default function BookGlossary({ bookId }) {

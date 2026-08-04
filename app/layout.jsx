@@ -4,6 +4,7 @@ import '../src/admin.css';
 import '../src/editorial.css';
 import '../src/pages.css';
 import PwaRegister from '../src/pwa-register.jsx';
+import AppPreferences from '../src/app-preferences.jsx';
 
 export const metadata = {
   title: 'BOOKNERD — переводы, в которые влюбляются',
@@ -37,7 +38,7 @@ export const viewport = {
 export default function RootLayout({ children }) {
   return (
     <html lang="ru">
-      <body><PwaRegister />{children}</body>
+      <body><PwaRegister /><AppPreferences />{children}</body>
     </html>
   );
 }

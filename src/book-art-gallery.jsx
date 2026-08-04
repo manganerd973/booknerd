@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, Expand, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Expand, X } from 'lucide-react';
 
 export default function BookArtGallery({ artworks = [], bookTitle = '' }) {
   const [activeIndex, setActiveIndex] = useState(null);
@@ -35,7 +35,7 @@ export default function BookArtGallery({ artworks = [], bookTitle = '' }) {
         {artworks.map((artwork, index) => (
           <button type="button" key={artwork.id} onClick={() => setActiveIndex(index)} aria-label={`Открыть арт ${index + 1}`}>
             <img src={artwork.imageUrl} alt={artwork.caption || `Арт к книге «${bookTitle}»`} loading="lazy" />
-            <span><small>{String(index + 1).padStart(2, '0')}</small><strong>{artwork.caption || bookTitle}</strong><Expand size={17} /></span>
+            <span><small>{index === 0 ? 'АРТ ДНЯ' : index === 1 ? 'ФАНАРТ НЕДЕЛИ' : String(index + 1).padStart(2, '0')}</small><strong>{artwork.caption || bookTitle}</strong><Expand size={17} /></span>
           </button>
         ))}
       </div>
@@ -46,7 +46,7 @@ export default function BookArtGallery({ artworks = [], bookTitle = '' }) {
           {artworks.length > 1 && <button className="book-art-previous" type="button" onClick={(event) => { event.stopPropagation(); setActiveIndex((activeIndex - 1 + artworks.length) % artworks.length); }} aria-label="Предыдущий арт"><ChevronLeft size={28} /></button>}
           <figure onClick={(event) => event.stopPropagation()}>
             <img src={activeArtwork.imageUrl} alt={activeArtwork.caption || `Арт к книге «${bookTitle}»`} />
-            <figcaption><span>{activeIndex + 1} / {artworks.length}</span><strong>{activeArtwork.caption || bookTitle}</strong></figcaption>
+            <figcaption><span>{activeIndex + 1} / {artworks.length}</span><strong>{activeArtwork.caption || bookTitle}</strong><a href={activeArtwork.imageUrl} download><Download size={15} /> Скачать как обои</a></figcaption>
           </figure>
           {artworks.length > 1 && <button className="book-art-next" type="button" onClick={(event) => { event.stopPropagation(); setActiveIndex((activeIndex + 1) % artworks.length); }} aria-label="Следующий арт"><ChevronRight size={28} /></button>}
         </div>

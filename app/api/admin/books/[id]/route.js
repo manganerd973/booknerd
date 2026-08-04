@@ -29,6 +29,9 @@ function normalizePayload(payload = {}) {
   const releaseDays = Array.isArray(payload.releaseDays)
     ? payload.releaseDays.map((day) => String(day).trim()).filter(Boolean).slice(0, 7)
     : [];
+  const searchAliases = Array.isArray(payload.searchAliases)
+    ? payload.searchAliases.map((item) => String(item).trim()).filter(Boolean).slice(0, 100)
+    : String(payload.searchAliases || '').split(/[,;\n]+/).map((item) => item.trim()).filter(Boolean).slice(0, 100);
   return {
     title: String(payload.title || '').trim().slice(0, 180),
     originalTitle: String(payload.originalTitle || '').trim().slice(0, 180),
@@ -37,6 +40,18 @@ function normalizePayload(payload = {}) {
     seriesReadingOrder,
     releaseDays,
     author: String(payload.author || '').trim().slice(0, 140),
+    country: String(payload.country || '').trim().slice(0, 100),
+    publicationYear: payload.publicationYear ? Math.max(1, Math.min(9999, Math.floor(Number(payload.publicationYear)))) : null,
+    pageCount: Math.max(0, Math.min(100000, Math.floor(Number(payload.pageCount || 0)))),
+    authorBirthday: String(payload.authorBirthday || '').trim().slice(0, 10),
+    originalReleaseDate: String(payload.originalReleaseDate || '').trim().slice(0, 10),
+    translator: String(payload.translator || '').trim().slice(0, 240),
+    editor: String(payload.editor || '').trim().slice(0, 240),
+    proofreader: String(payload.proofreader || '').trim().slice(0, 240),
+    playlistUrl: /^https?:\/\//i.test(String(payload.playlistUrl || '').trim()) ? String(payload.playlistUrl).trim().slice(0, 1200) : '',
+    teamPick: Boolean(payload.teamPick),
+    quoteOfDay: String(payload.quoteOfDay || '').trim().slice(0, 1000),
+    searchAliases,
     dedication: String(payload.dedication || '').trim().slice(0, 2000),
     triggerWarnings,
     hasHotScenes: Boolean(payload.hasHotScenes),
@@ -74,10 +89,12 @@ export async function PUT(request, { params }) {
     if (conflict) slug = `${slug}-${id.slice(0, 6)}`;
 
     await db.prepare(
-      `UPDATE books SET slug = ?, title = ?, original_title = ?, series_title = ?, series_number = ?, series_reading_order = ?, release_days = ?, author = ?, dedication = ?, trigger_warnings = ?, has_hot_scenes = ?, hot_scene_chapters = ?, synopsis = ?, genres = ?, tropes = ?, drive_url = ?,
+      `UPDATE books SET slug = ?, title = ?, original_title = ?, series_title = ?, series_number = ?, series_reading_order = ?, release_days = ?, author = ?, country = ?, publication_year = ?, page_count = ?, author_birthday = ?, original_release_date = ?, translator = ?, editor = ?, proofreader = ?, playlist_url = ?, team_pick = ?, quote_of_day = ?, search_aliases = ?, dedication = ?, trigger_warnings = ?, has_hot_scenes = ?, hot_scene_chapters = ?, synopsis = ?, genres = ?, tropes = ?, drive_url = ?,
        status = ?, progress = ?, cover_key = ?, published = ?, updated_at = ? WHERE id = ?`
     ).bind(
-      slug, payload.title, payload.originalTitle, payload.seriesTitle, payload.seriesNumber, JSON.stringify(payload.seriesReadingOrder), JSON.stringify(payload.releaseDays), payload.author, payload.dedication, JSON.stringify(payload.triggerWarnings), payload.hasHotScenes ? 1 : 0, payload.hotSceneChapters, payload.synopsis,
+      slug, payload.title, payload.originalTitle, payload.seriesTitle, payload.seriesNumber, JSON.stringify(payload.seriesReadingOrder), JSON.stringify(payload.releaseDays), payload.author,
+      payload.country, payload.publicationYear, payload.pageCount, payload.authorBirthday, payload.originalReleaseDate, payload.translator, payload.editor, payload.proofreader, payload.playlistUrl, payload.teamPick ? 1 : 0, payload.quoteOfDay, JSON.stringify(payload.searchAliases),
+      payload.dedication, JSON.stringify(payload.triggerWarnings), payload.hasHotScenes ? 1 : 0, payload.hotSceneChapters, payload.synopsis,
       JSON.stringify(payload.genres), JSON.stringify(payload.tropes), payload.driveUrl, payload.status, payload.progress, payload.coverKey,
       payload.published ? 1 : 0, new Date().toISOString(), id,
     ).run();

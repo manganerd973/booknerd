@@ -72,14 +72,14 @@ export default function AdminBookGlossary({ bookId, onNotice }) {
         <aside>
           {entries.length ? entries.map((entry) => (
             <button className={draft.id === entry.id ? 'is-active' : ''} type="button" onClick={() => setDraft(entry)} key={entry.id}>
-              <span>{entry.category === 'character' ? 'П' : entry.category === 'place' ? 'М' : 'Т'}</span>
+              <span>{entry.category === 'character' ? 'П' : entry.category === 'place' ? 'М' : entry.category === 'timeline' ? 'С' : 'Т'}</span>
               <div><strong>{entry.name}</strong><small>После главы {entry.revealAfterChapter || 'сразу'}</small></div>
             </button>
           )) : <p>Записей пока нет.</p>}
         </aside>
         <div className="admin-glossary-editor">
           <div className="admin-fields two-columns">
-            <label><span>Тип</span><select value={draft.category} onChange={(event) => setDraft({ ...draft, category: event.target.value })}><option value="character">Персонаж</option><option value="place">Страна или место</option><option value="term">Магический термин</option></select></label>
+            <label><span>Тип</span><select value={draft.category} onChange={(event) => setDraft({ ...draft, category: event.target.value })}><option value="character">Персонаж</option><option value="place">Страна или место</option><option value="timeline">Событие таймлайна</option><option value="term">Магический термин</option></select></label>
             <label><span>Название</span><input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="Имя или термин" /></label>
             <label><span>Произношение</span><input value={draft.pronunciation} onChange={(event) => setDraft({ ...draft, pronunciation: event.target.value })} placeholder="Например: Лэй-ла" /></label>
             <label><span>Открыть после главы</span><input type="number" min="0" value={draft.revealAfterChapter} onChange={(event) => setDraft({ ...draft, revealAfterChapter: Number(event.target.value || 0) })} /></label>

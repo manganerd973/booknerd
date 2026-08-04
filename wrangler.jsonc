@@ -23,7 +23,8 @@
     {
       "binding": "DB",
       "database_name": "booknerd-db",
-      "database_id": "7ee105ed-4550-4367-be24-035ced7122f6"
+      "database_id": "7ee105ed-4550-4367-be24-035ced7122f6",
+      "migrations_dir": ".openai/drizzle"
     }
   ]
 }

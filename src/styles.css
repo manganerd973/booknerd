@@ -25,6 +25,110 @@ body {
   font-family: var(--sans);
   -webkit-font-smoothing: antialiased;
 }
+
+html[data-app-theme='white'] {
+  --paper: #ffffff;
+  --cream: #ffffff;
+  --ink: #111111;
+  --muted: #616161;
+  --line: rgba(0, 0, 0, .16);
+}
+
+html[data-app-theme='black'] {
+  --paper: #080a09;
+  --cream: #f7f7f2;
+  --ink: #f3f4ef;
+  --muted: #adb8b4;
+  --line: rgba(255, 255, 255, .17);
+  --navy: #102f2a;
+  --navy-2: #17483f;
+}
+
+html[data-app-theme='black'] body,
+html[data-app-theme='black'] .site-shell,
+html[data-app-theme='black'] .inner-site-shell { background: var(--paper); color: var(--ink); }
+html[data-app-theme='black'] .header,
+html[data-app-theme='black'] footer,
+html[data-app-theme='black'] .library-page-tabs { background-color: #080a09; }
+html[data-app-theme='black'] .hero-lede,
+html[data-app-theme='black'] .section-heading > p,
+html[data-app-theme='black'] .inner-hero p,
+html[data-app-theme='black'] .book-info p,
+html[data-app-theme='black'] .book-note { color: var(--muted); }
+html[data-app-theme='black'] .book-card,
+html[data-app-theme='black'] .popular-comment-card,
+html[data-app-theme='black'] .reader-stat-grid article { color: var(--ink); }
+
+@media (prefers-color-scheme: dark) {
+  html[data-app-theme='system'] {
+    --paper: #080a09;
+    --cream: #f7f7f2;
+    --ink: #f3f4ef;
+    --muted: #adb8b4;
+    --line: rgba(255, 255, 255, .17);
+    --navy: #102f2a;
+    --navy-2: #17483f;
+  }
+  html[data-app-theme='system'] body,
+  html[data-app-theme='system'] .site-shell,
+  html[data-app-theme='system'] .inner-site-shell { background: var(--paper); color: var(--ink); }
+}
+
+.app-theme-trigger {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 170;
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--cream);
+  background: var(--navy);
+  box-shadow: 0 12px 30px rgba(8, 31, 26, .22);
+  cursor: pointer;
+}
+.app-theme-overlay { position: fixed; inset: 0; z-index: 240; display: grid; place-items: center; padding: 18px; background: rgba(4, 20, 17, .72); backdrop-filter: blur(9px); }
+.app-theme-dialog { width: min(470px, 100%); padding: 25px; border: 1px solid var(--line); border-radius: 20px; color: var(--ink); background: var(--paper); box-shadow: 0 28px 90px rgba(0,0,0,.28); }
+.app-theme-dialog header { display: flex; align-items: start; justify-content: space-between; margin-bottom: 18px; }
+.app-theme-dialog header small { color: var(--coral); font-size: 9px; font-weight: 900; letter-spacing: .14em; }
+.app-theme-dialog h2 { margin: 6px 0 0; font-family: var(--serif); font-size: 34px; font-weight: 500; }
+.app-theme-dialog header button { display: grid; width: 38px; height: 38px; place-items: center; border: 1px solid var(--line); border-radius: 50%; background: transparent; cursor: pointer; }
+.app-theme-dialog > div { display: grid; gap: 8px; }
+.app-theme-dialog > div > button { display: grid; grid-template-columns: 34px minmax(0,1fr) 20px; align-items: center; gap: 10px; min-height: 66px; padding: 11px 14px; border: 1px solid var(--line); border-radius: 12px; color: inherit; background: color-mix(in srgb, var(--paper) 88%, var(--yellow) 12%); text-align: left; cursor: pointer; }
+.app-theme-dialog > div > button.is-active { border-color: var(--navy); box-shadow: inset 4px 0 0 var(--yellow); }
+.app-theme-dialog > div span { display: grid; gap: 3px; }
+.app-theme-dialog > div strong { font-size: 13px; }
+.app-theme-dialog > div small { color: var(--muted); font-size: 10px; }
+.app-theme-dialog > p { margin: 17px 0 0; color: var(--muted); font-size: 10px; line-height: 1.6; }
+
+.seasonal-atmosphere { position: fixed; inset: 0; z-index: 68; overflow: hidden; pointer-events: none; }
+.seasonal-atmosphere i { position: absolute; top: -7vh; left: var(--x, 5%); display: none; opacity: .45; animation: seasonal-fall linear infinite; }
+.seasonal-atmosphere i:nth-child(1) { --x: 3%; animation-duration: 12s; animation-delay: -4s; }
+.seasonal-atmosphere i:nth-child(2) { --x: 10%; animation-duration: 16s; animation-delay: -11s; }
+.seasonal-atmosphere i:nth-child(3) { --x: 17%; animation-duration: 13s; animation-delay: -7s; }
+.seasonal-atmosphere i:nth-child(4) { --x: 24%; animation-duration: 18s; animation-delay: -15s; }
+.seasonal-atmosphere i:nth-child(5) { --x: 31%; animation-duration: 14s; animation-delay: -2s; }
+.seasonal-atmosphere i:nth-child(6) { --x: 38%; animation-duration: 19s; animation-delay: -8s; }
+.seasonal-atmosphere i:nth-child(7) { --x: 45%; animation-duration: 15s; animation-delay: -12s; }
+.seasonal-atmosphere i:nth-child(8) { --x: 52%; animation-duration: 17s; animation-delay: -5s; }
+.seasonal-atmosphere i:nth-child(9) { --x: 59%; animation-duration: 12s; animation-delay: -9s; }
+.seasonal-atmosphere i:nth-child(10) { --x: 66%; animation-duration: 20s; animation-delay: -17s; }
+.seasonal-atmosphere i:nth-child(11) { --x: 73%; animation-duration: 14s; animation-delay: -6s; }
+.seasonal-atmosphere i:nth-child(12) { --x: 80%; animation-duration: 18s; animation-delay: -13s; }
+.seasonal-atmosphere i:nth-child(13) { --x: 87%; animation-duration: 16s; animation-delay: -3s; }
+.seasonal-atmosphere i:nth-child(14) { --x: 94%; animation-duration: 13s; animation-delay: -10s; }
+.seasonal-atmosphere i:nth-child(15) { --x: 27%; animation-duration: 19s; animation-delay: -14s; }
+.seasonal-atmosphere i:nth-child(16) { --x: 69%; animation-duration: 15s; animation-delay: -1s; }
+html[data-atmosphere='winter'] .seasonal-atmosphere i { display: block; width: 8px; height: 8px; border-radius: 50%; background: #fff; box-shadow: 0 0 8px rgba(255,255,255,.8); }
+html[data-atmosphere='spring'] .seasonal-atmosphere i { display: block; width: 11px; height: 8px; border-radius: 80% 20% 80% 20%; background: #efafbd; transform: rotate(35deg); }
+html[data-atmosphere='autumn'] .seasonal-atmosphere i { display: block; width: 10px; height: 15px; border-radius: 80% 15% 70% 20%; background: #ba6f39; transform: rotate(35deg); }
+html[data-atmosphere='autumn'] .seasonal-atmosphere::after { content: ''; position: absolute; inset: 0; opacity: .13; background: repeating-linear-gradient(105deg,transparent 0 22px,rgba(133,162,177,.75) 23px 24px,transparent 25px 48px); animation: seasonal-rain .8s linear infinite; }
+html[data-atmosphere='summer'] .seasonal-atmosphere::after { content: ''; position: absolute; right: 5vw; top: 11vh; width: 130px; height: 130px; border-radius: 50%; opacity: .08; background: #f0b94d; filter: blur(3px); }
+@keyframes seasonal-fall { to { translate: 7vw 114vh; rotate: 540deg; } }
+@keyframes seasonal-rain { to { background-position: 20px 44px; } }
 button, input { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 button { color: inherit; }

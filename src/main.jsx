@@ -20,6 +20,7 @@ import CommentVotes from './comment-votes.jsx';
 import CommentReport from './comment-report.jsx';
 import { LIBRARY_STATUS, loadReaderLibrary, removeReaderLibraryBook, updateReaderLibrary } from './reader-library.jsx';
 import { ContinueReading, TranslationVoting } from './home-reader-features.jsx';
+import DiscoveryDashboard from './discovery-dashboard.jsx';
 
 const FEATURED_GENRES = [
   'ROMANCE',
@@ -342,6 +343,7 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
             <a href="/translations">Переводы</a>
             <a href="/library">Моя библиотека</a>
             <a href="/calendar">Календарь глав</a>
+            <a href="/community">Сообщество</a>
             <a href="/about">О проекте</a>
             <a href="/team">Команда</a>
           </nav>
@@ -395,6 +397,8 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
           </div>
 
           <ContinueReading items={libraryItems} books={books} />
+
+          <DiscoveryDashboard books={books} />
 
           <section className="catalog section" id="catalog">
             <div className="section-heading catalog-heading">
@@ -504,7 +508,7 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
         <footer>
           <Logo />
           <p>Книжная команда переводов · сделано читателями для читателей</p>
-          <div><a href="/translations">Переводы</a><a href="/library">Моя библиотека</a><a href="/calendar">Календарь</a><a href="/about">О нас</a><a href="/team">Команда</a><a href="/go/telegram" target="_blank" rel="noreferrer">Telegram</a></div>
+          <div><a href="/translations">Переводы</a><a href="/library">Моя библиотека</a><a href="/calendar">Календарь</a><a href="/community">Сообщество</a><a href="/profile">Профиль</a><a href="/search">Поиск</a><a href="/about">О нас</a><a href="/team">Команда</a><a href="/go/telegram" target="_blank" rel="noreferrer">Telegram</a></div>
           <span>© 2026 BOOKNERD</span>
         </footer>
       </div>
@@ -524,6 +528,7 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
               />
             </div>
             <p>{query ? `Найдено: ${visibleBooks.length}` : 'Попробуй: романтика, Tahereh Mafi, фэнтези'}</p>
+            <a className="text-button" href="/search">Расширенный поиск по персонажам, миру, цитатам и стране</a>
             {query && visibleBooks.length > 0 && (
               <div className="search-results">
                 {visibleBooks.slice(0, 4).map((book) => (
@@ -546,10 +551,13 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
             <a href="/translations" onClick={() => setMenuOpen(false)}><span>01</span>Переводы</a>
             <a href="/library" onClick={() => setMenuOpen(false)}><span>02</span>Моя библиотека</a>
             <a href="/calendar" onClick={() => setMenuOpen(false)}><span>03</span>Календарь глав</a>
-            <a href="/about" onClick={() => setMenuOpen(false)}><span>04</span>О проекте</a>
-            <a href="/team" onClick={() => setMenuOpen(false)}><span>05</span>Команда</a>
-            <a href="/go/telegram" target="_blank" rel="noreferrer" onClick={() => setMenuOpen(false)}><span>06</span>Telegram</a>
-            <a href="/admin" onClick={() => setMenuOpen(false)}><span>07</span>Редакционная</a>
+            <a href="/community" onClick={() => setMenuOpen(false)}><span>04</span>Сообщество</a>
+            <a href="/profile" onClick={() => setMenuOpen(false)}><span>05</span>Профиль</a>
+            <a href="/search" onClick={() => setMenuOpen(false)}><span>06</span>Расширенный поиск</a>
+            <a href="/about" onClick={() => setMenuOpen(false)}><span>07</span>О проекте</a>
+            <a href="/team" onClick={() => setMenuOpen(false)}><span>08</span>Команда</a>
+            <a href="/go/telegram" target="_blank" rel="noreferrer" onClick={() => setMenuOpen(false)}><span>09</span>Telegram</a>
+            <a href="/admin" onClick={() => setMenuOpen(false)}><span>10</span>Редакционная</a>
           </nav>
           <p>Истории, которые мы хотели прочитать сами.</p>
         </div>

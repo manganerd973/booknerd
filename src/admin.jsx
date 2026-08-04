@@ -49,6 +49,19 @@ const blankBook = {
   seriesReadingOrder: [],
   releaseDays: [],
   author: '',
+  country: '',
+  publicationYear: '',
+  pageCount: 0,
+  authorBirthday: '',
+  originalReleaseDate: '',
+  translator: '',
+  editor: '',
+  proofreader: '',
+  playlistUrl: '',
+  teamPick: false,
+  quoteOfDay: '',
+  searchAliases: [],
+  searchAliasesText: '',
   dedication: '',
   triggerWarnings: [],
   triggerWarningsText: '',
@@ -373,6 +386,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
       genresText: (book.genres || []).join(', '),
       tropesText: (book.tropes || []).join(', '),
       triggerWarningsText: (book.triggerWarnings || []).join(', '),
+      searchAliasesText: (book.searchAliases || []).join(', '),
     });
     setArtworks([]);
     setArtworkCaption('');
@@ -403,14 +417,15 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
       const genres = splitBookTags(bookForm.genresText ?? (bookForm.genres || []).join(', '), 20);
       const tropes = splitBookTags(bookForm.tropesText ?? (bookForm.tropes || []).join(', '), 40);
       const triggerWarnings = splitBookTags(bookForm.triggerWarningsText ?? (bookForm.triggerWarnings || []).join(', '), 40);
-      const payload = { ...bookForm, genres, tropes, triggerWarnings };
+      const searchAliases = splitBookTags(bookForm.searchAliasesText ?? (bookForm.searchAliases || []).join(', '), 100);
+      const payload = { ...bookForm, genres, tropes, triggerWarnings, searchAliases };
       const data = await api(editing ? `/api/admin/books/${bookForm.id}` : '/api/admin/books', {
         method: editing ? 'PUT' : 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(payload),
       });
       const id = bookForm.id || data.id;
-      setBookForm((current) => ({ ...current, id, slug: data.slug, genres, tropes, triggerWarnings, genresText: genres.join(', '), tropesText: tropes.join(', '), triggerWarningsText: triggerWarnings.join(', ') }));
+      setBookForm((current) => ({ ...current, id, slug: data.slug, genres, tropes, triggerWarnings, searchAliases, genresText: genres.join(', '), tropesText: tropes.join(', '), triggerWarningsText: triggerWarnings.join(', '), searchAliasesText: searchAliases.join(', ') }));
       flash(editing ? 'Книга сохранена.' : 'Книга добавлена. Теперь можно создать главы.');
       await loadBooks();
     } catch (error) {
@@ -891,11 +906,17 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                   <div className="admin-fields two-columns">
                     <label><span>Название книги *</span><input value={bookForm.title} onChange={(event) => setBookForm({ ...bookForm, title: event.target.value })} placeholder="Например, Плетёное королевство" /></label>
                     <label><span>Автор *</span><input value={bookForm.author} onChange={(event) => setBookForm({ ...bookForm, author: event.target.value })} placeholder="Имя автора" /></label>
+                    <label><span>Страна книги</span><input value={bookForm.country || ''} onChange={(event) => setBookForm({ ...bookForm, country: event.target.value })} placeholder="Например, Сирия / США" /></label>
+                    <label><span>Год выхода</span><input type="number" min="1" max="9999" value={bookForm.publicationYear || ''} onChange={(event) => setBookForm({ ...bookForm, publicationYear: event.target.value ? Number(event.target.value) : '' })} /></label>
+                    <label><span>Длина книги, страниц</span><input type="number" min="0" value={bookForm.pageCount || ''} onChange={(event) => setBookForm({ ...bookForm, pageCount: Number(event.target.value || 0) })} /></label>
+                    <label><span>День рождения автора</span><input type="date" value={bookForm.authorBirthday || ''} onChange={(event) => setBookForm({ ...bookForm, authorBirthday: event.target.value })} /></label>
+                    <label><span>Дата выхода оригинала</span><input type="date" value={bookForm.originalReleaseDate || ''} onChange={(event) => setBookForm({ ...bookForm, originalReleaseDate: event.target.value })} /></label>
                     <label><span>Оригинальное название</span><input value={bookForm.originalTitle} onChange={(event) => setBookForm({ ...bookForm, originalTitle: event.target.value })} placeholder="Название на языке оригинала" /></label>
                     <label><span>Адрес страницы</span><input value={bookForm.slug} onChange={(event) => setBookForm({ ...bookForm, slug: event.target.value })} placeholder="sozdayotsya-avtomaticheski" /></label>
                     <label><span>Название серии</span><input value={bookForm.seriesTitle || ''} onChange={(event) => setBookForm({ ...bookForm, seriesTitle: event.target.value })} placeholder="Например, Хроники Севера" /></label>
                     <label><span>Номер книги в серии</span><input type="number" min="1" value={bookForm.seriesNumber || ''} onChange={(event) => setBookForm({ ...bookForm, seriesNumber: event.target.value ? Number(event.target.value) : '' })} placeholder="1" /></label>
                     <label className="admin-drive-field"><span>Файл книги в Google Drive</span><input type="url" value={bookForm.driveUrl || ''} onChange={(event) => setBookForm({ ...bookForm, driveUrl: event.target.value })} placeholder="https://drive.google.com/…" /></label>
+                    <label className="admin-drive-field"><span>Плейлист книги</span><input type="url" value={bookForm.playlistUrl || ''} onChange={(event) => setBookForm({ ...bookForm, playlistUrl: event.target.value })} placeholder="Spotify, YouTube Music или другой плейлист" /></label>
                   </div>
                   <div className="admin-release-days">
                     <span>Дни выхода новых глав</span>
@@ -919,6 +940,13 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                   <label className="admin-full-field"><span>Аннотация</span><textarea value={bookForm.synopsis} onChange={(event) => setBookForm({ ...bookForm, synopsis: event.target.value })} placeholder="Расскажите читателю, о чём эта история…" rows={7} /><small>{bookForm.synopsis.length} / 12 000</small></label>
                   <label className="admin-full-field"><span>Кому посвящена книга</span><textarea value={bookForm.dedication || ''} onChange={(event) => setBookForm({ ...bookForm, dedication: event.target.value })} placeholder="Например: Всем девушкам, которые однажды выбрали себя…" rows={3} /><small>Посвящение появится на главной странице книги.</small></label>
                   <label className="admin-full-field"><span>Предупреждения о триггерах</span><textarea value={bookForm.triggerWarningsText || ''} onChange={(event) => setBookForm({ ...bookForm, triggerWarningsText: event.target.value, triggerWarnings: splitBookTags(event.target.value, 40) })} placeholder="Например: насилие, утрата близкого, панические атаки" rows={3} /><small>Разделяйте предупреждения запятыми. Они появятся только на странице книги.</small></label>
+                  <label className="admin-full-field"><span>Поиск по персонажам, миру и цитатам</span><textarea value={bookForm.searchAliasesText || ''} onChange={(event) => setBookForm({ ...bookForm, searchAliasesText: event.target.value })} placeholder="Имена героев, название мира, памятные цитаты — через запятую" rows={3} /></label>
+                  <label className="admin-full-field"><span>Любимая цитата дня</span><textarea value={bookForm.quoteOfDay || ''} onChange={(event) => setBookForm({ ...bookForm, quoteOfDay: event.target.value })} placeholder="Цитата из книги для главной страницы" rows={2} /></label>
+                  <div className="admin-fields three-columns">
+                    <label><span>Переводчик</span><input value={bookForm.translator || ''} onChange={(event) => setBookForm({ ...bookForm, translator: event.target.value })} /></label>
+                    <label><span>Редактор</span><input value={bookForm.editor || ''} onChange={(event) => setBookForm({ ...bookForm, editor: event.target.value })} /></label>
+                    <label><span>Корректор</span><input value={bookForm.proofreader || ''} onChange={(event) => setBookForm({ ...bookForm, proofreader: event.target.value })} /></label>
+                  </div>
                   <div className="admin-fields two-columns">
                     <label><span>Горячие сцены</span><select value={bookForm.hasHotScenes ? 'yes' : 'no'} onChange={(event) => setBookForm({ ...bookForm, hasHotScenes: event.target.value === 'yes', hotSceneChapters: event.target.value === 'yes' ? bookForm.hotSceneChapters : '' })}><option value="no">Нет</option><option value="yes">Да</option></select></label>
                     <label><span>Главы со сценами</span><input value={bookForm.hotSceneChapters || ''} onChange={(event) => setBookForm({ ...bookForm, hotSceneChapters: event.target.value })} placeholder="Например, 12–14" disabled={!bookForm.hasHotScenes} /><small>Будут указаны только на странице книги.</small></label>
@@ -927,6 +955,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                     <label><span>Статус перевода</span><select value={bookForm.status} onChange={(event) => setBookForm({ ...bookForm, status: event.target.value })}>{BOOK_TRANSLATION_STATUSES.map((status) => <option value={status} key={status}>{status}</option>)}</select></label>
                     <label><span>Готовность перевода: {bookForm.progress}%</span><input type="range" min="0" max="100" value={bookForm.progress} onChange={(event) => setBookForm({ ...bookForm, progress: Number(event.target.value) })} /></label>
                     <label className="admin-switch-row"><span><strong>Показывать книгу на сайте</strong><small>Читатели увидят аннотацию и опубликованные главы.</small></span><input type="checkbox" checked={bookForm.published} onChange={(event) => setBookForm({ ...bookForm, published: event.target.checked })} /></label>
+                    <label className="admin-switch-row"><span><strong>Выбор команды BOOKNERD</strong><small>Книга появится в отдельной рекомендации на главной.</small></span><input type="checkbox" checked={Boolean(bookForm.teamPick)} onChange={(event) => setBookForm({ ...bookForm, teamPick: event.target.checked })} /></label>
                   </div>
                 </section>
               </div>
