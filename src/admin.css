@@ -817,3 +817,42 @@
   .admin-preview-stage { justify-content: start; overflow-x: auto; padding: 16px; }
   .admin-preview-stage.is-phone > article { width: 360px; }
 }
+
+/* Mobile admin uses the same viewport contract as the public site. */
+@media (max-width: 767px) {
+  .admin-shell,
+  .admin-main,
+  .admin-content,
+  .admin-topbar,
+  .admin-editor,
+  .admin-book-form,
+  .admin-chapter-workspace,
+  .admin-chapter-editor,
+  .admin-rich-editor,
+  .admin-artwork-workspace,
+  .admin-team-layout {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .admin-shell,
+  .admin-main {
+    width: 100%;
+    overflow-x: clip;
+  }
+
+  .admin-content {
+    width: calc(100% - 24px);
+  }
+
+  .admin-library-table-wrap,
+  .admin-preview-devices,
+  .admin-preview-stage {
+    max-width: 100%;
+    overscroll-behavior-inline: contain;
+  }
+
+  .admin-preview-stage.is-phone > article {
+    width: min(360px, calc(100vw - 56px));
+  }
+}

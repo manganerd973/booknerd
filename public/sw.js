@@ -1,5 +1,5 @@
-const SHELL_CACHE = 'booknerd-shell-v4';
-const OFFLINE_CACHE = 'booknerd-offline-books-v4';
+const SHELL_CACHE = 'booknerd-shell-v5';
+const OFFLINE_CACHE = 'booknerd-offline-books-v5';
 const SHELL_URLS = ['/', '/translations', '/library', '/calendar', '/manifest.webmanifest', '/booknerd-icon-v2-192.png'];
 
 self.addEventListener('install', (event) => {
@@ -35,7 +35,7 @@ self.addEventListener('fetch', (event) => {
     const cached = await caches.match(request, { ignoreSearch: request.mode === 'navigate' });
     try {
       const response = await fetch(request);
-      if (response.ok && (request.mode === 'navigate' || ['style', 'script', 'font', 'image'].includes(request.destination))) {
+      if (response.ok && !response.redirected && (request.mode === 'navigate' || ['style', 'script', 'font', 'image'].includes(request.destination))) {
         const cache = await caches.open(request.mode === 'navigate' ? OFFLINE_CACHE : SHELL_CACHE);
         cache.put(request, response.clone()).catch(() => {});
       }
@@ -50,14 +50,15 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('push', (event) => {
   let data = {};
   try { data = event.data?.json?.() || {}; } catch { data = { body: event.data?.text?.() || '' }; }
-  event.waitUntil(self.registration.showNotification(data.title || 'Новая глава в BOOKNERD ✦', {
-    body: data.body || 'В онлайн-читалке появилось продолжение.',
+  const options = {
     icon: data.icon || '/booknerd-icon-v2-192.png',
     badge: data.badge || '/booknerd-icon-v2-192.png',
     data: { url: data.url || '/' },
     tag: data.chapterId ? `booknerd-${data.chapterId}` : 'booknerd-new-chapter',
     renotify: true,
-  }));
+  };
+  if (typeof data.body === 'string' && data.body.trim()) options.body = data.body.trim();
+  event.waitUntil(self.registration.showNotification(data.title || 'Новая глава в BOOKNERD ✦', options));
 });
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();

@@ -21,7 +21,6 @@ import CommentReport from './comment-report.jsx';
 import { LIBRARY_STATUS, loadReaderLibrary, removeReaderLibraryBook, updateReaderLibrary } from './reader-library.jsx';
 import { ContinueReading, TranslationVoting } from './home-reader-features.jsx';
 import DiscoveryDashboard from './discovery-dashboard.jsx';
-import { MobileQuickNav } from './page-chrome.jsx';
 
 const FEATURED_GENRES = [
   'ROMANCE',
@@ -360,7 +359,6 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
             </button>
           </div>
         </header>
-        <MobileQuickNav onSearch={() => setSearchOpen(true)} />
 
         <main>
           <section className="hero">

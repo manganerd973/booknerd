@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ArrowRight, Bell, CalendarDays, Library, Menu, Search, Sparkles, UserRound, X } from 'lucide-react';
+import { ArrowRight, Menu, Search, Sparkles, UserRound, X } from 'lucide-react';
 
 export function SiteLogo() {
   return (
@@ -22,36 +22,6 @@ const links = [
   { href: '/go/telegram', label: 'Telegram', key: 'telegram', external: true },
 ];
 
-export function MobileQuickNav({ active = '', onSearch }) {
-  const searchItem = onSearch ? (
-    <button type="button" onClick={onSearch} aria-label="Поиск">
-      <Search size={18} /><span>Поиск</span>
-    </button>
-  ) : (
-    <a href="/search" className={active === 'search' ? 'is-active' : ''} aria-label="Поиск">
-      <Search size={18} /><span>Поиск</span>
-    </a>
-  );
-
-  return (
-    <nav className="mobile-quick-nav" aria-label="Быстрые разделы">
-      {searchItem}
-      <a href="/library" className={active === 'library' ? 'is-active' : ''} aria-label="Моя библиотека">
-        <Library size={18} /><span>Библиотека</span>
-      </a>
-      <a href="/calendar" className={active === 'calendar' ? 'is-active' : ''} aria-label="Календарь глав">
-        <CalendarDays size={18} /><span>Календарь</span>
-      </a>
-      <a href="/library#notifications" aria-label="Уведомления">
-        <Bell size={18} /><span>Уведомления</span>
-      </a>
-      <a href="/profile" className={active === 'profile' ? 'is-active' : ''} aria-label="Профиль читателя">
-        <UserRound size={18} /><span>Профиль</span>
-      </a>
-    </nav>
-  );
-}
-
 export function SiteHeader({ active = '' }) {
   const [open, setOpen] = useState(false);
   return (
@@ -71,7 +41,6 @@ export function SiteHeader({ active = '' }) {
           <button className="menu-button" onClick={() => setOpen(true)} aria-label="Открыть меню"><Menu size={22} /></button>
         </div>
       </header>
-      <MobileQuickNav active={active} />
       {open && (
         <div className="mobile-drawer">
           <div className="drawer-head"><SiteLogo /><button onClick={() => setOpen(false)} aria-label="Закрыть меню"><X /></button></div>

@@ -17,7 +17,11 @@ export async function POST(request) {
   const next = safeNext(String(formData.get('next') || '/'));
   const configuredPassword = getReaderPassword();
 
-  if (!configuredPassword || submittedPassword !== configuredPassword) {
+  if (!configuredPassword) {
+    return NextResponse.redirect(new URL(next, request.url), 303);
+  }
+
+  if (submittedPassword !== configuredPassword) {
     const deniedUrl = new URL('/reader-access', request.url);
     deniedUrl.searchParams.set('error', '1');
     deniedUrl.searchParams.set('next', next);
