@@ -38,5 +38,6 @@ export async function POST(request) {
     path: '/',
     maxAge: 60 * 60 * 24 * 30,
   });
+  response.headers.set('Cache-Control', 'no-store');
   return response;
 }

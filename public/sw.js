@@ -1,5 +1,5 @@
-const SHELL_CACHE = 'booknerd-shell-v5';
-const OFFLINE_CACHE = 'booknerd-offline-books-v5';
+const SHELL_CACHE = 'booknerd-shell-v6';
+const OFFLINE_CACHE = 'booknerd-offline-books-v6';
 const SHELL_URLS = ['/', '/translations', '/library', '/calendar', '/manifest.webmanifest', '/booknerd-icon-v2-192.png'];
 
 self.addEventListener('install', (event) => {
@@ -35,6 +35,8 @@ self.addEventListener('fetch', (event) => {
     const cached = await caches.match(request, { ignoreSearch: request.mode === 'navigate' });
     try {
       const response = await fetch(request);
+      // Не сохраняем редиректы на вход: старая офлайн-копия не должна снова
+      // перехватывать ссылку на уже доступную главу.
       if (response.ok && !response.redirected && (request.mode === 'navigate' || ['style', 'script', 'font', 'image'].includes(request.destination))) {
         const cache = await caches.open(request.mode === 'navigate' ? OFFLINE_CACHE : SHELL_CACHE);
         cache.put(request, response.clone()).catch(() => {});

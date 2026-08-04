@@ -6,6 +6,18 @@ const ALWAYS_OPEN = [
   '/api/reader-access',
   '/favicon.ico',
   '/robots.txt',
+  '/sw.js',
+  '/manifest.webmanifest',
+  '/admin-manifest.webmanifest',
+  '/booknerd-icon.svg',
+  '/booknerd-icon-192.png',
+  '/booknerd-icon-512.png',
+  '/booknerd-icon-v2-192.png',
+  '/booknerd-icon-v2-512.png',
+  '/booknerd-icon-v2-1024.png',
+  '/booknerd-apple-touch-icon.png',
+  '/booknerd-apple-touch-icon-v2.png',
+  '/booknerd-favicon-v2.ico',
 ];
 
 export async function proxy(request) {
@@ -24,7 +36,9 @@ export async function proxy(request) {
 
   const accessUrl = new URL('/reader-access', request.url);
   accessUrl.searchParams.set('next', `${pathname}${search}`);
-  return NextResponse.redirect(accessUrl);
+  const response = NextResponse.redirect(accessUrl);
+  response.headers.set('Cache-Control', 'no-store');
+  return response;
 }
 
 export const config = {

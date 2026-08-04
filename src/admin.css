@@ -818,7 +818,7 @@
   .admin-preview-stage.is-phone > article { width: 360px; }
 }
 
-/* Mobile admin uses the same viewport contract as the public site. */
+/* Мобильная редакционная не расширяет всю страницу широкими рабочими блоками. */
 @media (max-width: 767px) {
   .admin-shell,
   .admin-main,
