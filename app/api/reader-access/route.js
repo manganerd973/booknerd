@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import {
   createReaderAccessToken,
   getReaderPassword,
+  isReaderAccessEnabled,
   READER_ACCESS_COOKIE,
 } from '../../../lib/reader-access.js';
 
@@ -17,7 +18,7 @@ export async function POST(request) {
   const next = safeNext(String(formData.get('next') || '/'));
   const configuredPassword = getReaderPassword();
 
-  if (!configuredPassword) {
+  if (!isReaderAccessEnabled() || !configuredPassword) {
     return NextResponse.redirect(new URL(next, request.url), 303);
   }
 
@@ -33,11 +34,10 @@ export async function POST(request) {
     name: READER_ACCESS_COOKIE,
     value: await createReaderAccessToken(configuredPassword),
     httpOnly: true,
-    secure: true,
+    secure: new URL(request.url).protocol === 'https:',
     sameSite: 'lax',
     path: '/',
     maxAge: 60 * 60 * 24 * 30,
   });
-  response.headers.set('Cache-Control', 'no-store');
   return response;
 }

@@ -105,7 +105,7 @@ export default function NotificationControl({ compact = false }) {
 
   if (!supported) {
     return compact ? null : (
-      <div className="notification-control is-unavailable">
+      <div id="notifications" className="notification-control is-unavailable">
         <BellOff size={22} />
         <div><strong>Уведомления не поддерживаются</strong><p>Сайт продолжит работать как обычно.</p></div>
       </div>
@@ -113,7 +113,7 @@ export default function NotificationControl({ compact = false }) {
   }
 
   return (
-    <div className={`notification-control ${compact ? 'is-compact' : ''} ${subscribed ? 'is-subscribed' : ''}`}>
+    <div id={compact ? undefined : 'notifications'} className={`notification-control ${compact ? 'is-compact' : ''} ${subscribed ? 'is-subscribed' : ''}`}>
       <span className="notification-control-icon">{subscribed ? <Check size={22} /> : standalone ? <Bell size={22} /> : <Smartphone size={22} />}</span>
       <div>
         <strong>{subscribed ? 'Уведомления включены' : 'Не пропускайте новые главы'}</strong>

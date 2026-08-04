@@ -21,7 +21,7 @@ import CommentReport from './comment-report.jsx';
 import { LIBRARY_STATUS, loadReaderLibrary, removeReaderLibraryBook, updateReaderLibrary } from './reader-library.jsx';
 import { ContinueReading, TranslationVoting } from './home-reader-features.jsx';
 import DiscoveryDashboard from './discovery-dashboard.jsx';
-import { MobileQuickNav } from './page-chrome.jsx';
+import { MobileBottomNavigation, MobileQuickNavigation } from './page-chrome.jsx';
 
 const FEATURED_GENRES = [
   'ROMANCE',
@@ -360,7 +360,7 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
             </button>
           </div>
         </header>
-        <MobileQuickNav onSearch={() => setSearchOpen(true)} />
+        <MobileQuickNavigation active="home" />
 
         <main>
           <section className="hero">
@@ -429,7 +429,7 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
             </div>
 
             {visibleBooks.length > 0 ? (
-              <div className="book-grid">
+              <div className="book-grid book-list-home">
                 {visibleBooks.map((book) => (
                   <BookCard
                     key={book.id}
@@ -513,6 +513,7 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
           <div><a href="/translations">Переводы</a><a href="/library">Моя библиотека</a><a href="/calendar">Календарь</a><a href="/community">Сообщество</a><a href="/profile">Профиль</a><a href="/search">Поиск</a><a href="/about">О нас</a><a href="/team">Команда</a><a href="/go/telegram" target="_blank" rel="noreferrer">Telegram</a></div>
           <span>© 2026 BOOKNERD</span>
         </footer>
+        <MobileBottomNavigation active="home" />
       </div>
 
       {searchOpen && (

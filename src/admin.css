@@ -818,7 +818,7 @@
   .admin-preview-stage.is-phone > article { width: 360px; }
 }
 
-/* Мобильная редакционная не расширяет всю страницу широкими рабочими блоками. */
+/* Mobile admin uses the same viewport contract as the public site. */
 @media (max-width: 767px) {
   .admin-shell,
   .admin-main,
@@ -854,5 +854,17 @@
 
   .admin-preview-stage.is-phone > article {
     width: min(360px, calc(100vw - 56px));
+  }
+
+  .admin-shell *,
+  .admin-main *,
+  .admin-editor * { min-width: 0; }
+
+  .admin-library-table-wrap,
+  .admin-table-wrap,
+  .admin-rich-toolbar,
+  .admin-preview-devices {
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
   }
 }

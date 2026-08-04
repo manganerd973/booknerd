@@ -308,8 +308,10 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
       savedChatRangeRef.current = range.cloneRange();
       const blocks = blocksForRange(range);
       savedChatBlocksRef.current = blocks;
-      setChatTargetCount(blocks.length);
-      rememberChatScroll();
+      if (chatComposerOpen) {
+        setChatTargetCount(blocks.length);
+        rememberChatScroll();
+      }
     }
     onTextSelect?.(inside ? selection.toString().trim() : '');
   };
@@ -534,10 +536,6 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
     setChatDraft({ sender: sender.name, side: sender.side });
   };
 
-  const keepChatSelection = (event) => {
-    if (savedChatRangeRef.current) event.preventDefault();
-  };
-
   const pinChatSender = () => {
     const name = normalizeChatSenderName(chatDraft.sender);
     if (!name || !chatSendersStorageKey) return;
@@ -595,7 +593,10 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
     });
     if (!blocks.length) return;
     emitChange();
-    restoreChatScroll({ focusEditor: true });
+    savedChatRangeRef.current = null;
+    savedChatBlocksRef.current = [];
+    setChatTargetCount(0);
+    restoreChatScroll();
   };
 
   const removeChatStyle = () => {
@@ -607,7 +608,10 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
     });
     if (!blocks.length) return;
     emitChange();
-    restoreChatScroll({ focusEditor: true });
+    savedChatRangeRef.current = null;
+    savedChatBlocksRef.current = [];
+    setChatTargetCount(0);
+    restoreChatScroll();
   };
 
   const toggleFirstLine = () => {
@@ -703,7 +707,7 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
                   const isSelected = sender.name.toLocaleLowerCase('ru-RU') === normalizedChatDraftSender.toLocaleLowerCase('ru-RU');
                   return (
                     <div className={isSelected ? 'is-selected' : ''} key={sender.name.toLocaleLowerCase('ru-RU')}>
-                      <button type="button" onPointerDown={keepChatSelection} onClick={() => selectPinnedChatSender(sender)} aria-pressed={isSelected}>
+                      <button type="button" onClick={() => selectPinnedChatSender(sender)} aria-pressed={isSelected}>
                         <strong>{sender.name}</strong>
                         <small>{sender.side === 'outgoing' ? 'справа' : 'слева'}</small>
                       </button>
@@ -734,11 +738,11 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
             <small>Нажмите на закреплённое имя, чтобы быстро выбрать героя. У каждого имени запоминается своя обычная сторона, но её можно менять для любого сообщения.</small>
           </div>
           <div className="admin-chat-side-picker" role="radiogroup" aria-label="Расположение сообщения">
-            <button type="button" className={chatDraft.side === 'incoming' ? 'is-active' : ''} onPointerDown={keepChatSelection} onClick={() => setChatDraft((current) => ({ ...current, side: 'incoming' }))} role="radio" aria-checked={chatDraft.side === 'incoming'}>
+            <button type="button" className={chatDraft.side === 'incoming' ? 'is-active' : ''} onClick={() => setChatDraft((current) => ({ ...current, side: 'incoming' }))} role="radio" aria-checked={chatDraft.side === 'incoming'}>
               <span className="admin-chat-side-preview is-incoming">Слева</span>
               <small>сообщение выбранного героя</small>
             </button>
-            <button type="button" className={chatDraft.side === 'outgoing' ? 'is-active' : ''} onPointerDown={keepChatSelection} onClick={() => setChatDraft((current) => ({ ...current, side: 'outgoing' }))} role="radio" aria-checked={chatDraft.side === 'outgoing'}>
+            <button type="button" className={chatDraft.side === 'outgoing' ? 'is-active' : ''} onClick={() => setChatDraft((current) => ({ ...current, side: 'outgoing' }))} role="radio" aria-checked={chatDraft.side === 'outgoing'}>
               <span className="admin-chat-side-preview is-outgoing">Справа</span>
               <small>сообщение выбранного героя</small>
             </button>
@@ -782,8 +786,8 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
             ) : null}
           </section>
           <div className="admin-chat-composer-actions">
-            <button type="button" className="admin-secondary" onPointerDown={keepChatSelection} onClick={removeChatStyle} disabled={!chatTargetCount}>Убрать пузырёк</button>
-            <button type="button" className="admin-primary" onPointerDown={keepChatSelection} onClick={applyChatStyle} disabled={!chatDraft.sender.trim() || !chatTargetCount}>Применить</button>
+            <button type="button" className="admin-secondary" onClick={removeChatStyle} disabled={!chatTargetCount}>Убрать пузырёк</button>
+            <button type="button" className="admin-primary" onClick={applyChatStyle} disabled={!chatDraft.sender.trim() || !chatTargetCount}>Применить</button>
           </div>
         </div>
       ) : null}
@@ -832,7 +836,7 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
           emitChange();
         }}
       />
-      <p className="admin-rich-hint"><strong>Переписка:</strong> откройте панель, выберите героя и затем выделите нужное сообщение — или сначала выделите сообщение, а потом выберите героя. После «Применить» панель и место в тексте останутся на месте, чтобы можно было сразу оформить следующее сообщение. Для каждой книги хранится свой список героев. <strong>Случайно изменили текст?</strong> Нажмите «Отменить» или Ctrl+Z.</p>
+      <p className="admin-rich-hint"><strong>Переписка:</strong> можно сначала открыть «Переписку» и выбрать героя, а затем выделить сообщение в тексте и нажать «Применить». Панель останется открытой, а редактор — на том же месте. Для каждой книги хранится свой список героев. На iPhone эмодзи отображаются в стиле Apple. <strong>Случайно изменили текст?</strong> Нажмите «Отменить» или Ctrl+Z.</p>
     </div>
   );
 });

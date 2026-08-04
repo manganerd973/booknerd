@@ -1,4 +1,6 @@
 import '../../src/reader-access.css';
+import { redirect } from 'next/navigation';
+import { getReaderPassword, isReaderAccessEnabled } from '../../lib/reader-access.js';
 
 export const metadata = {
   title: 'Вход для читателей — BOOKNERD',
@@ -6,10 +8,11 @@ export const metadata = {
 
 export default async function ReaderAccessPage({ searchParams }) {
   const params = await searchParams;
-  const next = typeof params?.next === 'string' && params.next.startsWith('/')
+  const next = typeof params?.next === 'string' && params.next.startsWith('/') && !params.next.startsWith('//')
     ? params.next
     : '/';
   const hasError = params?.error === '1';
+  if (!isReaderAccessEnabled() || !getReaderPassword()) redirect(next);
 
   return (
     <main className="reader-access-page">

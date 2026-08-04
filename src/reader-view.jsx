@@ -32,7 +32,7 @@ import {
   Type,
   BookMarked,
   Film,
-  Map,
+  Map as MapIcon,
   Music2,
   Volume2,
   VolumeX,
@@ -1280,7 +1280,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
             <button type="button" onClick={() => setPanel('contents')}><List size={22} /><span><strong>Содержание</strong><small>Все главы книги</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('search')}><Search size={22} /><span><strong>Поиск по книге</strong><small>Найти слово во всех главах</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('annotations')}><Highlighter size={22} /><span><strong>Мои пометки</strong><small>{annotations.length ? `${annotations.length} сохранено` : 'Выделения, заметки и стикеры'}</small></span><ChevronRight size={18} /></button>
-            <button type="button" onClick={() => setPanel('chapter-map')}><Map size={22} /><span><strong>Мини‑карта главы</strong><small>Все пометки и эмоции по ходу текста</small></span><ChevronRight size={18} /></button>
+            <button type="button" onClick={() => setPanel('chapter-map')}><MapIcon size={22} /><span><strong>Мини‑карта главы</strong><small>Все пометки и эмоции по ходу текста</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('dictionary')}><BookMarked size={22} /><span><strong>Личный словарь</strong><small>{readerHub.dictionary.length ? `${readerHub.dictionary.length} слов` : 'Незнакомые слова и пояснения'}</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('bookmarks')}><Bookmark size={22} /><span><strong>Мои закладки</strong><small>{bookmarks.length ? `${bookmarks.length} сохранено` : 'Любимое, важное и смешное'}</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('atmosphere')}><Music2 size={22} /><span><strong>Атмосфера чтения</strong><small>Музыка, дождь, лес или камин</small></span><ChevronRight size={18} /></button>

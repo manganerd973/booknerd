@@ -23,7 +23,6 @@ const STATUS_ICON = {
   favorite: Heart,
   dropped: XCircle,
 };
-const LIBRARY_VIEW_STORAGE_KEY = 'booknerd:library-view';
 
 function chapterWord(value) {
   const count = Math.abs(Number(value || 0));
@@ -70,9 +69,9 @@ function LibraryBookCard({ book, item, onStatusChange }) {
 export default function LibraryPage({ initialBooks = [] }) {
   const [items, setItems] = useState([]);
   const [activeTab, setActiveTab] = useState('all');
-  const [viewMode, setViewMode] = useState('list');
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState('');
+  const [viewMode, setViewMode] = useState('list');
   const booksById = useMemo(() => new Map(initialBooks.map((book) => [book.id, book])), [initialBooks]);
   const visibleItems = useMemo(() => items.filter((item) => booksById.has(item.bookId) && (activeTab === 'all' || item.status === activeTab)), [activeTab, booksById, items]);
 
@@ -87,10 +86,10 @@ export default function LibraryPage({ initialBooks = [] }) {
 
   useEffect(() => {
     try {
-      const savedView = window.localStorage.getItem(LIBRARY_VIEW_STORAGE_KEY);
-      if (savedView === 'list' || savedView === 'grid') setViewMode(savedView);
+      const savedView = window.localStorage.getItem('booknerd:library-view');
+      if (savedView === 'grid' || savedView === 'list') setViewMode(savedView);
     } catch {
-      // Если хранилище браузера закрыто, остаётся удобный вид списком.
+      // The default list view still works when browser storage is unavailable.
     }
   }, []);
 
@@ -113,13 +112,9 @@ export default function LibraryPage({ initialBooks = [] }) {
     }
   };
 
-  const changeViewMode = (nextView) => {
+  const changeView = (nextView) => {
     setViewMode(nextView);
-    try {
-      window.localStorage.setItem(LIBRARY_VIEW_STORAGE_KEY, nextView);
-    } catch {
-      // Выбор всё равно действует до закрытия страницы.
-    }
+    try { window.localStorage.setItem('booknerd:library-view', nextView); } catch { /* Preference remains active for this visit. */ }
   };
 
   return (
@@ -140,20 +135,18 @@ export default function LibraryPage({ initialBooks = [] }) {
             ))}
           </div>
 
-          <div className="library-view-toolbar">
-            <div><strong>Вид книжной полки</strong><span>По умолчанию книги показаны удобным списком.</span></div>
-            <div role="group" aria-label="Выберите вид книжной полки">
-              <button type="button" className={viewMode === 'list' ? 'is-active' : ''} aria-pressed={viewMode === 'list'} onClick={() => changeViewMode('list')}>
-                <List size={17} /> Список
-              </button>
-              <button type="button" className={viewMode === 'grid' ? 'is-active' : ''} aria-pressed={viewMode === 'grid'} onClick={() => changeViewMode('grid')}>
-                <Grid3X3 size={16} /> Плитка
-              </button>
-            </div>
-          </div>
-
-          <div id="notifications" className="library-notifications-anchor"><NotificationControl /></div>
+          <NotificationControl />
           <ContinueReading items={items} books={initialBooks} />
+
+          <div className="library-view-controls" role="group" aria-label="Вид книжной полки">
+            <span>Вид полки</span>
+            <button type="button" className={viewMode === 'list' ? 'is-active' : ''} onClick={() => changeView('list')} aria-pressed={viewMode === 'list'}>
+              <List size={17} /> Список
+            </button>
+            <button type="button" className={viewMode === 'grid' ? 'is-active' : ''} onClick={() => changeView('grid')} aria-pressed={viewMode === 'grid'}>
+              <Grid3X3 size={17} /> Плитка
+            </button>
+          </div>
 
           {loading ? <div className="library-page-loading"><LoaderCircle className="spin" size={25} /> Открываем ваши полки…</div> : visibleItems.length ? (
             <div className={`library-page-grid is-${viewMode}`}>

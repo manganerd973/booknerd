@@ -1,7 +1,19 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ArrowRight, Bell, CalendarDays, Library, Menu, Search, Sparkles, UserRound, X } from 'lucide-react';
+import {
+  ArrowRight,
+  Bell,
+  BookOpen,
+  CalendarDays,
+  Home,
+  Library as LibraryIcon,
+  Menu,
+  Search,
+  Sparkles,
+  UserRound,
+  X,
+} from 'lucide-react';
 
 export function SiteLogo() {
   return (
@@ -22,32 +34,38 @@ const links = [
   { href: '/go/telegram', label: 'Telegram', key: 'telegram', external: true },
 ];
 
-export function MobileQuickNav({ active = '', onSearch }) {
-  const searchItem = onSearch ? (
-    <button type="button" onClick={onSearch} aria-label="Поиск">
-      <Search size={18} /><span>Поиск</span>
-    </button>
-  ) : (
-    <a href="/search" className={active === 'search' ? 'is-active' : ''} aria-label="Поиск">
-      <Search size={18} /><span>Поиск</span>
-    </a>
-  );
+const quickLinks = [
+  { href: '/', label: 'Главная', key: 'home', icon: Home },
+  { href: '/library', label: 'Библиотека', key: 'library', icon: LibraryIcon },
+  { href: '/search', label: 'Поиск', key: 'search', icon: Search },
+  { href: '/calendar', label: 'Календарь', key: 'calendar', icon: CalendarDays },
+  { href: '/library#notifications', label: 'Уведомления', key: 'notifications', icon: Bell },
+  { href: '/profile', label: 'Профиль', key: 'profile', icon: UserRound },
+];
 
+export function MobileQuickNavigation({ active = '' }) {
   return (
-    <nav className="mobile-quick-nav" aria-label="Быстрые разделы">
-      {searchItem}
-      <a href="/library" className={active === 'library' ? 'is-active' : ''} aria-label="Моя библиотека">
-        <Library size={18} /><span>Библиотека</span>
-      </a>
-      <a href="/calendar" className={active === 'calendar' ? 'is-active' : ''} aria-label="Календарь глав">
-        <CalendarDays size={18} /><span>Календарь</span>
-      </a>
-      <a href="/library#notifications" aria-label="Уведомления">
-        <Bell size={18} /><span>Уведомления</span>
-      </a>
-      <a href="/profile" className={active === 'profile' ? 'is-active' : ''} aria-label="Профиль читателя">
-        <UserRound size={18} /><span>Профиль</span>
-      </a>
+    <nav className="mobile-quick-navigation" aria-label="Быстрые разделы">
+      {quickLinks.map(({ href, label, key, icon: Icon }) => (
+        <a className={active === key ? 'is-active' : ''} href={href} aria-current={active === key ? 'page' : undefined} key={key}>
+          <Icon size={19} />
+          <span>{label}</span>
+        </a>
+      ))}
+    </nav>
+  );
+}
+
+export function MobileBottomNavigation({ active = '' }) {
+  const bottomLinks = quickLinks.filter(({ key }) => ['home', 'library', 'search', 'notifications', 'profile'].includes(key));
+  return (
+    <nav className="mobile-bottom-navigation" aria-label="Основные разделы">
+      {bottomLinks.map(({ href, label, key, icon: Icon }) => (
+        <a className={active === key ? 'is-active' : ''} href={href} aria-current={active === key ? 'page' : undefined} key={key}>
+          <Icon size={20} />
+          <span>{label}</span>
+        </a>
+      ))}
     </nav>
   );
 }
@@ -71,7 +89,7 @@ export function SiteHeader({ active = '' }) {
           <button className="menu-button" onClick={() => setOpen(true)} aria-label="Открыть меню"><Menu size={22} /></button>
         </div>
       </header>
-      <MobileQuickNav active={active} />
+      <MobileQuickNavigation active={active} />
       {open && (
         <div className="mobile-drawer">
           <div className="drawer-head"><SiteLogo /><button onClick={() => setOpen(false)} aria-label="Закрыть меню"><X /></button></div>
@@ -84,6 +102,7 @@ export function SiteHeader({ active = '' }) {
           <p>Истории, которые мы хотели прочитать сами.</p>
         </div>
       )}
+      <MobileBottomNavigation active={active} />
     </>
   );
 }

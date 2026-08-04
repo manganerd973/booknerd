@@ -7,7 +7,7 @@ export default function PwaRegister() {
   useEffect(() => {
     getVisitorKey();
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {
+      navigator.serviceWorker.register('/sw.js').then((registration) => registration.update()).catch(() => {
         // The website still works normally when installation is unavailable.
       });
     }
