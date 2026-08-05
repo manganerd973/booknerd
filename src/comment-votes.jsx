@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { ThumbsDown, ThumbsUp } from 'lucide-react';
+import { Minus, Plus } from 'lucide-react';
 
 const voterStorageKey = 'booknerd-comment-voter';
 const votesStorageKey = 'booknerd-comment-votes';
@@ -71,11 +71,11 @@ export default function CommentVotes({ commentId, initialUpVotes = 0, initialDow
 
   return (
     <div className={`comment-votes ${compact ? 'is-compact' : ''}`} title={error || 'Оценить комментарий'}>
-      <button type="button" className={currentVote === 1 ? 'is-active' : ''} onClick={() => vote(1)} disabled={saving} aria-pressed={currentVote === 1} aria-label="Поставить палец вверх">
-        <ThumbsUp size={compact ? 14 : 16} /> <span>{upVotes}</span>
+      <button type="button" className={currentVote === 1 ? 'is-active' : ''} onClick={() => vote(1)} disabled={saving} aria-pressed={currentVote === 1} aria-label="Согласиться с комментарием">
+        <Plus size={compact ? 13 : 15} strokeWidth={3} /> <span>{upVotes}</span>
       </button>
-      <button type="button" className={currentVote === -1 ? 'is-active is-down' : ''} onClick={() => vote(-1)} disabled={saving} aria-pressed={currentVote === -1} aria-label="Поставить палец вниз">
-        <ThumbsDown size={compact ? 14 : 16} /> <span>{downVotes}</span>
+      <button type="button" className={currentVote === -1 ? 'is-active is-down' : ''} onClick={() => vote(-1)} disabled={saving} aria-pressed={currentVote === -1} aria-label="Не согласиться с комментарием">
+        <Minus size={compact ? 13 : 15} strokeWidth={3} /> <span>{downVotes}</span>
       </button>
       {error && <span className="comment-vote-error" role="status">!</span>}
     </div>

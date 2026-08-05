@@ -1,11 +1,11 @@
 import { authorizeAdminRequest } from '../../../../../../lib/admin-auth.js';
 import { ensureDb } from '../../../../../../lib/runtime.js';
 
-const CATEGORIES = new Set(['character', 'place', 'term']);
+const CATEGORIES = new Set(['character', 'place', 'term', 'timeline']);
 
 function normalizeEntry(payload = {}) {
   return {
-    category: CATEGORIES.has(payload.category) ? payload.category : 'character',
+    category: CATEGORIES.has(payload.category) ? payload.category : 'term',
     name: String(payload.name || '').trim().slice(0, 180),
     pronunciation: String(payload.pronunciation || '').trim().slice(0, 180),
     description: String(payload.description || '').trim().slice(0, 3000),

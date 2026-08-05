@@ -761,6 +761,17 @@
 .admin-glossary-editor > label { display: grid; gap: 7px; }
 .admin-glossary-editor textarea { padding: 11px; border: 1px solid var(--admin-line); border-radius: 10px; resize: vertical; font: inherit; }
 .admin-glossary-editor > div:last-child { display: flex; justify-content: flex-end; gap: 8px; }
+.admin-glossary-shortcut { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 11px; margin: 16px 0; padding: 14px; border: 1px solid var(--admin-line); border-radius: 14px; background: #f4f7f3; }
+.admin-glossary-shortcut > svg { color: #a7623a; }
+.admin-glossary-shortcut > div { display: grid; gap: 3px; }
+.admin-glossary-shortcut small { color: #6d7973; line-height: 1.4; }
+.admin-glossary-shortcut a { color: #1a4b40; font-size: 10px; font-weight: 900; }
+.admin-world-map-card { display: grid; gap: 12px; }
+.admin-world-map-preview { display: grid; gap: 7px; }
+.admin-world-map-preview img { width: 100%; max-height: 240px; object-fit: contain; border: 1px solid var(--admin-line); border-radius: 12px; background: #f0f1ec; }
+.admin-world-map-preview small,.admin-world-map-hint { color: #758079; font-size: 9px; }
+.admin-world-map-empty { display: grid; min-height: 130px; place-items: center; align-content: center; gap: 7px; border: 1px dashed var(--admin-line); border-radius: 12px; color: #78847e; background: #f7f7f3; font-size: 11px; }
+.admin-world-map-delete { justify-content: center; }
 
 .admin-error-list { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 13px; }
 .admin-error-list > article { display: grid; gap: 13px; padding: 20px; border: 1px solid #e9c8b6; border-radius: 18px; background: #fffaf5; }
@@ -858,6 +869,8 @@
 @media (max-width: 760px) {
   .admin-error-list,.admin-history-columns { grid-template-columns: 1fr; }
   .admin-glossary-layout { grid-template-columns: 1fr; }
+  .admin-glossary-shortcut { grid-template-columns: auto minmax(0,1fr); }
+  .admin-glossary-shortcut a { grid-column: 2; }
   .admin-series-editor > header { align-items: stretch; flex-direction: column; }
   .admin-series-editor article { grid-template-columns: 52px minmax(0,1fr); }
   .admin-series-editor article > * { grid-column: span 1; }

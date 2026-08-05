@@ -14,6 +14,7 @@ import {
   LoaderCircle,
   LogOut,
   Menu,
+  MapPinned,
   MessageCircle,
   Music2,
   Plus,
@@ -82,6 +83,11 @@ const blankBook = {
   progress: 0,
   coverKey: null,
   coverUrl: null,
+  worldMapKey: null,
+  worldMapName: '',
+  worldMapContentType: '',
+  worldMapSizeBytes: 0,
+  worldMapUrl: null,
   published: false,
 };
 
@@ -265,6 +271,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
   const [uploading, setUploading] = useState(false);
   const [artworkUploading, setArtworkUploading] = useState(false);
   const [musicUploading, setMusicUploading] = useState(false);
+  const [mapUploading, setMapUploading] = useState(false);
   const [notice, setNotice] = useState(null);
   const [audience, setAudience] = useState(null);
   const [chapterPreviewOpen, setChapterPreviewOpen] = useState(false);
@@ -507,6 +514,55 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
     } finally {
       setArtworkUploading(false);
       event.target.value = '';
+    }
+  };
+
+  const uploadWorldMap = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!bookForm.id) {
+      flash('Сначала сохраните книгу, затем добавьте карту.', 'error');
+      event.target.value = '';
+      return;
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      flash('Изображение карты должно быть не больше 15 МБ.', 'error');
+      event.target.value = '';
+      return;
+    }
+    setMapUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('map', file, file.name);
+      const data = await api(`/api/admin/books/${bookForm.id}/world-map`, { method: 'POST', body: formData });
+      setBookForm((current) => ({ ...current, ...data.map }));
+      flash(bookForm.worldMapUrl ? 'Карта мира заменена.' : 'Карта мира добавлена к книге.');
+    } catch (error) {
+      flash(error.message, 'error');
+    } finally {
+      setMapUploading(false);
+      event.target.value = '';
+    }
+  };
+
+  const deleteWorldMap = async () => {
+    if (!bookForm.id || !bookForm.worldMapUrl || !window.confirm('Удалить карту мира у этой книги?')) return;
+    setMapUploading(true);
+    try {
+      await api(`/api/admin/books/${bookForm.id}/world-map`, { method: 'DELETE' });
+      setBookForm((current) => ({
+        ...current,
+        worldMapKey: null,
+        worldMapName: '',
+        worldMapContentType: '',
+        worldMapSizeBytes: 0,
+        worldMapUrl: null,
+      }));
+      flash('Карта мира удалена.');
+    } catch (error) {
+      flash(error.message, 'error');
+    } finally {
+      setMapUploading(false);
     }
   };
 
@@ -1056,7 +1112,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                   <label className="admin-full-field"><span>Аннотация</span><textarea value={bookForm.synopsis} onChange={(event) => setBookForm({ ...bookForm, synopsis: event.target.value })} placeholder="Расскажите читателю, о чём эта история…" rows={7} /><small>{bookForm.synopsis.length} / 12 000</small></label>
                   <label className="admin-full-field"><span>Кому посвящена книга</span><textarea value={bookForm.dedication || ''} onChange={(event) => setBookForm({ ...bookForm, dedication: event.target.value })} placeholder="Например: Всем девушкам, которые однажды выбрали себя…" rows={3} /><small>Посвящение появится на главной странице книги.</small></label>
                   <label className="admin-full-field"><span>Предупреждения о триггерах</span><textarea value={bookForm.triggerWarningsText || ''} onChange={(event) => setBookForm({ ...bookForm, triggerWarningsText: event.target.value, triggerWarnings: splitBookTags(event.target.value, 40) })} placeholder="Например: насилие, утрата близкого, панические атаки" rows={3} /><small>Разделяйте предупреждения запятыми. Они появятся только на странице книги.</small></label>
-                  <label className="admin-full-field"><span>Поиск по персонажам, миру и цитатам</span><textarea value={bookForm.searchAliasesText || ''} onChange={(event) => setBookForm({ ...bookForm, searchAliasesText: event.target.value })} placeholder="Имена героев, название мира, памятные цитаты — через запятую" rows={3} /></label>
+                  <div className="admin-glossary-shortcut"><BookOpen size={20} /><div><strong>Слова и их значения</strong><small>{bookForm.id ? 'Добавляйте слова в простом словаре ниже на этой странице.' : 'Сначала сохраните книгу — после этого появится простой словарь «слово — значение».'}</small></div>{bookForm.id ? <a href="#admin-book-glossary">Открыть словарь</a> : null}</div>
                   <label className="admin-full-field"><span>Любимая цитата дня</span><textarea value={bookForm.quoteOfDay || ''} onChange={(event) => setBookForm({ ...bookForm, quoteOfDay: event.target.value })} placeholder="Цитата из книги для главной страницы" rows={2} /></label>
                   <div className="admin-fields three-columns">
                     <label><span>Переводчик</span><input value={bookForm.translator || ''} onChange={(event) => setBookForm({ ...bookForm, translator: event.target.value })} /></label>
@@ -1090,6 +1146,13 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                     {bookForm.coverUrl ? <img src={bookForm.coverUrl} alt="Обложка книги" /> : <><ImagePlus size={38} /><strong>{bookForm.title || 'Обложка книги'}</strong><small>BOOKNERD EDITION</small></>}
                   </div>
                   <label className="admin-upload-button">{uploading ? <LoaderCircle className="spin" size={18} /> : <UploadCloud size={18} />} {uploading ? 'Загрузка…' : 'Загрузить обложку'}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadCover} disabled={uploading} /></label>
+                </section>
+                <section className="admin-form-card admin-world-map-card">
+                  <div className="admin-card-title compact"><span>03</span><div><h2>Карта мира</h2><p>Она откроется в читалке по небольшой кнопке и не будет закрывать текст.</p></div></div>
+                  {bookForm.worldMapUrl ? <div className="admin-world-map-preview"><img src={bookForm.worldMapUrl} alt="Карта мира книги" /><small>{bookForm.worldMapName || 'Карта мира'}{bookForm.worldMapSizeBytes ? ` · ${(bookForm.worldMapSizeBytes / 1024 / 1024).toFixed(1)} МБ` : ''}</small></div> : <div className="admin-world-map-empty"><MapPinned size={32} /><span>{bookForm.id ? 'Карта ещё не добавлена' : 'Сначала сохраните книгу'}</span></div>}
+                  <label className="admin-upload-button">{mapUploading ? <LoaderCircle className="spin" size={18} /> : <UploadCloud size={18} />} {mapUploading ? 'Загружаем…' : bookForm.worldMapUrl ? 'Заменить карту' : 'Добавить карту'}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadWorldMap} disabled={mapUploading || !bookForm.id} /></label>
+                  {bookForm.worldMapUrl ? <button className="admin-secondary admin-world-map-delete" type="button" onClick={deleteWorldMap} disabled={mapUploading}><Trash2 size={16} /> Удалить карту</button> : null}
+                  <small className="admin-world-map-hint">JPG, PNG или WEBP, до 15 МБ.</small>
                 </section>
                 <button className="admin-primary admin-save-book" type="submit" disabled={saving}>{saving ? <LoaderCircle className="spin" size={18} /> : <Save size={18} />} {saving ? 'Сохраняем…' : 'Сохранить книгу'}</button>
               </aside>

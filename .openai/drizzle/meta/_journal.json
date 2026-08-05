@@ -99,6 +99,13 @@
       "when": 1785888951885,
       "tag": "0013_steady_firebrand",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1785964618570,
+      "tag": "0014_same_iron_monger",
+      "breakpoints": true
     }
   ]
 }

@@ -561,7 +561,7 @@ function App({ initialBooks = [], initialPopularComments = [], initialQuoteOfDay
               />
             </div>
             <p>{query ? `Найдено: ${visibleBooks.length}` : 'Попробуй: романтика, Tahereh Mafi, фэнтези'}</p>
-            <a className="text-button" href="/search">Расширенный поиск по персонажам, миру, цитатам и стране</a>
+            <a className="text-button" href="/search">Поиск книг по названию, автору и жанру</a>
             {query && visibleBooks.length > 0 && (
               <div className="search-results">
                 {visibleBooks.slice(0, 4).map((book) => (

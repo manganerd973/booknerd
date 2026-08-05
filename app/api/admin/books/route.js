@@ -2,7 +2,7 @@ import { authorizeAdminRequest } from '../../../../lib/admin-auth.js';
 import { listAllBooks, slugify } from '../../../../lib/books.js';
 import { ensureDb } from '../../../../lib/runtime.js';
 import { normalizeGoogleDriveUrl } from '../../../../lib/google-drive.js';
-import { notifyBookPreferenceEvent } from '../../../../lib/push-notifications.js';
+import { notifyBookPreferenceEvent, notifyPublishedBook } from '../../../../lib/push-notifications.js';
 import { normalizeBookStatus } from '../../../../lib/book-status.js';
 
 function normalizeBookPayload(payload = {}) {
@@ -117,16 +117,7 @@ export async function POST(request) {
       payload.published ? 1 : 0, now, now,
     ).run();
     if (payload.published) {
-      await notifyBookPreferenceEvent({
-        bookId: id,
-        preference: 'authorBook',
-        title: 'Новая книга автора в BOOKNERD ✦',
-        body: `«${payload.title}» уже появилась в библиотеке.`,
-        url: `/books/${slug}`,
-        topic: `author-${id.slice(0, 18)}`,
-        requestUrl: request.url,
-        sameAuthor: true,
-      }).catch(() => {});
+      await notifyPublishedBook({ bookId: id, requestUrl: request.url }).catch(() => {});
       if (progress >= 100) {
         await notifyBookPreferenceEvent({
           bookId: id,

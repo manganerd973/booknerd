@@ -15,10 +15,28 @@ async function commentsApi(url, options) {
 
 function formatDate(value) {
   try {
-    return new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(value));
+    return new Intl.DateTimeFormat('ru-RU', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(value));
   } catch {
     return '';
   }
+}
+
+function buildThreads(comments) {
+  const byParent = new Map();
+  const knownIds = new Set(comments.map((comment) => comment.id));
+  comments.forEach((comment) => {
+    const parentId = comment.parentId && knownIds.has(comment.parentId) ? comment.parentId : null;
+    const siblings = byParent.get(parentId) || [];
+    siblings.push(comment);
+    byParent.set(parentId, siblings);
+  });
+  return byParent;
 }
 
 function CommentBody({ comment }) {
@@ -52,6 +70,9 @@ export default function CommentsSection({ bookId, chapterId = null }) {
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [replyingTo, setReplyingTo] = useState(null);
+  const threads = buildThreads(comments);
+  const sectionId = `comments-${chapterId || bookId}`;
+  const formId = `comment-form-${chapterId || bookId}`;
 
   const loadComments = useCallback(async () => {
     setLoading(true);
@@ -120,11 +141,41 @@ export default function CommentsSection({ bookId, chapterId = null }) {
     }
   };
 
+  const startReply = (comment) => {
+    setReplyingTo(comment);
+    setNotice('');
+    requestAnimationFrame(() => document.getElementById(formId)?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+  };
+
+  const renderComment = (comment, depth = 0, visited = new Set()) => {
+    if (visited.has(comment.id)) return null;
+    const nextVisited = new Set(visited);
+    nextVisited.add(comment.id);
+    const replies = threads.get(comment.id) || [];
+    return (
+      <div className={`reader-comment-thread ${depth ? 'is-reply-thread' : ''}`} key={comment.id}>
+        <article className={`reader-comment ${depth ? 'is-reply' : ''}`}>
+          <header className="reader-comment-header">
+            <strong>{comment.authorName}</strong>
+            <time dateTime={comment.createdAt}>{formatDate(comment.createdAt)}</time>
+          </header>
+          <CommentBody comment={comment} />
+          <div className="reader-comment-actions">
+            <CommentVotes commentId={comment.id} initialUpVotes={comment.upVotes} initialDownVotes={comment.downVotes} compact />
+            <button className="reader-comment-reply" type="button" onClick={() => startReply(comment)}><Reply size={13} /> Ответить</button>
+            <CommentReport commentId={comment.id} compact />
+          </div>
+        </article>
+        {replies.length ? <div className="reader-comment-replies">{replies.map((reply) => renderComment(reply, depth + 1, nextVisited))}</div> : null}
+      </div>
+    );
+  };
+
   return (
-    <section className="reader-comments" aria-labelledby={`comments-${chapterId || bookId}`}>
+    <section className="reader-comments" aria-labelledby={sectionId}>
       <div className="reader-comments-heading">
         <span className="editorial-section-number">{chapterId ? 'КОММЕНТАРИИ К ГЛАВЕ' : 'КОММЕНТАРИИ К КНИГЕ'}</span>
-        <h2 id={`comments-${chapterId || bookId}`}>Обсуждение</h2>
+        <h2 id={sectionId}>Обсуждение</h2>
         <p>Комментарии публикуются сразу. Если в тексте есть важная деталь сюжета, отметьте её как спойлер.</p>
       </div>
 
@@ -132,22 +183,12 @@ export default function CommentsSection({ bookId, chapterId = null }) {
         <div className="reader-comment-list" aria-live="polite">
           {loading ? (
             <div className="reader-comments-empty"><LoaderCircle className="spin" size={22} /> Загружаем комментарии…</div>
-          ) : comments.length ? comments.map((comment) => (
-            <article className={`reader-comment ${comment.parentId ? 'is-reply' : ''}`} key={comment.id}>
-              <div><strong>{comment.authorName}</strong><time dateTime={comment.createdAt}>{formatDate(comment.createdAt)}</time></div>
-              <CommentBody comment={comment} />
-              <div className="reader-comment-actions">
-                <CommentVotes commentId={comment.id} initialUpVotes={comment.upVotes} initialDownVotes={comment.downVotes} />
-                <CommentReport commentId={comment.id} />
-                <button type="button" onClick={() => { setReplyingTo(comment); document.querySelector(`#comments-${chapterId || bookId}`)?.scrollIntoView({ behavior: 'smooth' }); }}><Reply size={15} /> Ответить</button>
-              </div>
-            </article>
-          )) : (
+          ) : comments.length ? (threads.get(null) || []).map((comment) => renderComment(comment)) : (
             <div className="reader-comments-empty"><MessageCircle size={25} /><span>Пока комментариев нет. Можно быть первой.</span></div>
           )}
         </div>
 
-        <form className="reader-comment-form" onSubmit={submit}>
+        <form className="reader-comment-form" id={formId} onSubmit={submit}>
           <h3>{replyingTo ? `Ответ для ${replyingTo.authorName}` : 'Оставить комментарий'}</h3>
           {replyingTo ? <div className="reader-comment-replying"><Reply size={15} /><span>“{replyingTo.body.slice(0, 120)}{replyingTo.body.length > 120 ? '…' : ''}”</span><button type="button" onClick={() => setReplyingTo(null)} aria-label="Отменить ответ"><X size={15} /></button></div> : null}
           {savedAuthorName ? (

@@ -5,11 +5,9 @@ import { Check, LoaderCircle, Plus, Trash2 } from 'lucide-react';
 
 const blankEntry = {
   id: null,
-  category: 'character',
+  category: 'term',
   name: '',
-  pronunciation: '',
   description: '',
-  connections: '',
   revealAfterChapter: 0,
   sortOrder: 0,
 };
@@ -31,7 +29,7 @@ export default function AdminBookGlossary({ bookId, onNotice }) {
 
   const save = async () => {
     if (!draft.name.trim() || !draft.description.trim()) {
-      onNotice('Укажите название и описание для словаря.', 'error');
+      onNotice('Напишите слово и его значение.', 'error');
       return;
     }
     setSaving(true);
@@ -63,29 +61,26 @@ export default function AdminBookGlossary({ bookId, onNotice }) {
   };
 
   return (
-    <section className="admin-glossary-section">
+    <section className="admin-glossary-section" id="admin-book-glossary">
       <div className="admin-list-head">
-        <div><span>05 / СЛОВАРЬ</span><h2>Персонажи и мир книги</h2><p>Укажите, после какой главы можно открыть запись без спойлера.</p></div>
-        <button className="admin-secondary" type="button" onClick={() => setDraft(blankEntry)}><Plus size={17} /> Новая запись</button>
+        <div><span>05 / СЛОВАРЬ</span><h2>Слова и их значения</h2><p>Напишите слово из книги и простое объяснение. При необходимости укажите главу, после которой его можно показать без спойлера.</p></div>
+        <button className="admin-secondary" type="button" onClick={() => setDraft(blankEntry)}><Plus size={17} /> Добавить слово</button>
       </div>
       <div className="admin-glossary-layout">
         <aside>
           {entries.length ? entries.map((entry) => (
-            <button className={draft.id === entry.id ? 'is-active' : ''} type="button" onClick={() => setDraft(entry)} key={entry.id}>
-              <span>{entry.category === 'character' ? 'П' : entry.category === 'place' ? 'М' : entry.category === 'timeline' ? 'С' : 'Т'}</span>
+            <button className={draft.id === entry.id ? 'is-active' : ''} type="button" onClick={() => setDraft({ ...entry, category: 'term' })} key={entry.id}>
+              <span>С</span>
               <div><strong>{entry.name}</strong><small>После главы {entry.revealAfterChapter || 'сразу'}</small></div>
             </button>
           )) : <p>Записей пока нет.</p>}
         </aside>
         <div className="admin-glossary-editor">
           <div className="admin-fields two-columns">
-            <label><span>Тип</span><select value={draft.category} onChange={(event) => setDraft({ ...draft, category: event.target.value })}><option value="character">Персонаж</option><option value="place">Страна или место</option><option value="timeline">Событие таймлайна</option><option value="term">Магический термин</option></select></label>
-            <label><span>Название</span><input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="Имя или термин" /></label>
-            <label><span>Произношение</span><input value={draft.pronunciation} onChange={(event) => setDraft({ ...draft, pronunciation: event.target.value })} placeholder="Например: Лэй-ла" /></label>
+            <label><span>Слово</span><input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value, category: 'term' })} placeholder="Например: арканум" /></label>
             <label><span>Открыть после главы</span><input type="number" min="0" value={draft.revealAfterChapter} onChange={(event) => setDraft({ ...draft, revealAfterChapter: Number(event.target.value || 0) })} /></label>
           </div>
-          <label><span>Описание</span><textarea rows="4" value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label>
-          <label><span>Связи</span><textarea rows="3" value={draft.connections} onChange={(event) => setDraft({ ...draft, connections: event.target.value })} placeholder="Семья, союзники, страны, важные отношения…" /></label>
+          <label><span>Значение</span><textarea rows="5" value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value, category: 'term' })} placeholder="Что означает это слово в книге?" /></label>
           <div>
             {draft.id ? <button className="admin-danger" type="button" onClick={() => remove(draft)}><Trash2 size={16} /> Удалить</button> : null}
             <button className="admin-primary" type="button" onClick={save} disabled={saving}>{saving ? <LoaderCircle className="spin" size={17} /> : <Check size={17} />} Сохранить запись</button>

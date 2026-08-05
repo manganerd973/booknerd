@@ -1269,6 +1269,11 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
           <button type="button" className="reader-reading-mode-quick" onClick={() => setPanel('reading-mode')} aria-label="Выбрать способ чтения">
             <ReadingModeIcon mode={settings.motion} size={18} /><span>Режим</span>
           </button>
+          {book.worldMapUrl ? (
+            <button type="button" className="reader-world-map-quick" onClick={() => setPanel('world-map')} aria-label="Открыть карту мира книги">
+              <MapIcon size={17} /><span>Карта</span>
+            </button>
+          ) : null}
           {chapter.musicUrl ? (
             <button type="button" className={`reader-chapter-music-quick ${chapterMusicPlaying ? 'is-playing' : ''}`} onClick={toggleChapterMusic} aria-label={chapterMusicPlaying ? 'Поставить музыку главы на паузу' : 'Включить музыку главы'} title={chapter.musicTitle || chapter.musicFileName || 'Музыка главы'}>
               {chapterMusicPlaying ? <Pause size={17} /> : <Play size={17} />}<span>Музыка</span>
@@ -1390,6 +1395,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
             <button type="button" onClick={() => setPanel('contents')}><List size={22} /><span><strong>Содержание</strong><small>Все главы книги</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('search')}><Search size={22} /><span><strong>Поиск по книге</strong><small>Найти слово во всех главах</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('annotations')}><Highlighter size={22} /><span><strong>Мои пометки</strong><small>{annotations.length ? `${annotations.length} сохранено` : 'Выделения, заметки и стикеры'}</small></span><ChevronRight size={18} /></button>
+            {book.worldMapUrl ? <button type="button" onClick={() => setPanel('world-map')}><MapIcon size={22} /><span><strong>Карта мира</strong><small>Открыть поверх чтения и закрыть одним нажатием</small></span><ChevronRight size={18} /></button> : null}
             <button type="button" onClick={() => setPanel('chapter-map')}><MapIcon size={22} /><span><strong>Мини‑карта главы</strong><small>Все пометки и эмоции по ходу текста</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('dictionary')}><BookMarked size={22} /><span><strong>Личный словарь</strong><small>{readerHub.dictionary.length ? `${readerHub.dictionary.length} слов` : 'Незнакомые слова и пояснения'}</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('bookmarks')}><Bookmark size={22} /><span><strong>Мои закладки</strong><small>{bookmarks.length ? `${bookmarks.length} сохранено` : 'Любимое, важное и смешное'}</small></span><ChevronRight size={18} /></button>
@@ -1438,6 +1444,15 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
                 <strong>{readerChapterTitle(result)}</strong><span>{result.snippet}</span>
               </a>
             ))}
+          </div>
+        </ReaderSheet>
+      ) : null}
+
+      {panel === 'world-map' && book.worldMapUrl ? (
+        <ReaderSheet title="Карта мира" eyebrow={book.title} onClose={() => setPanel(null)} wide>
+          <div className="reader-world-map-viewer">
+            <img src={book.worldMapUrl} alt={`Карта мира книги «${book.title}»`} />
+            <div><MapIcon size={18} /><span><strong>{book.worldMapName || 'Карта мира книги'}</strong><small>На телефоне карту можно приблизить жестом. Закройте окно, чтобы сразу вернуться к тексту.</small></span></div>
           </div>
         </ReaderSheet>
       ) : null}

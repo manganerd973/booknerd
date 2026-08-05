@@ -3,7 +3,7 @@ import { authorizeAdminRequest } from '../../../../../lib/admin-auth.js';
 import { recalculateBookProgress, slugify } from '../../../../../lib/books.js';
 import { ensureDb } from '../../../../../lib/runtime.js';
 import { normalizeGoogleDriveUrl } from '../../../../../lib/google-drive.js';
-import { notifyBookPreferenceEvent } from '../../../../../lib/push-notifications.js';
+import { notifyBookPreferenceEvent, notifyPublishedBook } from '../../../../../lib/push-notifications.js';
 import { normalizeBookStatus } from '../../../../../lib/book-status.js';
 
 function normalizePayload(payload = {}) {
@@ -119,16 +119,7 @@ export async function PUT(request, { params }) {
       }).catch(() => {});
     }
     if (!current.published && payload.published) {
-      await notifyBookPreferenceEvent({
-        bookId: id,
-        preference: 'authorBook',
-        title: 'Новая книга автора в BOOKNERD ✦',
-        body: `«${payload.title}» уже появилась в библиотеке.`,
-        url: `/books/${slug}`,
-        topic: `author-${id.slice(0, 18)}`,
-        requestUrl: request.url,
-        sameAuthor: true,
-      }).catch(() => {});
+      await notifyPublishedBook({ bookId: id, requestUrl: request.url }).catch(() => {});
     }
     return Response.json({ id, slug, ...progressState });
   } catch (error) {
@@ -142,7 +133,7 @@ export async function DELETE(request, { params }) {
   try {
     const { id } = await params;
     const db = await ensureDb();
-    const book = await db.prepare(`SELECT cover_key FROM books WHERE id = ? LIMIT 1`).bind(id).first();
+    const book = await db.prepare(`SELECT cover_key, world_map_key FROM books WHERE id = ? LIMIT 1`).bind(id).first();
     if (!book) return Response.json({ error: 'Книга не найдена.' }, { status: 404 });
     const artworkRows = await db.prepare(`SELECT image_key FROM book_artworks WHERE book_id = ?`).bind(id).all();
     const artworkKeys = (artworkRows.results || []).map((row) => row.image_key).filter(Boolean);
@@ -156,7 +147,10 @@ export async function DELETE(request, { params }) {
       ...(book.cover_key ? [db.prepare(`DELETE FROM book_covers WHERE key = ?`).bind(book.cover_key)] : []),
       ...artworkKeys.map((key) => db.prepare(`DELETE FROM book_covers WHERE key = ?`).bind(key)),
     ]);
-    if (env?.BUCKET && musicKeys.length) await Promise.all(musicKeys.map((key) => env.BUCKET.delete(key).catch(() => {})));
+    if (env?.BUCKET) {
+      const bucketKeys = [...musicKeys, book.world_map_key].filter(Boolean);
+      if (bucketKeys.length) await Promise.all(bucketKeys.map((key) => env.BUCKET.delete(key).catch(() => {})));
+    }
     return Response.json({ ok: true });
   } catch (error) {
     return Response.json({ error: error.message || 'Не удалось удалить книгу.' }, { status: 500 });
