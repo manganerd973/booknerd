@@ -527,6 +527,23 @@
 .admin-chapter-actions { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
 .admin-chapter-actions > span { margin-left: auto; color: var(--admin-ink-soft); font-size: 10px; }
 .admin-chapter-drive { margin-top: 16px; }
+.admin-chapter-music { display: grid; gap: 14px; margin: 16px 0; padding: 18px; border: 1px solid rgba(91,159,232,.28); border-radius: 16px; background: linear-gradient(135deg, rgba(91,159,232,.09), rgba(255,212,59,.1)); }
+.admin-chapter-music > header { display: flex; align-items: center; gap: 12px; }
+.admin-chapter-music > header > span { display: grid; width: 38px; height: 38px; flex: 0 0 auto; place-items: center; border-radius: 50%; color: #123c35; background: var(--admin-yellow); }
+.admin-chapter-music > header > div { display: grid; gap: 3px; }
+.admin-chapter-music > header strong { font-family: Georgia, serif; font-size: 18px; font-weight: 600; }
+.admin-chapter-music > header small,
+.admin-chapter-music > p,
+.admin-chapter-music-hint { margin: 0; color: var(--admin-ink-soft); font-size: 9px; line-height: 1.5; }
+.admin-chapter-music-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.admin-chapter-music-fields label { display: grid; gap: 6px; }
+.admin-chapter-music-fields label > span { font-size: 9px; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; }
+.admin-chapter-music-current { display: grid; gap: 6px; }
+.admin-chapter-music-current audio { width: 100%; min-height: 42px; }
+.admin-chapter-music-current small { color: var(--admin-ink-soft); font-size: 9px; }
+.admin-chapter-music-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.admin-chapter-music-actions > label { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 7px; cursor: pointer; }
+.admin-chapter-music-actions input[type='file'] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); opacity: 0; }
 
 .admin-comments-page .admin-hero-row { align-items: flex-start; }
 .admin-comment-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 220px)); gap: 12px; margin: 38px 0 22px; }
@@ -676,6 +693,9 @@
   .admin-chapter-editor-top { grid-template-columns: 78px minmax(0,1fr); }
   .admin-chapter-editor-top .grow,
   .admin-chapter-editor-top label:last-child { grid-column: 1 / -1; }
+  .admin-chapter-music-fields { grid-template-columns: 1fr; }
+  .admin-chapter-music-actions { display: grid; grid-template-columns: 1fr; }
+  .admin-chapter-music-actions > * { width: 100%; }
   .admin-rich-content { min-height: 360px; max-height: 620px; padding: 18px; font-size: 16px; }
   .admin-rich-toolbar { overflow-x: auto; flex-wrap: nowrap; }
   .admin-rich-toolbar > div { flex: 0 0 auto; }

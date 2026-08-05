@@ -20,6 +20,8 @@ import {
   MessageCircle,
   Minus,
   Moon,
+  Pause,
+  Play,
   Plus,
   RotateCcw,
   Search,
@@ -238,6 +240,8 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
   const [readerHub, setReaderHub] = useState({ dictionary: [], reactions: [], emotionTotals: [], myEmotions: [] });
   const [dictionaryDraft, setDictionaryDraft] = useState(null);
   const [ambientSound, setAmbientSound] = useState('');
+  const [chapterMusicPlaying, setChapterMusicPlaying] = useState(false);
+  const [chapterMusicVolume, setChapterMusicVolume] = useState(.65);
 
   useEffect(() => {
     const ping = () => {
@@ -281,6 +285,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
   const touchStart = useRef(null);
   const readerTap = useRef({ tracking: false, x: 0, y: 0, last: 0 });
   const ambientAudioRef = useRef(null);
+  const chapterAudioRef = useRef(null);
 
   const annotationStorageKey = `${ANNOTATIONS_KEY_PREFIX}:${book.id}`;
   const chapterAnnotations = useMemo(
@@ -367,7 +372,27 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       ambientAudioRef.current.close?.().catch?.(() => {});
       ambientAudioRef.current = null;
     }
+    chapterAudioRef.current?.pause?.();
   }, []);
+
+  useEffect(() => {
+    try {
+      const saved = Number(localStorage.getItem('booknerd-chapter-music-volume-v1'));
+      if (Number.isFinite(saved)) setChapterMusicVolume(clamp(saved, 0, 1));
+    } catch { /* device storage is optional */ }
+  }, []);
+
+  useEffect(() => {
+    if (chapterAudioRef.current) chapterAudioRef.current.volume = chapterMusicVolume;
+    try { localStorage.setItem('booknerd-chapter-music-volume-v1', String(chapterMusicVolume)); } catch { /* device storage is optional */ }
+  }, [chapterMusicVolume]);
+
+  useEffect(() => {
+    const audio = chapterAudioRef.current;
+    audio?.pause?.();
+    if (audio) audio.currentTime = 0;
+    setChapterMusicPlaying(false);
+  }, [chapter.id]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -950,6 +975,29 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
     context?.close?.().catch?.(() => {});
   }, []);
 
+  const stopChapterMusic = useCallback(() => {
+    chapterAudioRef.current?.pause?.();
+    setChapterMusicPlaying(false);
+  }, []);
+
+  const toggleChapterMusic = useCallback(async () => {
+    const audio = chapterAudioRef.current;
+    if (!audio || !chapter.musicUrl) return;
+    if (!audio.paused) {
+      stopChapterMusic();
+      return;
+    }
+    stopAmbientSound();
+    try {
+      audio.volume = chapterMusicVolume;
+      await audio.play();
+      setChapterMusicPlaying(true);
+    } catch {
+      setChapterMusicPlaying(false);
+      setToast('Не удалось включить музыку. Проверьте подключение и попробуйте ещё раз.');
+    }
+  }, [chapter.musicUrl, chapterMusicVolume, stopAmbientSound, stopChapterMusic]);
+
   const toggleAmbientSound = useCallback((kind) => {
     if (ambientSound === kind) {
       stopAmbientSound();
@@ -960,6 +1008,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       setToast('Этот браузер не поддерживает фоновые звуки.');
       return;
     }
+    stopChapterMusic();
     const previous = ambientAudioRef.current;
     previous?.close?.().catch?.(() => {});
     const context = new AudioContext();
@@ -982,7 +1031,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
     source.start();
     ambientAudioRef.current = context;
     setAmbientSound(kind);
-  }, [ambientSound, stopAmbientSound]);
+  }, [ambientSound, stopAmbientSound, stopChapterMusic]);
 
   useEffect(() => {
     const node = viewportRef.current;
@@ -1220,9 +1269,15 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
           <button type="button" className="reader-reading-mode-quick" onClick={() => setPanel('reading-mode')} aria-label="Выбрать способ чтения">
             <ReadingModeIcon mode={settings.motion} size={18} /><span>Режим</span>
           </button>
+          {chapter.musicUrl ? (
+            <button type="button" className={`reader-chapter-music-quick ${chapterMusicPlaying ? 'is-playing' : ''}`} onClick={toggleChapterMusic} aria-label={chapterMusicPlaying ? 'Поставить музыку главы на паузу' : 'Включить музыку главы'} title={chapter.musicTitle || chapter.musicFileName || 'Музыка главы'}>
+              {chapterMusicPlaying ? <Pause size={17} /> : <Play size={17} />}<span>Музыка</span>
+            </button>
+          ) : null}
           <a href={`/books/${book.slug}`}><BookOpen size={17} /> О книге</a>
           <button type="button" className="reader-menu-button" onClick={() => setPanel('menu')} aria-label="Меню читалки"><Menu size={21} /></button>
         </nav>
+        {chapter.musicUrl ? <audio ref={chapterAudioRef} src={chapter.musicUrl} preload="metadata" onPlay={() => setChapterMusicPlaying(true)} onPause={() => setChapterMusicPlaying(false)} onEnded={() => setChapterMusicPlaying(false)} /> : null}
 
         <div className="reader-stage">
           <div className="reader-pages-left" aria-live="polite">
@@ -1447,6 +1502,15 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       {panel === 'atmosphere' ? (
         <ReaderSheet title="Атмосфера чтения" eyebrow="Звук можно выключить в любой момент" onClose={() => setPanel('menu')}>
           <div className="reader-atmosphere-panel">
+            {chapter.musicUrl ? (
+              <section className="reader-chapter-music-card">
+                <button type="button" className={chapterMusicPlaying ? 'is-playing' : ''} onClick={toggleChapterMusic} aria-label={chapterMusicPlaying ? 'Поставить на паузу' : 'Включить музыку главы'}>
+                  {chapterMusicPlaying ? <Pause size={21} /> : <Play size={21} />}
+                </button>
+                <div><span>МУЗЫКА ГЛАВЫ</span><strong>{chapter.musicTitle || chapter.musicFileName || 'Без названия'}</strong><small>{chapter.musicArtist || book.title}</small></div>
+                <label><Volume2 size={17} /><input type="range" min="0" max="1" step="0.05" value={chapterMusicVolume} onChange={(event) => setChapterMusicVolume(Number(event.target.value))} aria-label="Громкость музыки главы" /></label>
+              </section>
+            ) : null}
             {book.playlistUrl ? <a href={book.playlistUrl} target="_blank" rel="noreferrer"><Music2 size={22} /><span><strong>Плейлист книги</strong><small>Открыть музыкальную подборку команды</small></span><ExternalLink size={17} /></a> : null}
             {[['rain', 'Дождь', 'Мягкий шум за окном'], ['forest', 'Лес', 'Тихая природная атмосфера'], ['fire', 'Камин', 'Тёплое потрескивание']].map(([id, title, description]) => (
               <button type="button" className={ambientSound === id ? 'is-active' : ''} onClick={() => toggleAmbientSound(id)} key={id}>

@@ -1,3 +1,4 @@
+import { env } from 'cloudflare:workers';
 import { authorizeAdminRequest } from '../../../../../lib/admin-auth.js';
 import { recalculateBookProgress, slugify } from '../../../../../lib/books.js';
 import { ensureDb } from '../../../../../lib/runtime.js';
@@ -145,12 +146,17 @@ export async function DELETE(request, { params }) {
     if (!book) return Response.json({ error: 'Книга не найдена.' }, { status: 404 });
     const artworkRows = await db.prepare(`SELECT image_key FROM book_artworks WHERE book_id = ?`).bind(id).all();
     const artworkKeys = (artworkRows.results || []).map((row) => row.image_key).filter(Boolean);
+    const musicRows = await db.prepare(
+      `SELECT m.storage_key FROM chapter_music m JOIN chapters c ON c.id = m.chapter_id WHERE c.book_id = ?`
+    ).bind(id).all();
+    const musicKeys = (musicRows.results || []).map((row) => row.storage_key).filter(Boolean);
     await db.batch([
       db.prepare(`DELETE FROM book_artworks WHERE book_id = ?`).bind(id),
       db.prepare(`DELETE FROM books WHERE id = ?`).bind(id),
       ...(book.cover_key ? [db.prepare(`DELETE FROM book_covers WHERE key = ?`).bind(book.cover_key)] : []),
       ...artworkKeys.map((key) => db.prepare(`DELETE FROM book_covers WHERE key = ?`).bind(key)),
     ]);
+    if (env?.BUCKET && musicKeys.length) await Promise.all(musicKeys.map((key) => env.BUCKET.delete(key).catch(() => {})));
     return Response.json({ ok: true });
   } catch (error) {
     return Response.json({ error: error.message || 'Не удалось удалить книгу.' }, { status: 500 });

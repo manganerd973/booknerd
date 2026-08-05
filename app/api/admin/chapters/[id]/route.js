@@ -1,3 +1,4 @@
+import { env } from 'cloudflare:workers';
 import { authorizeAdminRequest } from '../../../../../lib/admin-auth.js';
 import { ensureDb } from '../../../../../lib/runtime.js';
 import { normalizeGoogleDriveUrl } from '../../../../../lib/google-drive.js';
@@ -124,7 +125,10 @@ export async function DELETE(request, { params }) {
     const { id } = await params;
     const db = await ensureDb();
     const chapter = await db.prepare(
-      `SELECT id, book_id FROM chapters WHERE id = ? LIMIT 1`
+      `SELECT c.id, c.book_id, m.storage_key AS music_key
+       FROM chapters c
+       LEFT JOIN chapter_music m ON m.chapter_id = c.id
+       WHERE c.id = ? LIMIT 1`
     ).bind(id).first();
     if (!chapter) return Response.json({ error: 'Глава не найдена.' }, { status: 404 });
 
@@ -192,6 +196,7 @@ export async function DELETE(request, { params }) {
       ).bind(chapter.book_id, now, chapter.book_id),
       db.prepare(`UPDATE books SET updated_at = ? WHERE id = ?`).bind(now, chapter.book_id),
     ]);
+    if (chapter.music_key && env?.BUCKET) await env.BUCKET.delete(chapter.music_key).catch(() => {});
     const progressState = await recalculateBookProgress(chapter.book_id, db);
     return Response.json({ ok: true, bookId: chapter.book_id, ...progressState });
   } catch (error) {

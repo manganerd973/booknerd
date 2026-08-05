@@ -65,6 +65,20 @@ export const chapters = sqliteTable('chapters', {
   uniqueIndex('chapters_book_number_unique').on(table.bookId, table.chapterNumber),
 ]);
 
+export const chapterMusic = sqliteTable('chapter_music', {
+  chapterId: text('chapter_id').primaryKey().references(() => chapters.id, { onDelete: 'cascade' }),
+  storageKey: text('storage_key').notNull(),
+  fileName: text('file_name').notNull(),
+  title: text('title').notNull().default(''),
+  artist: text('artist').notNull().default(''),
+  contentType: text('content_type').notNull(),
+  sizeBytes: integer('size_bytes').notNull().default(0),
+  uploadedAt: text('uploaded_at').notNull(),
+  uploadedBy: text('uploaded_by').notNull(),
+}, (table) => [
+  uniqueIndex('chapter_music_storage_key_unique').on(table.storageKey),
+]);
+
 export const adminUsers = sqliteTable('admin_users', {
   email: text('email').primaryKey(),
   role: text('role').notNull().default('editor'),

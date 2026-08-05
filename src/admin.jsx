@@ -15,6 +15,7 @@ import {
   LogOut,
   Menu,
   MessageCircle,
+  Music2,
   Plus,
   Quote,
   Save,
@@ -100,6 +101,12 @@ const blankChapter = {
   workflowStatus: 'draft',
   scheduledAt: '',
   lastEditedBy: '',
+  musicUrl: null,
+  musicTitle: '',
+  musicArtist: '',
+  musicFileName: '',
+  musicContentType: '',
+  musicSizeBytes: 0,
 };
 
 const WORKFLOW_LABELS = {
@@ -257,6 +264,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [artworkUploading, setArtworkUploading] = useState(false);
+  const [musicUploading, setMusicUploading] = useState(false);
   const [notice, setNotice] = useState(null);
   const [audience, setAudience] = useState(null);
   const [chapterPreviewOpen, setChapterPreviewOpen] = useState(false);
@@ -657,6 +665,73 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
       flash(error.message, 'error');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const applyChapterMusic = (music) => {
+    setChapterForm((current) => ({ ...current, ...music }));
+    setChapters((current) => current.map((item) => item.id === chapterForm.id ? { ...item, ...music } : item));
+  };
+
+  const uploadChapterMusic = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!chapterForm.id) {
+      flash('Сначала сохраните главу, затем выберите музыку.', 'error');
+      event.target.value = '';
+      return;
+    }
+    if (file.size > 25 * 1024 * 1024) {
+      flash('Музыкальный файл должен быть не больше 25 МБ.', 'error');
+      event.target.value = '';
+      return;
+    }
+    setMusicUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('music', file, file.name);
+      formData.append('title', chapterForm.musicTitle || '');
+      formData.append('artist', chapterForm.musicArtist || '');
+      const data = await api(`/api/admin/chapters/${chapterForm.id}/music`, { method: 'POST', body: formData });
+      applyChapterMusic(data.music);
+      flash(chapterForm.musicUrl ? 'Музыка главы заменена.' : 'Музыка добавлена к главе.');
+    } catch (error) {
+      flash(error.message, 'error');
+    } finally {
+      setMusicUploading(false);
+      event.target.value = '';
+    }
+  };
+
+  const saveChapterMusicDetails = async () => {
+    if (!chapterForm.id || !chapterForm.musicUrl) return;
+    setMusicUploading(true);
+    try {
+      const data = await api(`/api/admin/chapters/${chapterForm.id}/music`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: chapterForm.musicTitle, artist: chapterForm.musicArtist }),
+      });
+      applyChapterMusic(data.music);
+      flash('Название музыки и исполнитель сохранены.');
+    } catch (error) {
+      flash(error.message, 'error');
+    } finally {
+      setMusicUploading(false);
+    }
+  };
+
+  const deleteChapterMusic = async () => {
+    if (!chapterForm.id || !chapterForm.musicUrl || !window.confirm('Убрать музыку из этой главы?')) return;
+    setMusicUploading(true);
+    try {
+      await api(`/api/admin/chapters/${chapterForm.id}/music`, { method: 'DELETE' });
+      applyChapterMusic({ musicUrl: null, musicTitle: '', musicArtist: '', musicFileName: '', musicContentType: '', musicSizeBytes: 0 });
+      flash('Музыка удалена из главы.');
+    } catch (error) {
+      flash(error.message, 'error');
+    } finally {
+      setMusicUploading(false);
     }
   };
 
@@ -1110,6 +1185,33 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                         ) : <p className="admin-footnote-empty">Сносок пока нет.</p>}
                     </section>
                     <label className="admin-chapter-drive"><span>Файл главы в Google Drive</span><input type="url" value={chapterForm.driveUrl || ''} onChange={(event) => setChapterForm({ ...chapterForm, driveUrl: event.target.value })} placeholder="https://drive.google.com/…" /></label>
+                    <section className="admin-chapter-music">
+                      <header><span><Music2 size={19} /></span><div><strong>Музыка этой главы</strong><small>Выберите отдельный трек, который читатель сможет включить во время чтения.</small></div></header>
+                      {chapterForm.id ? (
+                        <>
+                          <div className="admin-chapter-music-fields">
+                            <label><span>Название трека</span><input value={chapterForm.musicTitle || ''} onChange={(event) => setChapterForm((current) => ({ ...current, musicTitle: event.target.value }))} placeholder="Например, Midnight Letters" maxLength="180" /></label>
+                            <label><span>Исполнитель</span><input value={chapterForm.musicArtist || ''} onChange={(event) => setChapterForm((current) => ({ ...current, musicArtist: event.target.value }))} placeholder="Необязательно" maxLength="180" /></label>
+                          </div>
+                          {chapterForm.musicUrl ? (
+                            <div className="admin-chapter-music-current">
+                              <audio controls preload="metadata" src={chapterForm.musicUrl}>Ваш браузер не поддерживает аудио.</audio>
+                              <small>{chapterForm.musicFileName || 'Музыкальный файл'}{chapterForm.musicSizeBytes ? ` · ${(chapterForm.musicSizeBytes / 1024 / 1024).toFixed(1)} МБ` : ''}</small>
+                            </div>
+                          ) : <p>Музыка к этой главе пока не выбрана.</p>}
+                          <div className="admin-chapter-music-actions">
+                            <label className="admin-secondary">
+                              {musicUploading ? <LoaderCircle className="spin" size={17} /> : <UploadCloud size={17} />}
+                              {chapterForm.musicUrl ? 'Заменить файл' : 'Выбрать музыку'}
+                              <input type="file" accept="audio/mpeg,audio/mp4,audio/aac,audio/ogg,audio/opus,audio/webm,audio/wav,.mp3,.m4a,.aac,.ogg,.opus,.webm,.wav" onChange={uploadChapterMusic} disabled={musicUploading} />
+                            </label>
+                            {chapterForm.musicUrl ? <button type="button" className="admin-secondary" onClick={saveChapterMusicDetails} disabled={musicUploading}><Save size={17} /> Сохранить подпись</button> : null}
+                            {chapterForm.musicUrl ? <button type="button" className="admin-danger" onClick={deleteChapterMusic} disabled={musicUploading}><Trash2 size={17} /> Убрать музыку</button> : null}
+                          </div>
+                          <small className="admin-chapter-music-hint">MP3, M4A, AAC, OGG, OPUS, WEBM или WAV, до 25 МБ. Музыка не запускается автоматически.</small>
+                        </>
+                      ) : <p>Сначала сохраните главу — после этого здесь можно будет выбрать музыку.</p>}
+                    </section>
                     <label className="admin-chapter-team-note"><span>Заметка команды под главой</span><textarea rows="4" maxLength="4000" value={chapterForm.teamNote || ''} onChange={(event) => setChapterForm({ ...chapterForm, teamNote: event.target.value })} placeholder="Новости, пояснение переводчика, благодарность или вопрос читателям…" /><small>Появится после текста главы и перед комментариями.</small></label>
                     <div className="admin-chapter-actions">
                       {chapterForm.id && <button type="button" className="admin-danger" onClick={deleteChapter}><Trash2 size={17} /> Удалить</button>}
