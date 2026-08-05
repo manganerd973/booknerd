@@ -11,6 +11,7 @@ import {
   Heart,
   Menu,
   MessageCircle,
+  Quote,
   Search,
   Sparkles,
   Star,
@@ -189,7 +190,7 @@ function PopularComments({ comments }) {
     <section className="popular-comments section" aria-labelledby="popular-comments-title">
       <div className="section-heading">
         <div>
-          <span className="section-number">02 / ГОЛОС ЧИТАТЕЛЕЙ</span>
+          <span className="section-number">03 / ГОЛОС ЧИТАТЕЛЕЙ</span>
           <h2 id="popular-comments-title">Комментарии,<br /><em>которые любят.</em></h2>
         </div>
         <p>Самые высоко оценённые мысли о книгах и главах. Голосуйте за отзывы, которые откликаются.</p>
@@ -217,6 +218,33 @@ function PopularComments({ comments }) {
   );
 }
 
+function QuoteOfDay({ quote }) {
+  return (
+    <section className="quote-of-day section" aria-labelledby="quote-of-day-title">
+      <div className="quote-of-day-card">
+        <div className="quote-of-day-topline"><span>01 / ЦИТАТА ДНЯ</span><Quote size={28} /></div>
+        {quote ? (
+          <>
+            <blockquote id="quote-of-day-title">«{quote.quote}»</blockquote>
+            {quote.note ? <p>{quote.note}</p> : null}
+            <div className="quote-of-day-source">
+              <div><strong>{quote.authorName}</strong><span>читатель BOOKNERD</span></div>
+              <a href={`/books/${quote.bookSlug}/chapters/${quote.chapterId}?page=${Number(quote.page || 0) + 1}`}>
+                <span>{quote.bookTitle}</span>{quote.chapterTitle ? <small>{quote.chapterTitle}</small> : null}<ArrowRight size={18} />
+              </a>
+            </div>
+          </>
+        ) : (
+          <div className="quote-of-day-empty" id="quote-of-day-title">
+            <strong>Здесь появится мысль читателя</strong>
+            <p>Выделите любимую фразу в читалке, добавьте заметку и предложите её для «Цитаты дня».</p>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function PopularCommentBody({ comment }) {
   const [revealed, setRevealed] = useState(false);
   if (!comment.isSpoiler) return <blockquote>«{comment.body}»</blockquote>;
@@ -236,7 +264,7 @@ function PopularCommentBody({ comment }) {
   );
 }
 
-function App({ initialBooks = [], initialPopularComments = [] }) {
+function App({ initialBooks = [], initialPopularComments = [], initialQuoteOfDay = null }) {
   const books = initialBooks;
   const filters = useMemo(() => ['Все', ...new Set(books.flatMap((book) => book.genres?.length ? book.genres : [book.genre]).filter(Boolean))], [books]);
   const tickerGenres = useMemo(() => [...new Set([
@@ -398,6 +426,8 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
             </div>
           </div>
 
+          <QuoteOfDay quote={initialQuoteOfDay} />
+
           <ContinueReading items={libraryItems} books={books} />
 
           <DiscoveryDashboard books={books} />
@@ -456,7 +486,7 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
           <section className="manifesto section" id="about">
             <div className="manifesto-card">
               <div className="manifesto-topline">
-                <span>03 / НАШ ПОДХОД</span>
+                <span>04 / НАШ ПОДХОД</span>
                 <Sparkles size={28} />
               </div>
               <blockquote>
@@ -498,7 +528,7 @@ function App({ initialBooks = [], initialPopularComments = [] }) {
               <span>BOOK</span><span>NERD</span>
             </div>
             <div className="join-content">
-              <span className="section-number">04 / ЧИТАТЬ ДАЛЬШЕ</span>
+              <span className="section-number">05 / ЧИТАТЬ ДАЛЬШЕ</span>
               <h2>Новая глава уже<br /><em>на подходе.</em></h2>
               <p>Следи за новыми переводами и продолжай чтение прямо на сайте.</p>
               <a className="join-library-link" href="/translations">Открыть библиотеку <ArrowRight size={19} /></a>

@@ -16,6 +16,7 @@ import {
   Menu,
   MessageCircle,
   Plus,
+  Quote,
   Save,
   Search,
   Send,
@@ -30,6 +31,7 @@ import {
 import RichChapterEditor from './rich-chapter-editor.jsx';
 import AdminBookGlossary from './admin-book-glossary.jsx';
 import AdminSeriesOrder from './admin-series-order.jsx';
+import AdminReaderNotes from './admin-reader-notes.jsx';
 import { BOOK_TRANSLATION_STATUSES } from '../lib/book-status.js';
 import {
   AdminErrorReports,
@@ -794,6 +796,9 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
           <button className={view === 'comments' ? 'is-active' : ''} onClick={() => navigate('comments')}>
             <MessageCircle size={19} /> Комментарии и отзывы {commentsNeedingAttention > 0 && <span>{commentsNeedingAttention}</span>}
           </button>
+          <button className={view === 'quotes' ? 'is-active' : ''} onClick={() => navigate('quotes')}>
+            <Quote size={19} /> Цитата дня
+          </button>
           <button className={view === 'errors' ? 'is-active' : ''} onClick={() => navigate('errors')}>
             <Settings2 size={19} /> Ошибки в тексте
           </button>
@@ -824,7 +829,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
           <button className="admin-menu-toggle" onClick={() => setMenuOpen(true)}><Menu size={21} /></button>
           <div>
             <span>BOOKNERD · ПАНЕЛЬ КОМАНДЫ</span>
-            <strong>{view === 'book' ? (bookForm.id ? 'Редактирование книги' : 'Новая книга') : view === 'team' ? 'Доступ команды' : view === 'comments' ? 'Комментарии и отзывы' : view === 'errors' ? 'Ошибки в тексте' : view === 'voting' ? 'Будущие переводы' : 'Управление библиотекой'}</strong>
+            <strong>{view === 'book' ? (bookForm.id ? 'Редактирование книги' : 'Новая книга') : view === 'team' ? 'Доступ команды' : view === 'comments' ? 'Комментарии и отзывы' : view === 'quotes' ? 'Цитата дня' : view === 'errors' ? 'Ошибки в тексте' : view === 'voting' ? 'Будущие переводы' : 'Управление библиотекой'}</strong>
           </div>
           {currentUser.role === 'owner' ? <button className="admin-install-button" type="button" onClick={installAdminApp}><Smartphone size={17} /><span>{adminAppInstalled ? 'На телефоне' : 'Установить'}</span></button> : null}
           <a href="/" target="_blank">Открыть сайт <ChevronRight size={17} /></a>
@@ -1124,6 +1129,8 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
         {view === 'errors' ? <AdminErrorReports onNotice={flash} /> : null}
 
         {view === 'voting' ? <AdminVoting onNotice={flash} /> : null}
+
+        {view === 'quotes' ? <AdminReaderNotes onNotice={flash} /> : null}
 
         {view === 'comments' && (
           <section className="admin-content admin-comments-page">

@@ -701,6 +701,8 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       color: patch.color || '#ffe066',
       note: String(patch.note || '').trim(),
       sticker: patch.sticker || '',
+      publicNote: patch.publicNote === true,
+      publicSpoiler: patch.publicSpoiler === true,
       createdAt: now,
       updatedAt: now,
     };
@@ -716,12 +718,40 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       : annotation));
   }, []);
 
+  const deletePublicNote = useCallback((sourceAnnotationId) => {
+    const query = new URLSearchParams({ visitorKey: getVisitorKey(), sourceAnnotationId });
+    return fetch(`/api/reader-notes?${query.toString()}`, { method: 'DELETE' });
+  }, []);
+
+  const publishReaderNote = useCallback(async (annotation) => {
+    const response = await fetch('/api/reader-notes', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        visitorKey: getVisitorKey(),
+        sourceAnnotationId: annotation.id,
+        bookId: book.id,
+        chapterId: annotation.chapterId,
+        quote: annotation.text,
+        note: annotation.note,
+        paragraphIndex: annotation.paragraphIndex,
+        page: annotation.page,
+        isSpoiler: annotation.publicSpoiler === true,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'Не удалось отправить заметку.');
+    return data;
+  }, [book.id]);
+
   const deleteAnnotation = useCallback((id) => {
+    const removed = annotations.find((annotation) => annotation.id === id);
     setAnnotations((current) => current.filter((annotation) => annotation.id !== id));
+    if (removed?.publicNote) deletePublicNote(id).catch(() => {});
     setActiveAnnotationId(null);
     setPanel(null);
     setToast('Пометка удалена');
-  }, []);
+  }, [annotations, deletePublicNote]);
 
   const openAnnotation = useCallback((id) => {
     clearTextSelection();
@@ -739,36 +769,61 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
 
   const openNewNote = useCallback(() => {
     if (!textSelection) return;
-    setNoteDraft({ ...textSelection, mode: 'new', color: '#ffe066', note: '', sticker: '' });
+    setNoteDraft({ ...textSelection, mode: 'new', color: '#ffe066', note: '', sticker: '', publicNote: false, publicSpoiler: false });
     clearTextSelection();
     setPanel('annotation-note');
   }, [clearTextSelection, textSelection]);
 
   const openEditNote = useCallback((annotation) => {
     if (!annotation) return;
-    setNoteDraft({ ...annotation, mode: 'edit' });
+    setNoteDraft({ ...annotation, mode: 'edit', wasPublic: annotation.publicNote === true });
     setPanel('annotation-note');
   }, []);
 
-  const saveNoteDraft = useCallback(() => {
+  const saveNoteDraft = useCallback(async () => {
     if (!noteDraft) return;
+    const wasPublic = noteDraft.mode === 'edit' && noteDraft.wasPublic === true;
+    let annotationId = noteDraft.id;
+    const publicNote = noteDraft.publicNote === true;
+    const publicSpoiler = noteDraft.publicSpoiler === true;
     if (noteDraft.mode === 'edit') {
       updateAnnotation(noteDraft.id, {
         color: noteDraft.color,
         note: String(noteDraft.note || '').trim(),
         sticker: noteDraft.sticker || '',
+        publicNote,
+        publicSpoiler,
       });
       setToast('Пометка обновлена');
     } else {
-      addAnnotation(noteDraft, {
+      annotationId = addAnnotation(noteDraft, {
         color: noteDraft.color,
         note: noteDraft.note,
         sticker: noteDraft.sticker,
+        publicNote,
+        publicSpoiler,
       });
     }
     setNoteDraft(null);
     setPanel(null);
-  }, [addAnnotation, noteDraft, updateAnnotation]);
+    if (publicNote && annotationId) {
+      try {
+        await publishReaderNote({
+          ...noteDraft,
+          id: annotationId,
+          note: String(noteDraft.note || '').trim(),
+          publicSpoiler,
+        });
+        setToast(publicSpoiler ? 'Заметка сохранена, но спойлер не попадёт на главную' : 'Заметка отправлена в редакцию для «Цитаты дня»');
+      } catch (error) {
+        updateAnnotation(annotationId, { publicNote: false });
+        setToast(`Личная заметка сохранена. ${error.message}`);
+      }
+    } else if (wasPublic && annotationId) {
+      deletePublicNote(annotationId).catch(() => {});
+      setToast('Заметка снова только личная');
+    }
+  }, [addAnnotation, deletePublicNote, noteDraft, publishReaderNote, updateAnnotation]);
 
   const translateSelectedText = useCallback(() => {
     if (!textSelection?.text) return;
@@ -1544,6 +1599,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
               <section className="reader-annotation-note-card">
                 <small>Личная заметка</small>
                 <p>{activeAnnotation.note || 'К этой фразе ещё нет заметки.'}</p>
+                {activeAnnotation.publicNote ? <em>{activeAnnotation.publicSpoiler ? 'Отмечена как спойлер и не показывается на главной' : 'Предложена редакции для «Цитаты дня»'}</em> : null}
               </section>
               <div className="reader-annotation-detail-actions">
                 <button type="button" onClick={() => openEditNote(activeAnnotation)}><StickyNote size={18} /> Изменить заметку и стикер</button>
@@ -1591,6 +1647,18 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
             <section>
               <div className="reader-note-sticker-heading"><span>Стикер‑эмоция</span>{noteDraft.sticker ? <button type="button" onClick={() => setNoteDraft((current) => ({ ...current, sticker: '' }))}>Убрать</button> : null}</div>
               <StickerPicker value={noteDraft.sticker || ''} onSelect={(sticker) => setNoteDraft((current) => ({ ...current, sticker: current.sticker === sticker ? '' : sticker }))} />
+            </section>
+            <section className="reader-public-note-consent">
+              <label>
+                <input type="checkbox" checked={noteDraft.publicNote === true} onChange={(event) => setNoteDraft((current) => ({ ...current, publicNote: event.target.checked, publicSpoiler: event.target.checked ? current.publicSpoiler : false }))} />
+                <span><strong>Предложить для «Цитаты дня»</strong><small>Редакция увидит выделенную фразу, эту заметку и ваш псевдоним. Без галочки всё останется только на этом устройстве.</small></span>
+              </label>
+              {noteDraft.publicNote ? (
+                <label>
+                  <input type="checkbox" checked={noteDraft.publicSpoiler === true} onChange={(event) => setNoteDraft((current) => ({ ...current, publicSpoiler: event.target.checked }))} />
+                  <span><strong>Здесь есть спойлер</strong><small>Такая заметка сохранится для редакции, но не появится на главной.</small></span>
+                </label>
+              ) : null}
             </section>
             <div className="reader-note-editor-actions">
               <button type="button" onClick={() => { setNoteDraft(null); setPanel(noteDraft.mode === 'edit' ? 'annotation' : null); }}>Отмена</button>

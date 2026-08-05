@@ -279,6 +279,30 @@ export const readerBookmarks = sqliteTable('reader_bookmarks', {
   index('reader_bookmarks_visitor_book_idx').on(table.visitorKey, table.bookId, table.createdAt),
 ]);
 
+export const readerPublicNotes = sqliteTable('reader_public_notes', {
+  id: text('id').primaryKey(),
+  visitorKey: text('visitor_key').notNull(),
+  sourceAnnotationId: text('source_annotation_id').notNull(),
+  bookId: text('book_id').notNull().references(() => books.id, { onDelete: 'cascade' }),
+  chapterId: text('chapter_id').notNull().references(() => chapters.id, { onDelete: 'cascade' }),
+  authorName: text('author_name').notNull().default('Читатель BOOKNERD'),
+  quote: text('quote').notNull(),
+  note: text('note').notNull().default(''),
+  paragraphIndex: integer('paragraph_index').notNull().default(0),
+  page: integer('page').notNull().default(0),
+  isSpoiler: integer('is_spoiler', { mode: 'boolean' }).notNull().default(false),
+  status: text('status').notNull().default('pending'),
+  isPinned: integer('is_pinned', { mode: 'boolean' }).notNull().default(false),
+  approvedAt: text('approved_at'),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, (table) => [
+  uniqueIndex('reader_public_notes_source_unique').on(table.visitorKey, table.sourceAnnotationId),
+  index('reader_public_notes_status_created_idx').on(table.status, table.createdAt),
+  index('reader_public_notes_pinned_updated_idx').on(table.isPinned, table.updatedAt),
+  index('reader_public_notes_book_chapter_idx').on(table.bookId, table.chapterId),
+]);
+
 export const chapterVersions = sqliteTable('chapter_versions', {
   id: text('id').primaryKey(),
   chapterId: text('chapter_id').notNull().references(() => chapters.id, { onDelete: 'cascade' }),

@@ -23,6 +23,12 @@ function dayPart() {
   return { offset: 11, label: 'Книга для уютного вечера' };
 }
 
+const INITIAL_DAILY = {
+  seed: 0,
+  greeting: 'Добро пожаловать',
+  period: { offset: 0, label: 'Рекомендация на сегодня' },
+};
+
 function BookMini({ book, label }) {
   if (!book) return null;
   return (
@@ -45,16 +51,22 @@ function Ranking({ title, icon, items = [], empty, label }) {
 
 export default function DiscoveryDashboard({ books = [] }) {
   const [data, setData] = useState(null);
-  const [randomIndex, setRandomIndex] = useState(() => books.length ? dateSeed() % books.length : 0);
-  const dayBook = books.length ? books[dateSeed() % books.length] : null;
-  const period = dayPart();
-  const greetingBook = books.length ? books[(dateSeed() + period.offset) % books.length] : null;
+  const [daily, setDaily] = useState(INITIAL_DAILY);
+  const [randomIndex, setRandomIndex] = useState(0);
+  const dayBook = books.length ? books[daily.seed % books.length] : null;
+  const greetingBook = books.length ? books[(daily.seed + daily.period.offset) % books.length] : null;
   const randomBook = books[randomIndex] || dayBook;
   const quoteBook = useMemo(() => books.find((book) => book.quoteOfDay) || dayBook, [books, dayBook]);
 
   useEffect(() => {
     fetch('/api/discovery', { cache: 'no-store' }).then((response) => response.ok ? response.json() : null).then(setData).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    const seed = dateSeed();
+    setDaily({ seed, greeting: greeting(), period: dayPart() });
+    setRandomIndex(books.length ? seed % books.length : 0);
+  }, [books.length]);
 
   const reroll = () => {
     if (books.length < 2) return;
@@ -64,16 +76,16 @@ export default function DiscoveryDashboard({ books = [] }) {
   return (
     <section className="discovery-dashboard section" aria-labelledby="discovery-title">
       <div className="section-heading discovery-heading">
-        <div><span className="section-number">СЕГОДНЯ В BOOKNERD</span><h2 id="discovery-title">{greeting()}.<br /><em>Что читаем?</em></h2></div>
+        <div><span className="section-number">СЕГОДНЯ В BOOKNERD</span><h2 id="discovery-title">{daily.greeting}.<br /><em>Что читаем?</em></h2></div>
         <p>Ежедневная подборка меняется вместе с библиотекой и тем, что сейчас любят читатели.</p>
       </div>
 
-      {greetingBook ? <a className="discovery-greeting-pick" href={`/books/${greetingBook.slug}`}><Sparkles size={18} /><span><small>{period.label}</small><strong>{greetingBook.title}</strong></span><ArrowRight size={17} /></a> : null}
+      {greetingBook ? <a className="discovery-greeting-pick" href={`/books/${greetingBook.slug}`}><Sparkles size={18} /><span><small>{daily.period.label}</small><strong>{greetingBook.title}</strong></span><ArrowRight size={17} /></a> : null}
 
       <div className="discovery-daily-grid">
         <article className="discovery-daily-card is-day"><Sparkles size={23} /><div><small>КНИГА ДНЯ</small><h3>{dayBook?.title || 'Новая история скоро'}</h3><p>{dayBook?.author || 'Команда BOOKNERD готовит рекомендацию.'}</p></div>{dayBook ? <a href={`/books/${dayBook.slug}`}>Открыть <ArrowRight size={16} /></a> : null}</article>
         <article className="discovery-daily-card is-random"><Dice5 size={23} /><div><small>ПОЛНОСТЬЮ СЛУЧАЙНАЯ</small><h3>{randomBook?.title || 'Испытайте удачу'}</h3><p>{randomBook?.genre || randomBook?.author || 'Одна кнопка — одна новая история.'}</p></div><button type="button" onClick={reroll}>Ещё раз</button></article>
-        <article className="discovery-daily-card is-quote"><MessageCircle size={23} /><div><small>ЦИТАТА ДНЯ</small><blockquote>{quoteBook?.quoteOfDay ? `«${quoteBook.quoteOfDay}»` : '«Некоторые истории находят нас именно тогда, когда нужны.»'}</blockquote><p>{quoteBook?.title || 'BOOKNERD'}</p></div></article>
+        <article className="discovery-daily-card is-quote"><MessageCircle size={23} /><div><small>ФРАЗА ИЗ КНИГИ</small><blockquote>{quoteBook?.quoteOfDay ? `«${quoteBook.quoteOfDay}»` : '«Некоторые истории находят нас именно тогда, когда нужны.»'}</blockquote><p>{quoteBook?.title || 'BOOKNERD'}</p></div></article>
       </div>
 
       {data?.today?.length ? (
