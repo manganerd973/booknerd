@@ -1,0 +1,113 @@
+.reader-access-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px 18px;
+  color: #123c35;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(255, 214, 66, 0.85) 0 9%, transparent 25%),
+    radial-gradient(circle at 88% 82%, rgba(105, 202, 196, 0.72) 0 11%, transparent 28%),
+    linear-gradient(145deg, #fff7bd 0%, #dff3d5 48%, #cceff3 100%);
+}
+
+.reader-access-card {
+  width: min(100%, 520px);
+  padding: clamp(30px, 6vw, 56px);
+  border: 2px solid #123c35;
+  border-radius: 28px;
+  background: rgba(255, 253, 238, 0.94);
+  box-shadow: 12px 12px 0 #123c35;
+}
+
+.reader-access-brand {
+  display: inline-block;
+  color: #123c35;
+  font-size: clamp(28px, 6vw, 42px);
+  font-weight: 900;
+  letter-spacing: -0.06em;
+  text-decoration: none;
+}
+
+.reader-access-brand span { color: #2f8f63; }
+
+.reader-access-kicker {
+  margin: 18px 0 10px;
+  color: #2f8f63;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.reader-access-card h1 {
+  margin: 0;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(34px, 7vw, 54px);
+  line-height: 0.98;
+  letter-spacing: -0.045em;
+}
+
+.reader-access-copy {
+  margin: 20px 0 28px;
+  color: #365a53;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.reader-access-form { display: grid; gap: 10px; }
+
+.reader-access-form label {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.reader-access-form input {
+  width: 100%;
+  min-height: 54px;
+  padding: 0 16px;
+  border: 2px solid #123c35;
+  border-radius: 14px;
+  color: #123c35;
+  background: #fff;
+  font: inherit;
+  outline: none;
+}
+
+.reader-access-form input:focus {
+  box-shadow: 0 0 0 4px rgba(255, 214, 66, 0.7);
+}
+
+.reader-access-form button {
+  min-height: 54px;
+  margin-top: 6px;
+  border: 2px solid #123c35;
+  border-radius: 14px;
+  color: #fff;
+  background: #123c35;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.reader-access-form button:hover { background: #2f8f63; }
+
+.reader-access-error {
+  margin: 0;
+  color: #a12f2f;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.reader-access-note {
+  margin: 22px 0 0;
+  color: #55726c;
+  font-size: 13px;
+  text-align: center;
+}
+
+@media (max-width: 560px) {
+  .reader-access-card {
+    border-radius: 22px;
+    box-shadow: 7px 7px 0 #123c35;
+  }
+}

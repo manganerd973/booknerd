@@ -1,0 +1,36 @@
+{
+  "name": "booknerd-reading-club",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vinext build && mkdir -p dist/.openai && cp .openai/hosting.json dist/.openai/hosting.json && if [ -d .openai/drizzle ]; then cp -R .openai/drizzle dist/.openai/drizzle; fi",
+    "start": "vinext start",
+    "db:generate": "drizzle-kit generate",
+    "dev:vinext": "vinext dev --port 3001",
+    "build:vinext": "vinext build",
+    "start:vinext": "wrangler dev --config dist/server/wrangler.json",
+    "deploy:vinext": "vinext-cloudflare deploy --config dist/server/wrangler.json"
+  },
+  "dependencies": {
+    "@block65/webcrypto-web-push": "^1.0.2",
+    "@fontsource-variable/onest": "5.3.0",
+    "@mdx-js/rollup": "latest",
+    "@vinext/cloudflare": "^1.0.0-beta.2",
+    "@vitejs/plugin-react": "latest",
+    "@vitejs/plugin-rsc": "latest",
+    "drizzle-orm": "0.45.2",
+    "lucide-react": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "react-server-dom-webpack": "latest",
+    "vinext": "latest",
+    "vite": "latest"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.45.0",
+    "drizzle-kit": "0.31.10",
+    "wrangler": "^4.111.0"
+  }
+}
