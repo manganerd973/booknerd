@@ -21,6 +21,7 @@ import {
   Minus,
   Moon,
   Pause,
+  Palette,
   Play,
   Plus,
   RotateCcw,
@@ -46,6 +47,12 @@ import { richDocumentFor } from '../lib/rich-document.js';
 import { getVisitorKey, trackReaderPresence } from './site-analytics.js';
 import { updateReaderLibrary } from './reader-library.jsx';
 import {
+  APP_THEME_OPTIONS,
+  getStoredAppTheme,
+  READER_THEME_FOLLOWS_APP_KEY,
+  setStoredAppTheme,
+} from './app-preferences.jsx';
+import {
   AnnotatedParagraph,
   HIGHLIGHT_COLORS,
   ReaderSticker,
@@ -56,6 +63,7 @@ import {
 
 const SETTINGS_KEY = 'booknerd-reader-settings-v2';
 const ANNOTATIONS_KEY_PREFIX = 'booknerd-reader-annotations-v1';
+const CHAPTER_EMOTIONS = ['😂', '😭', '😍', '😡', '😱', '🤍'];
 
 const BOOKMARK_CATEGORIES = [
   { id: 'favorite', label: 'Любимый момент', symbol: '♡', color: '#ec8dad' },
@@ -107,6 +115,13 @@ const FONT_OPTIONS = [
   { id: 'Verdana', name: 'Verdana' },
   { id: 'Trebuchet MS', name: 'Trebuchet' },
 ];
+
+function readerThemeForApp(appTheme) {
+  if (appTheme === 'black') return 'night';
+  if (appTheme === 'white') return 'original';
+  if (appTheme === 'system') return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'night' : 'original';
+  return 'paper';
+}
 
 function clamp(value, minimum, maximum) {
   return Math.min(maximum, Math.max(minimum, value));
@@ -175,10 +190,16 @@ function ChapterFlow({
             paragraphIndex={index}
             chapterId={chapter.id}
             annotations={annotations.flatMap((annotation) => {
-              const segment = Array.isArray(annotation.segments)
-                ? annotation.segments.find((item) => Number(item.paragraphIndex) === index)
-                : null;
-              if (segment) return [{ ...annotation, ...segment, text: segment.text }];
+              const segmentIndex = Array.isArray(annotation.segments)
+                ? annotation.segments.findIndex((item) => Number(item.paragraphIndex) === index)
+                : -1;
+              const segment = segmentIndex >= 0 ? annotation.segments[segmentIndex] : null;
+              if (segment) return [{
+                ...annotation,
+                ...segment,
+                text: segment.text,
+                sticker: segmentIndex === annotation.segments.length - 1 ? annotation.sticker : '',
+              }];
               return Number(annotation.paragraphIndex) === index ? [annotation] : [];
             })}
             footnotes={chapter.footnotes || []}
@@ -299,17 +320,28 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
     setSettings((current) => ({ ...current, [key]: value }));
   }, []);
 
+  const updateReaderTheme = useCallback((theme) => {
+    try { localStorage.setItem(READER_THEME_FOLLOWS_APP_KEY, '0'); } catch { /* preference remains active for this visit */ }
+    updateSetting('theme', theme);
+  }, [updateSetting]);
+
+  const updateAppTheme = useCallback((appTheme) => {
+    setStoredAppTheme(appTheme);
+    updateSetting('theme', readerThemeForApp(appTheme));
+  }, [updateSetting]);
+
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
       const fontExists = FONT_OPTIONS.some((font) => font.id === saved.fontFamily);
       const themeExists = THEME_OPTIONS.some((theme) => theme.id === saved.theme);
       const motionExists = READING_MODE_OPTIONS.some((mode) => mode.id === saved.motion);
+      const followsAppTheme = localStorage.getItem(READER_THEME_FOLLOWS_APP_KEY) !== '0';
       setSettings({
         ...DEFAULT_SETTINGS,
         ...saved,
         fontFamily: fontExists ? saved.fontFamily : DEFAULT_SETTINGS.fontFamily,
-        theme: themeExists ? saved.theme : DEFAULT_SETTINGS.theme,
+        theme: followsAppTheme ? readerThemeForApp(getStoredAppTheme()) : themeExists ? saved.theme : DEFAULT_SETTINGS.theme,
         motion: motionExists ? saved.motion : DEFAULT_SETTINGS.motion,
         fontSize: clamp(Number(saved.fontSize) || DEFAULT_SETTINGS.fontSize, 16, 30),
         lineHeight: clamp(Number(saved.lineHeight) || DEFAULT_SETTINGS.lineHeight, 1.35, 2.1),
@@ -321,6 +353,16 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       setSettingsReady(true);
     }
   }, []);
+
+  useEffect(() => {
+    const syncAppTheme = (event) => {
+      let follows = true;
+      try { follows = localStorage.getItem(READER_THEME_FOLLOWS_APP_KEY) !== '0'; } catch { /* follow during this visit */ }
+      if (follows) updateSetting('theme', readerThemeForApp(event.detail || getStoredAppTheme()));
+    };
+    window.addEventListener('booknerd-theme-change', syncAppTheme);
+    return () => window.removeEventListener('booknerd-theme-change', syncAppTheme);
+  }, [updateSetting]);
 
   useEffect(() => {
     if (!settingsReady) return;
@@ -1263,7 +1305,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
         <nav className="reader-quickbar" aria-label="Быстрые настройки чтения">
           <button type="button" onClick={() => updateSetting('fontSize', clamp(settings.fontSize - 1, 16, 30))} aria-label="Уменьшить текст">A−</button>
           <button type="button" onClick={() => updateSetting('fontSize', clamp(settings.fontSize + 1, 16, 30))} aria-label="Увеличить текст">A+</button>
-          <button type="button" onClick={() => updateSetting('theme', settings.theme === 'night' ? 'paper' : 'night')} aria-label="Светлая или ночная тема">
+          <button type="button" onClick={() => updateReaderTheme(settings.theme === 'night' ? 'paper' : 'night')} aria-label="Светлая или ночная тема">
             {settings.theme === 'night' ? <Sun size={19} /> : <Moon size={19} />}
           </button>
           <button type="button" className="reader-reading-mode-quick" onClick={() => setPanel('reading-mode')} aria-label="Выбрать способ чтения">
@@ -1274,6 +1316,9 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
               <MapIcon size={17} /><span>Карта</span>
             </button>
           ) : null}
+          <button type="button" className="reader-dictionary-quick" onClick={() => setPanel('dictionary')} aria-label="Открыть личный словарь">
+            <BookMarked size={17} /><span>Словарь</span>
+          </button>
           {chapter.musicUrl ? (
             <button type="button" className={`reader-chapter-music-quick ${chapterMusicPlaying ? 'is-playing' : ''}`} onClick={toggleChapterMusic} aria-label={chapterMusicPlaying ? 'Поставить музыку главы на паузу' : 'Включить музыку главы'} title={chapter.musicTitle || chapter.musicFileName || 'Музыка главы'}>
               {chapterMusicPlaying ? <Pause size={17} /> : <Play size={17} />}<span>Музыка</span>
@@ -1286,7 +1331,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
 
         <div className="reader-stage">
           <div className="reader-pages-left" aria-live="polite">
-            {!measurementReady ? 'Считаем страницы…' : pagesLeftInChapter > 0 ? `Осталось ${pagesLeftInChapter} стр. · около ${estimatedMinutesLeft} мин до конца книги` : 'Последняя страница главы'}
+            {!measurementReady ? 'Считаем страницы…' : pagesLeftInChapter > 0 ? `Осталось ${pagesLeftInChapter} стр. · около ${estimatedMinutesLeft >= 60 ? `${Math.floor(estimatedMinutesLeft / 60)} ч ${estimatedMinutesLeft % 60} мин` : `${estimatedMinutesLeft} мин`} до конца книги` : 'Последняя страница главы'}
           </div>
           <button type="button" className="reader-page-arrow reader-page-arrow-left" onClick={goBackward} disabled={!previous && page === 0} aria-label="Предыдущая страница"><ArrowLeft size={22} /></button>
           <div
@@ -1770,10 +1815,21 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
 
           <section className="reader-theme-grid" aria-label="Темы страницы">
             {THEME_OPTIONS.map((theme) => (
-              <button type="button" data-theme-preview={theme.id} className={settings.theme === theme.id ? 'is-active' : ''} onClick={() => updateSetting('theme', theme.id)} key={theme.id}>
+              <button type="button" data-theme-preview={theme.id} className={settings.theme === theme.id ? 'is-active' : ''} onClick={() => updateReaderTheme(theme.id)} key={theme.id}>
                 <strong>{theme.sample}</strong><span>{theme.name}</span>{settings.theme === theme.id ? <Check size={17} /> : null}
               </button>
             ))}
+          </section>
+
+          <section className="reader-app-theme-settings">
+            <div className="reader-settings-heading"><Palette size={21} /><span><small>Цвет приложения</small><strong>Оформление всех страниц BOOKNERD</strong></span></div>
+            <div>
+              {APP_THEME_OPTIONS.map(({ id, label, Icon }) => (
+                <button type="button" className={getStoredAppTheme() === id ? 'is-active' : ''} onClick={() => updateAppTheme(id)} key={id}>
+                  <Icon size={19} /><span>{label}</span>{getStoredAppTheme() === id ? <Check size={16} /> : null}
+                </button>
+              ))}
+            </div>
           </section>
 
           <section className="reader-settings-block reader-font-settings">
@@ -1834,7 +1890,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
             <section className="reader-emotion-map">
               <small>Какая эмоция осталась после главы?</small>
               <div>
-                {['😭', '😍', '😡', '😱', '🤍'].map((emoji) => {
+                {CHAPTER_EMOTIONS.map((emoji) => {
                   const total = Number(currentChapterEmotionTotals.find((item) => item.emoji === emoji)?.total || 0);
                   return <button type="button" className={myChapterEmotion === emoji ? 'is-active' : ''} onClick={() => saveChapterEmotion(emoji)} key={emoji}><span>{emoji}</span><strong>{total}</strong></button>;
                 })}

@@ -57,7 +57,7 @@ export function MobileQuickNavigation({ active = '' }) {
 }
 
 export function MobileBottomNavigation({ active = '' }) {
-  const bottomLinks = quickLinks.filter(({ key }) => ['home', 'library', 'search', 'notifications', 'profile'].includes(key));
+  const bottomLinks = quickLinks;
   return (
     <nav className="mobile-bottom-navigation" aria-label="Основные разделы">
       {bottomLinks.map(({ href, label, key, icon: Icon }) => (
@@ -89,7 +89,6 @@ export function SiteHeader({ active = '' }) {
           <button className="menu-button" onClick={() => setOpen(true)} aria-label="Открыть меню"><Menu size={22} /></button>
         </div>
       </header>
-      <MobileQuickNavigation active={active} />
       {open && (
         <div className="mobile-drawer">
           <div className="drawer-head"><SiteLogo /><button onClick={() => setOpen(false)} aria-label="Закрыть меню"><X /></button></div>

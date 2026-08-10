@@ -1,5 +1,5 @@
-const SHELL_CACHE = 'booknerd-shell-v8';
-const OFFLINE_CACHE = 'booknerd-offline-books-v8';
+const SHELL_CACHE = 'booknerd-shell-v9';
+const OFFLINE_CACHE = 'booknerd-offline-books-v9';
 const SHELL_URLS = ['/', '/translations', '/library', '/calendar', '/manifest.webmanifest', '/booknerd-icon-v2-192.png'];
 
 self.addEventListener('install', (event) => {
@@ -54,7 +54,7 @@ self.addEventListener('push', (event) => {
     icon: data.icon || '/booknerd-icon-v2-192.png',
     badge: data.badge || '/booknerd-icon-v2-192.png',
     data: { url: data.url || '/' },
-    tag: data.chapterId ? `booknerd-${data.chapterId}` : 'booknerd-new-chapter',
+    tag: data.topic ? `booknerd-${data.topic}` : data.chapterId ? `booknerd-${data.chapterId}` : 'booknerd-update',
     renotify: true,
   };
   if (typeof data.body === 'string' && data.body.trim()) options.body = data.body.trim();

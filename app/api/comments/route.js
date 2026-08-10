@@ -97,11 +97,16 @@ export async function POST(request) {
     ).bind(id, bookId, chapterId, parent?.id || null, visitorKey, authorName, body, isSpoiler ? 1 : 0, now, now).run();
     if (parent?.visitor_key && parent.visitor_key !== visitorKey) {
       const bookRow = await db.prepare(`SELECT slug, title FROM books WHERE id = ? LIMIT 1`).bind(bookId).first();
+      const chapterRow = chapterId
+        ? await db.prepare(`SELECT chapter_number, title FROM chapters WHERE id = ? LIMIT 1`).bind(chapterId).first()
+        : null;
       await notifyBookPreferenceEvent({
         bookId,
         preference: 'commentReply',
-        title: 'Вам ответили в BOOKNERD ✦',
-        body: `${authorName} ответил(а) на ваш комментарий к «${bookRow?.title || 'книге'}».`,
+        title: bookRow?.title || 'BOOKNERD',
+        body: chapterRow
+          ? `${chapterRow.title || `Глава ${chapterRow.chapter_number}`} · ${authorName} ответил(а) на ваш комментарий.`
+          : `${authorName} ответил(а) на ваш комментарий к книге.`,
         url: chapterId ? `/books/${bookRow?.slug}/chapters/${chapterId}#chapter-comments` : `/books/${bookRow?.slug}#comments-${bookId}`,
         topic: `reply-${id.slice(0, 18)}`,
         requestUrl: request.url,

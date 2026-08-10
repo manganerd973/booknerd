@@ -22,7 +22,7 @@ import CommentReport from './comment-report.jsx';
 import { LIBRARY_STATUS, loadReaderLibrary, removeReaderLibraryBook, updateReaderLibrary } from './reader-library.jsx';
 import { ContinueReading, TranslationVoting } from './home-reader-features.jsx';
 import DiscoveryDashboard from './discovery-dashboard.jsx';
-import { MobileBottomNavigation, MobileQuickNavigation } from './page-chrome.jsx';
+import { MobileBottomNavigation } from './page-chrome.jsx';
 
 const FEATURED_GENRES = [
   'ROMANCE',
@@ -229,7 +229,7 @@ function QuoteOfDay({ quote }) {
             {quote.note ? <p>{quote.note}</p> : null}
             <div className="quote-of-day-source">
               <div><strong>{quote.authorName}</strong><span>читатель BOOKNERD</span></div>
-              <a href={`/books/${quote.bookSlug}/chapters/${quote.chapterId}?page=${Number(quote.page || 0) + 1}`}>
+              <a href={quote.chapterId ? `/books/${quote.bookSlug}/chapters/${quote.chapterId}?page=${Number(quote.page || 0) + 1}` : `/books/${quote.bookSlug}`}>
                 <span>{quote.bookTitle}</span>{quote.chapterTitle ? <small>{quote.chapterTitle}</small> : null}<ArrowRight size={18} />
               </a>
             </div>
@@ -388,7 +388,6 @@ function App({ initialBooks = [], initialPopularComments = [], initialQuoteOfDay
             </button>
           </div>
         </header>
-        <MobileQuickNavigation active="home" />
 
         <main>
           <section className="hero">

@@ -2,8 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Bookmark, BookOpen, Check, Grid3X3, Heart, Library, List, LoaderCircle, XCircle } from 'lucide-react';
-import { ContinueReading, ReaderStatistics } from './home-reader-features.jsx';
-import NotificationControl from './notification-control.jsx';
+import { ReaderStatistics } from './home-reader-features.jsx';
 import { LIBRARY_STATUS, loadReaderLibrary, updateReaderLibrary } from './reader-library.jsx';
 import { SiteFooter, SiteHeader } from './page-chrome.jsx';
 
@@ -134,9 +133,6 @@ export default function LibraryPage({ initialBooks = [] }) {
               </button>
             ))}
           </div>
-
-          <NotificationControl />
-          <ContinueReading items={items} books={initialBooks} />
 
           <div className="library-view-controls" role="group" aria-label="Вид книжной полки">
             <span>Вид полки</span>

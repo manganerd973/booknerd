@@ -1,7 +1,7 @@
 import { hasReaderAccess } from '../../../lib/reader-access.js';
 import { ensureDb } from '../../../lib/runtime.js';
 
-const EMOTIONS = new Set(['😭', '😍', '😡', '😱', '🤍']);
+const EMOTIONS = new Set(['😂', '😭', '😍', '😡', '😱', '🤍']);
 const THEMES = new Set(['original', 'white', 'black', 'system']);
 const ATMOSPHERES = new Set(['auto', 'none', 'spring', 'summer', 'autumn', 'winter']);
 
@@ -59,6 +59,8 @@ export async function GET(request) {
     return Response.json({
       profile: profile ? {
         displayName: profile.display_name,
+        photoUrl: profile.photo_key ? `/api/reader-profile-photo?visitorKey=${encodeURIComponent(visitorKey)}&v=${encodeURIComponent(profile.updated_at || '')}` : '',
+        photoName: profile.photo_name || '',
         banner: profile.banner,
         favoriteCharacters: parseList(profile.favorite_characters),
         favoriteQuotes: parseList(profile.favorite_quotes),

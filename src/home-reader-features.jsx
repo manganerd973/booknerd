@@ -16,7 +16,6 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { getVisitorKey } from './site-analytics.js';
-import { QuickReminderButton } from './book-notifications.jsx';
 
 const RELEASES = [
   { title: 'Божественная империя', days: ['Понедельник', 'Четверг'], short: ['ПН', 'ЧТ'] },
@@ -47,7 +46,7 @@ export function ContinueReading({ items = [], books = [] }) {
           <h2>{item.bookTitle || book?.title}</h2>
           <p>Глава {item.chapterNumber || '—'}{item.chapterTitle ? ` · ${item.chapterTitle}` : ''}</p>
           <div><i style={{ width: `${item.progress || 0}%` }} /></div>
-          <small>Вы остановились на странице {Number(item.lastPage || 0) + 1} · прочитано {item.progress || 0}%</small>
+          <small>Вы остановились на {Number(item.chapterNumber || 1) === 1 ? 'первой главе' : `${item.chapterNumber || 'этой'} главе`} · прочитано {item.progress || 0}% книги</small>
         </div>
         <a href={`/books/${slug}/chapters/${item.lastChapterId}?page=${Number(item.lastPage || 0) + 1}`}>Продолжить <ArrowRight size={18} /></a>
       </div>
@@ -73,7 +72,7 @@ export function ReleaseCalendar({ books = [], showHeading = true }) {
     <section className="release-calendar section" id="release-calendar">
       {showHeading ? <div className="section-heading">
         <div><span className="section-number">КАЛЕНДАРЬ ГЛАВ</span><h2>Когда ждать<br /><em>продолжение.</em></h2></div>
-        <p>Включите напоминание только для той истории, которую действительно ждёте.</p>
+        <p>Расписание новых глав. Уведомления настраиваются только в профиле читателя.</p>
       </div> : null}
       <div className="release-calendar-summary">
         <article><small>СЕГОДНЯ · {todayName}</small><strong>{releases.filter((item) => item.days.includes(todayName)).length || '—'}</strong><span>ожидаемых продолжений</span></article>
@@ -88,7 +87,6 @@ export function ReleaseCalendar({ books = [], showHeading = true }) {
               <CalendarDays size={24} />
               <div><small>НОВЫЕ ГЛАВЫ</small><h3>{release.title}</h3><p>{release.days.join(' и ')}</p></div>
               <div className="release-day-badges">{release.short.map((day) => <span key={day}>{day}</span>)}</div>
-              <QuickReminderButton bookKey={book?.slug || release.title} />
             </article>
           );
         })}

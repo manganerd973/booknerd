@@ -10,12 +10,13 @@ function normalizeBookKey(value) {
 }
 
 function mapPreferences(row, bookKey) {
+  const globalSettings = bookKey === 'booknerd-settings';
   return {
     bookKey,
-    newChapter: row ? Boolean(row.new_chapter) : false,
+    newChapter: row ? Boolean(row.new_chapter) : true,
     translationComplete: row ? Boolean(row.translation_complete) : false,
-    authorBook: row ? Boolean(row.author_book) : false,
-    commentReply: row ? Boolean(row.comment_reply) : false,
+    authorBook: row ? Boolean(row.author_book) : globalSettings,
+    commentReply: row ? Boolean(row.comment_reply) : true,
     teamNews: row ? Boolean(row.team_news) : false,
   };
 }

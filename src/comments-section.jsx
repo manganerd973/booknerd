@@ -157,10 +157,10 @@ export default function CommentsSection({ bookId, chapterId = null }) {
         <article className={`reader-comment ${depth ? 'is-reply' : ''}`}>
           <header className="reader-comment-header">
             <strong>{comment.authorName}</strong>
-            <time dateTime={comment.createdAt}>{formatDate(comment.createdAt)}</time>
           </header>
           <CommentBody comment={comment} />
           <div className="reader-comment-actions">
+            <time dateTime={comment.createdAt}>{formatDate(comment.createdAt)}</time>
             <CommentVotes commentId={comment.id} initialUpVotes={comment.upVotes} initialDownVotes={comment.downVotes} compact />
             <button className="reader-comment-reply" type="button" onClick={() => startReply(comment)}><Reply size={13} /> Ответить</button>
             <CommentReport commentId={comment.id} compact />

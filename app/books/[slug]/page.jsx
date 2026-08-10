@@ -8,7 +8,6 @@ import BookRating from '../../../src/book-rating.jsx';
 import BookReviews from '../../../src/book-reviews.jsx';
 import CommentsSection from '../../../src/comments-section.jsx';
 import BookLibraryControl from '../../../src/reader-library.jsx';
-import BookNotificationPreferences from '../../../src/book-notifications.jsx';
 import BookGlossary from '../../../src/book-glossary.jsx';
 import SeriesReadingOrder from '../../../src/series-reading-order.jsx';
 import BookUniverse from '../../../src/book-universe.jsx';
@@ -43,6 +42,7 @@ export default async function BookPage({ params }) {
           {book.coverUrl ? <img src={book.coverUrl} alt={`Обложка книги «${book.title}»`} /> : <><span>перевод booknerd</span><strong>{book.title}</strong><small>{book.author}</small></>}
         </div>
         <div className="book-detail-copy">
+          <BookRating bookId={book.id} />
           <span className="editorial-kicker">{book.status} · {book.genre}</span>
           <h1>{book.title}</h1>
           <p className="book-detail-author">{book.author}</p>
@@ -68,8 +68,6 @@ export default async function BookPage({ params }) {
           </div>
           <OfflineBookButton book={book} chapters={chapters} />
           <BookLibraryControl bookId={book.id} />
-          <BookNotificationPreferences bookKey={book.slug} bookTitle={book.title} />
-          <BookRating bookId={book.id} />
         </div>
       </section>
 

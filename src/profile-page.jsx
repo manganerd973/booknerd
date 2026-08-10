@@ -1,13 +1,14 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
-import { Award, BookHeart, BookOpen, Check, Clock3, Flame, Library, Save, Sparkles, Star, UserRound } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Award, BookHeart, BookOpen, Camera, Check, Clock3, Flame, Library, LoaderCircle, Save, Sparkles, Star, Trash2, UserRound } from 'lucide-react';
 import { getVisitorKey } from './site-analytics.js';
 import { loadReaderLibrary } from './reader-library.jsx';
 import { APP_THEME_OPTIONS, setStoredAppTheme, setStoredAtmosphere } from './app-preferences.jsx';
+import ProfileNotificationSettings from './profile-notification-settings.jsx';
 import { SiteFooter, SiteHeader } from './page-chrome.jsx';
 
-const DEFAULT_PROFILE = { displayName: 'Читатель BOOKNERD', banner: 'books', favoriteCharacters: [], favoriteQuotes: [], appTheme: 'original', atmosphere: 'auto' };
+const DEFAULT_PROFILE = { displayName: 'Читатель BOOKNERD', photoUrl: '', photoName: '', banner: 'books', favoriteCharacters: [], favoriteQuotes: [], appTheme: 'original', atmosphere: 'auto' };
 
 function formatDuration(seconds) {
   const minutes = Math.round(Number(seconds || 0) / 60);
@@ -38,6 +39,8 @@ export default function ProfilePage({ books = [] }) {
   const [library, setLibrary] = useState([]);
   const [memories, setMemories] = useState({ annotations: [], capsules: [] });
   const [notice, setNotice] = useState('');
+  const [photoSaving, setPhotoSaving] = useState(false);
+  const photoInputRef = useRef(null);
   const booksById = useMemo(() => new Map(books.map((book) => [book.id, book])), [books]);
   const enrichedLibrary = useMemo(() => library.map((item) => ({ ...item, book: booksById.get(item.bookId) })).filter((item) => item.book), [booksById, library]);
   const favoriteBooks = enrichedLibrary.filter((item) => item.status === 'favorite');
@@ -72,10 +75,49 @@ export default function ProfilePage({ books = [] }) {
     const response = await fetch('/api/reader-hub', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ visitorKey: getVisitorKey(), action: 'profile', ...profile }) });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) { setNotice(data.error || 'Не удалось сохранить профиль.'); return; }
-    setProfile(data.profile);
+    setProfile((current) => ({ ...current, ...data.profile }));
     setStoredAppTheme(data.profile.appTheme);
     setStoredAtmosphere(data.profile.atmosphere);
     setNotice('Профиль сохранён.');
+  };
+
+  const uploadPhoto = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setPhotoSaving(true);
+    setNotice('');
+    try {
+      const formData = new FormData();
+      formData.set('visitorKey', getVisitorKey());
+      formData.set('photo', file);
+      const response = await fetch('/api/reader-profile-photo', { method: 'POST', body: formData });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Не удалось загрузить фотографию.');
+      setProfile((current) => ({ ...current, ...data.photo }));
+      setNotice('Фотография профиля сохранена.');
+    } catch (error) {
+      setNotice(error.message);
+    } finally {
+      setPhotoSaving(false);
+    }
+  };
+
+  const removePhoto = async () => {
+    setPhotoSaving(true);
+    setNotice('');
+    try {
+      const query = new URLSearchParams({ visitorKey: getVisitorKey() });
+      const response = await fetch(`/api/reader-profile-photo?${query.toString()}`, { method: 'DELETE' });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Не удалось удалить фотографию.');
+      setProfile((current) => ({ ...current, photoUrl: '', photoName: '' }));
+      setNotice('Фотография профиля удалена.');
+    } catch (error) {
+      setNotice(error.message);
+    } finally {
+      setPhotoSaving(false);
+    }
   };
 
   return (
@@ -83,7 +125,16 @@ export default function ProfilePage({ books = [] }) {
       <SiteHeader active="profile" />
       <main>
         <section className={`profile-banner is-${profile.banner}`}>
-          <div className="profile-avatar"><UserRound size={38} /></div>
+          <div className="profile-avatar-wrap">
+            <div className={`profile-avatar ${profile.photoUrl ? 'has-photo' : ''}`}>
+              {profile.photoUrl ? <img src={profile.photoUrl} alt={`Фото профиля ${profile.displayName}`} /> : <UserRound size={38} />}
+            </div>
+            <div className="profile-avatar-actions">
+              <button type="button" onClick={() => photoInputRef.current?.click()} disabled={photoSaving}>{photoSaving ? <LoaderCircle className="spin" size={15} /> : <Camera size={15} />}<span>{profile.photoUrl ? 'Заменить' : 'Добавить фото'}</span></button>
+              {profile.photoUrl ? <button type="button" onClick={removePhoto} disabled={photoSaving} aria-label="Удалить фотографию профиля"><Trash2 size={14} /></button> : null}
+              <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadPhoto} hidden />
+            </div>
+          </div>
           <div><small>КАРТОЧКА ЧИТАТЕЛЯ</small><h1>{profile.displayName}</h1><p>Уровень {level.level} · {level.points} очков чтения</p></div>
           <span><Sparkles size={18} /> BOOKNERD READER</span>
         </section>
@@ -108,6 +159,8 @@ export default function ProfilePage({ books = [] }) {
               <button type="button" onClick={save}><Save size={17} /> Сохранить профиль</button>
             </div>
           </section>
+
+          <ProfileNotificationSettings />
 
           <section className="profile-achievements">
             <div className="profile-section-title"><Award size={25} /><div><small>ДОСТИЖЕНИЯ</small><h2>Ваши книжные награды</h2></div></div>

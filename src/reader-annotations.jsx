@@ -107,7 +107,7 @@ export function ReaderSticker({ stickerId, size = 42, title, className = '' }) {
   const x = sticker.column * (100 / Math.max(1, columns - 1));
   const y = sticker.row * (100 / Math.max(1, rows - 1));
   const sheetStyle = sticker.sheet === 'doodles'
-    ? { backgroundImage: "url('/reader-stickers-doodles.jpg')" }
+    ? { backgroundImage: "url('/reader-stickers-doodles-transparent.png')" }
     : {};
   return (
     <span
@@ -262,10 +262,12 @@ export function AnnotatedParagraph({ text, runs = [], as: Element = 'p', classNa
     const points = [...boundaries].sort((left, right) => left - right);
     return points.slice(0, -1).map((start, index) => {
       const end = points[index + 1];
+      const annotation = activeAnnotations.find((item) => item.start <= start && item.end >= end) || null;
       return {
         value: text.slice(start, end),
         formatting: activeRuns.find((item) => item.start <= start && item.end >= end) || null,
-        annotation: activeAnnotations.find((item) => item.start <= start && item.end >= end) || null,
+        annotation,
+        annotationEndsHere: Boolean(annotation && annotation.end === end),
         footnote: activeFootnotes.find((item) => item.start <= start && item.end >= end) || null,
         key: `${start}-${end}`,
       };
@@ -314,24 +316,34 @@ export function AnnotatedParagraph({ text, runs = [], as: Element = 'p', classNa
           </span>
         ) : formatted;
         return piece.annotation ? (
-          <mark
-            className={`reader-annotation-mark ${piece.annotation.note ? 'has-note' : ''} ${piece.annotation.sticker ? 'has-sticker' : ''}`}
-            style={{ '--annotation-color': piece.annotation.color || '#ffe066' }}
-            data-annotation-id={piece.annotation.id}
-            role="button"
-            tabIndex={0}
-            onClick={() => {
-              if (!window.getSelection()?.toString()) onOpenAnnotation?.(piece.annotation.id);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') onOpenAnnotation?.(piece.annotation.id);
-            }}
-            key={piece.key}
-          >
-            {content}
-            {piece.annotation.note ? <span className="reader-note-pin" aria-label="Есть заметка"><StickyNote size={12} /></span> : null}
-            {piece.annotation.sticker ? <ReaderSticker stickerId={piece.annotation.sticker} size={43} className="reader-inline-sticker" /> : null}
-          </mark>
+          <React.Fragment key={piece.key}>
+            <mark
+              className={`reader-annotation-mark ${piece.annotation.note ? 'has-note' : ''}`}
+              style={{ '--annotation-color': piece.annotation.color || '#ffe066' }}
+              data-annotation-id={piece.annotation.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => {
+                if (!window.getSelection()?.toString()) onOpenAnnotation?.(piece.annotation.id);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') onOpenAnnotation?.(piece.annotation.id);
+              }}
+            >
+              {content}
+              {piece.annotation.note && piece.annotationEndsHere ? <span className="reader-note-pin" aria-label="Есть заметка"><StickyNote size={12} /></span> : null}
+            </mark>
+            {piece.annotation.sticker && piece.annotationEndsHere ? (
+              <button
+                className="reader-inline-sticker-button"
+                type="button"
+                onClick={() => onOpenAnnotation?.(piece.annotation.id)}
+                aria-label={`Открыть стикер: ${stickerById(piece.annotation.sticker)?.name || 'эмоция'}`}
+              >
+                <ReaderSticker stickerId={piece.annotation.sticker} size={46} className="reader-inline-sticker" />
+              </button>
+            ) : null}
+          </React.Fragment>
         ) : <React.Fragment key={piece.key}>{content}</React.Fragment>;
       })}
     </Element>
@@ -375,7 +387,7 @@ export function SelectionAnnotationBar({ selection, onHighlight, onNote, onStick
       {view === 'reactions' ? (
         <div className="reader-selection-reactions">
           <button className="reader-selection-back" type="button" onClick={() => setView('actions')}>Назад</button>
-          {['😭', '😍', '😡', '😱', '🤍'].map((emoji) => <button type="button" onClick={() => onReaction?.(emoji)} aria-label={`Поставить реакцию ${emoji}`} key={emoji}>{emoji}</button>)}
+          {['😂', '😭', '😍', '😡', '😱', '🤍'].map((emoji) => <button type="button" onClick={() => onReaction?.(emoji)} aria-label={`Поставить реакцию ${emoji}`} key={emoji}>{emoji}</button>)}
         </div>
       ) : null}
 
