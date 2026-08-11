@@ -713,11 +713,16 @@
 /* Workflow, glossary, reader reports and safe preview */
 .admin-retention,.admin-glossary-section { margin-top: 24px; padding: 26px; border: 1px solid var(--admin-line); border-radius: 24px; background: #fff; }
 .admin-release-days { display: grid; gap: 10px; margin: 20px 0; }
-.admin-release-days > span,.admin-series-editor > header span { color: var(--admin-ink); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
-.admin-release-days > div { display: flex; flex-wrap: wrap; gap: 7px; }
+.admin-release-days-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.admin-release-days-heading > span,.admin-series-editor > header span { color: var(--admin-ink); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+.admin-release-days-heading > button { display: inline-flex; min-height: 38px; align-items: center; justify-content: center; gap: 7px; padding: 0 13px; border: 1px solid rgba(160,45,45,.35); border-radius: 2px; color: #9d2d2d; background: #fff; font-size: 10px; font-weight: 900; cursor: pointer; }
+.admin-release-days-heading > button:hover { color: #fff; background: #9d2d2d; }
+.admin-release-days-heading > button:disabled { cursor: wait; opacity: .65; }
+.admin-release-day-list { display: flex; flex-wrap: wrap; gap: 7px; }
 .admin-release-days label { position: relative; padding: 9px 12px; border: 1px solid var(--admin-line); border-radius: 999px; color: #6a736f; cursor: pointer; }
 .admin-release-days label.is-active { border-color: #1a4b40; color: #fff; background: #1a4b40; }
 .admin-release-days input { position: absolute; opacity: 0; }
+.admin-calendar-status { color: #597067; font-size: 10px; }
 .admin-series-editor { margin: 20px 0; padding: 18px; border-radius: 16px; background: #f5f6f2; }
 .admin-series-editor > header { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
 .admin-series-editor > header small { display: block; margin-top: 4px; color: #7b837f; }

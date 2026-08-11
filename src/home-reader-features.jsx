@@ -17,12 +17,6 @@ import {
 } from 'lucide-react';
 import { getVisitorKey } from './site-analytics.js';
 
-const RELEASES = [
-  { title: 'Божественная империя', days: ['Понедельник', 'Четверг'], short: ['ПН', 'ЧТ'] },
-  { title: '24690', days: ['Вторник', 'Суббота'], short: ['ВТ', 'СБ'] },
-  { title: 'Вся эта искажённая слава', days: ['Вторник', 'Пятница'], short: ['ВТ', 'ПТ'] },
-];
-
 function formatDuration(seconds) {
   const minutes = Math.max(0, Math.round(Number(seconds || 0) / 60));
   if (minutes < 60) return `${minutes} мин`;
@@ -55,16 +49,14 @@ export function ContinueReading({ items = [], books = [] }) {
 }
 
 export function ReleaseCalendar({ books = [], showHeading = true }) {
-  const normalizedBooks = useMemo(() => new Map(books.map((book) => [book.title.toLocaleLowerCase('ru-RU'), book])), [books]);
   const releases = useMemo(() => {
-    const configured = books.filter((book) => (book.releaseDays || []).length).map((book) => ({
+    return books.filter((book) => (book.releaseDays || []).length).map((book) => ({
       title: book.title,
       days: book.releaseDays,
       short: book.releaseDays.map((day) => day.slice(0, 2).toLocaleUpperCase('ru-RU')),
       book,
     }));
-    return configured.length ? configured : RELEASES.map((release) => ({ ...release, book: normalizedBooks.get(release.title.toLocaleLowerCase('ru-RU')) }));
-  }, [books, normalizedBooks]);
+  }, [books]);
   const dayNames = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
   const todayName = dayNames[new Date().getDay()];
   const tomorrowName = dayNames[(new Date().getDay() + 1) % 7];
@@ -79,18 +71,15 @@ export function ReleaseCalendar({ books = [], showHeading = true }) {
         <article><small>ЗАВТРА · {tomorrowName}</small><strong>{releases.filter((item) => item.days.includes(tomorrowName)).length || '—'}</strong><span>ожидаемых продолжений</span></article>
         <article><small>НЕДЕЛЯ РЕЛИЗОВ</small><strong>{releases.length}</strong><span>книг в расписании</span></article>
       </div>
-      <div className="release-calendar-grid">
-        {releases.map((release) => {
-          const book = release.book || normalizedBooks.get(release.title.toLocaleLowerCase('ru-RU'));
-          return (
+      {releases.length ? <div className="release-calendar-grid">
+        {releases.map((release) => (
             <article key={release.title}>
               <CalendarDays size={24} />
               <div><small>НОВЫЕ ГЛАВЫ</small><h3>{release.title}</h3><p>{release.days.join(' и ')}</p></div>
               <div className="release-day-badges">{release.short.map((day) => <span key={day}>{day}</span>)}</div>
             </article>
-          );
-        })}
-      </div>
+        ))}
+      </div> : <div className="release-calendar-empty"><CalendarDays size={28} /><strong>Расписание пока пусто</strong><p>Новые книги появятся здесь, когда редакция назначит дни выхода глав.</p></div>}
     </section>
   );
 }

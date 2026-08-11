@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   Bell,
   BookOpen,
+  CalendarX,
   Check,
   ChevronRight,
   Eye,
@@ -254,6 +255,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [calendarDisconnecting, setCalendarDisconnecting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [artworkUploading, setArtworkUploading] = useState(false);
   const [notice, setNotice] = useState(null);
@@ -453,6 +455,23 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
       flash(error.message, 'error');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const disconnectBookFromCalendar = async () => {
+    if (!bookForm.id || !(bookForm.releaseDays || []).length) return;
+    if (!window.confirm(`Убрать «${bookForm.title}» из календаря глав? Книга, главы и история чтения останутся на месте.`)) return;
+    setCalendarDisconnecting(true);
+    try {
+      await api(`/api/admin/books/${bookForm.id}/calendar`, { method: 'DELETE' });
+      setBookForm((current) => ({ ...current, releaseDays: [] }));
+      setBooks((current) => current.map((book) => book.id === bookForm.id ? { ...book, releaseDays: [] } : book));
+      flash('Книга отключена от календаря. Книга, главы и история сохранены.');
+      await loadBooks();
+    } catch (error) {
+      flash(error.message, 'error');
+    } finally {
+      setCalendarDisconnecting(false);
     }
   };
 
@@ -958,8 +977,16 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                     <label className="admin-drive-field"><span>Файл книги в Google Drive</span><input type="url" value={bookForm.driveUrl || ''} onChange={(event) => setBookForm({ ...bookForm, driveUrl: event.target.value })} placeholder="https://drive.google.com/…" /></label>
                   </div>
                   <div className="admin-release-days">
-                    <span>Дни выхода новых глав</span>
-                    <div>{RELEASE_DAYS.map((day) => (
+                    <div className="admin-release-days-heading">
+                      <span>Дни выхода новых глав</span>
+                      {bookForm.id && bookForm.status === 'Завершено' && (bookForm.releaseDays || []).length ? (
+                        <button type="button" onClick={disconnectBookFromCalendar} disabled={calendarDisconnecting}>
+                          {calendarDisconnecting ? <LoaderCircle className="spin" size={16} /> : <CalendarX size={16} />}
+                          {calendarDisconnecting ? 'Отключаем…' : 'Отключить от календаря'}
+                        </button>
+                      ) : null}
+                    </div>
+                    <div className="admin-release-day-list">{RELEASE_DAYS.map((day) => (
                       <label className={(bookForm.releaseDays || []).includes(day) ? 'is-active' : ''} key={day}>
                         <input
                           type="checkbox"
@@ -974,6 +1001,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                         <span>{day}</span>
                       </label>
                     ))}</div>
+                    {bookForm.id && bookForm.status === 'Завершено' && !(bookForm.releaseDays || []).length ? <small className="admin-calendar-status">Книга не подключена к календарю.</small> : null}
                   </div>
                   <AdminSeriesOrder value={bookForm.seriesReadingOrder || []} onChange={(seriesReadingOrder) => setBookForm({ ...bookForm, seriesReadingOrder })} />
                   <label className="admin-full-field"><span>Аннотация</span><textarea value={bookForm.synopsis} onChange={(event) => setBookForm({ ...bookForm, synopsis: event.target.value })} placeholder="Расскажите читателю, о чём эта история…" rows={7} /><small>{bookForm.synopsis.length} / 12 000</small></label>

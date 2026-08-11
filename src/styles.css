@@ -947,6 +947,10 @@ footer > span { grid-column: 1 / -1; padding-top: 18px; border-top: 1px solid va
 .release-calendar-grid small { color: #a36742; font: 800 9px/1.2 Onest,sans-serif; letter-spacing: .13em; }
 .release-calendar-grid h3 { margin: 7px 0 5px; color: #183f36; font: 700 24px/1.06 Georgia,serif; }
 .release-calendar-grid p { margin: 0; color: #68726d; font-size: 13px; }
+.release-calendar-empty { display: grid; place-items: center; gap: 8px; min-height: 210px; padding: 34px; border: 1px dashed rgba(24,63,54,.24); border-radius: 24px; color: #183f36; background: rgba(255,253,250,.72); text-align: center; }
+.release-calendar-empty > svg { color: #b66d3f; }
+.release-calendar-empty > strong { font: 700 24px/1.1 Georgia,serif; }
+.release-calendar-empty > p { max-width: 420px; margin: 0; color: #68726d; font-size: 13px; }
 .release-day-badges { grid-column: 1 / -1; display: flex; gap: 7px; }
 .release-day-badges span { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; color: #173f36; background: #e4efe8; font: 800 11px/1 Onest,sans-serif; }
 .release-reminder { grid-column: 1 / -1; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; border: 1px solid #1a4b40; border-radius: 12px; color: #1a4b40; background: transparent; font-weight: 750; cursor: pointer; }
