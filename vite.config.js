@@ -12,7 +12,7 @@ const localCloudflareWorkers = {
   },
   load(id) {
     if (id !== '\0booknerd-cloudflare-workers') return null;
-    return 'export const env = { DB: null, BUCKET: null, BOOKNERD_OWNER_EMAIL: "" };';
+    return 'export const env = { DB: null, BOOKNERD_OWNER_EMAIL: "" };';
   },
 };
 

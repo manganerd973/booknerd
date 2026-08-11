@@ -59,8 +59,6 @@ export async function GET(request) {
     return Response.json({
       profile: profile ? {
         displayName: profile.display_name,
-        photoUrl: profile.photo_key ? `/api/reader-profile-photo?visitorKey=${encodeURIComponent(visitorKey)}&v=${encodeURIComponent(profile.updated_at || '')}` : '',
-        photoName: profile.photo_name || '',
         banner: profile.banner,
         favoriteCharacters: parseList(profile.favorite_characters),
         favoriteQuotes: parseList(profile.favorite_quotes),

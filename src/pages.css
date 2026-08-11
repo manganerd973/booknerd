@@ -173,12 +173,6 @@
 .profile-banner.is-archive { background: linear-gradient(135deg,#3c291d,#76543b); }
 .profile-banner.is-garden { background: linear-gradient(135deg,#17463a,#8b767c); }
 .profile-avatar { display: grid; width: 104px; height: 104px; place-items: center; border: 1px solid rgba(255,255,255,.4); border-radius: 50%; background: rgba(255,255,255,.1); }
-.profile-avatar-wrap { display: grid; justify-items: center; gap: 9px; }
-.profile-avatar.has-photo { overflow: hidden; background: rgba(255,255,255,.12); }
-.profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.profile-avatar-actions { display: flex; align-items: center; justify-content: center; gap: 6px; }
-.profile-avatar-actions button { display: inline-flex; min-height: 31px; align-items: center; justify-content: center; gap: 6px; padding: 0 9px; border: 1px solid rgba(255,255,255,.32); border-radius: 999px; color: #fffdf4; background: rgba(0,0,0,.14); font: inherit; font-size: 8px; font-weight: 850; cursor: pointer; }
-.profile-avatar-actions button:disabled { opacity: .6; cursor: wait; }
 .profile-banner small { color: var(--yellow); font-size: 9px; font-weight: 900; letter-spacing: .16em; }
 .profile-banner h1 { margin: 9px 0 4px; font-family: var(--serif); font-size: clamp(44px,6vw,78px); font-weight: 500; letter-spacing: -.055em; }
 .profile-banner p { margin: 0; color: rgba(255,255,255,.7); }
@@ -317,7 +311,6 @@
 
 @media (max-width: 540px) {
   .profile-avatar { width: 70px; height: 70px; }
-  .profile-avatar-actions button span { display: none; }
   .profile-content { padding-bottom: max(170px, calc(120px + env(safe-area-inset-bottom))); }
   .profile-stat-grid,.profile-fields,.profile-achievements > div:last-child,.profile-reading-history > div:last-child,.profile-memory-box > div:nth-of-type(2) { grid-template-columns: 1fr; }
   .profile-fields .profile-wide { grid-column: auto; }

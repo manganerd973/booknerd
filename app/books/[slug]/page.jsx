@@ -64,7 +64,6 @@ export default async function BookPage({ params }) {
           <div className="book-detail-actions">
             {chapters[0] ? <a className="editorial-primary" href={`/books/${book.slug}/chapters/${chapters[0].id}`}>Начать читать <ArrowRight size={18} /></a> : <span className="book-coming-soon"><Clock3 size={18} /> Первая глава готовится</span>}
             {book.driveUrl ? <a className="editorial-drive-link" href={book.driveUrl} target="_blank" rel="noreferrer">Файл книги в Google Drive <ExternalLink size={16} /></a> : null}
-            {book.playlistUrl ? <a className="editorial-drive-link" href={book.playlistUrl} target="_blank" rel="noreferrer">Музыкальный плейлист книги <ExternalLink size={16} /></a> : null}
           </div>
           <OfflineBookButton book={book} chapters={chapters} />
           <BookLibraryControl bookId={book.id} />

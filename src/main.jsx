@@ -219,6 +219,9 @@ function PopularComments({ comments }) {
 }
 
 function QuoteOfDay({ quote }) {
+  const sourceHref = quote?.chapterId
+    ? `/books/${quote.bookSlug}/chapters/${quote.chapterId}?page=${Number(quote.page || 0) + 1}`
+    : quote?.bookSlug ? `/books/${quote.bookSlug}` : '/translations';
   return (
     <section className="quote-of-day section" aria-labelledby="quote-of-day-title">
       <div className="quote-of-day-card">
@@ -229,7 +232,7 @@ function QuoteOfDay({ quote }) {
             {quote.note ? <p>{quote.note}</p> : null}
             <div className="quote-of-day-source">
               <div><strong>{quote.authorName}</strong><span>читатель BOOKNERD</span></div>
-              <a href={quote.chapterId ? `/books/${quote.bookSlug}/chapters/${quote.chapterId}?page=${Number(quote.page || 0) + 1}` : `/books/${quote.bookSlug}`}>
+              <a href={sourceHref}>
                 <span>{quote.bookTitle}</span>{quote.chapterTitle ? <small>{quote.chapterTitle}</small> : null}<ArrowRight size={18} />
               </a>
             </div>

@@ -20,9 +20,7 @@ import {
   MessageCircle,
   Minus,
   Moon,
-  Pause,
   Palette,
-  Play,
   Plus,
   RotateCcw,
   Search,
@@ -35,10 +33,6 @@ import {
   Type,
   BookMarked,
   Film,
-  Map as MapIcon,
-  Music2,
-  Volume2,
-  VolumeX,
   X,
 } from 'lucide-react';
 import CommentsSection from './comments-section.jsx';
@@ -260,9 +254,6 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
   const [textSelection, setTextSelection] = useState(null);
   const [readerHub, setReaderHub] = useState({ dictionary: [], reactions: [], emotionTotals: [], myEmotions: [] });
   const [dictionaryDraft, setDictionaryDraft] = useState(null);
-  const [ambientSound, setAmbientSound] = useState('');
-  const [chapterMusicPlaying, setChapterMusicPlaying] = useState(false);
-  const [chapterMusicVolume, setChapterMusicVolume] = useState(.65);
 
   useEffect(() => {
     const ping = () => {
@@ -305,8 +296,6 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
   const initialPositionApplied = useRef(false);
   const touchStart = useRef(null);
   const readerTap = useRef({ tracking: false, x: 0, y: 0, last: 0 });
-  const ambientAudioRef = useRef(null);
-  const chapterAudioRef = useRef(null);
 
   const annotationStorageKey = `${ANNOTATIONS_KEY_PREFIX}:${book.id}`;
   const chapterAnnotations = useMemo(
@@ -408,33 +397,6 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
   }, [book.id, chapter.id]);
 
   useEffect(() => { refreshReaderHub(); }, [refreshReaderHub]);
-
-  useEffect(() => () => {
-    if (ambientAudioRef.current) {
-      ambientAudioRef.current.close?.().catch?.(() => {});
-      ambientAudioRef.current = null;
-    }
-    chapterAudioRef.current?.pause?.();
-  }, []);
-
-  useEffect(() => {
-    try {
-      const saved = Number(localStorage.getItem('booknerd-chapter-music-volume-v1'));
-      if (Number.isFinite(saved)) setChapterMusicVolume(clamp(saved, 0, 1));
-    } catch { /* device storage is optional */ }
-  }, []);
-
-  useEffect(() => {
-    if (chapterAudioRef.current) chapterAudioRef.current.volume = chapterMusicVolume;
-    try { localStorage.setItem('booknerd-chapter-music-volume-v1', String(chapterMusicVolume)); } catch { /* device storage is optional */ }
-  }, [chapterMusicVolume]);
-
-  useEffect(() => {
-    const audio = chapterAudioRef.current;
-    audio?.pause?.();
-    if (audio) audio.currentTime = 0;
-    setChapterMusicPlaying(false);
-  }, [chapter.id]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -1010,71 +972,6 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
     }
   }, [book.id, chapter.id, refreshReaderHub]);
 
-  const stopAmbientSound = useCallback(() => {
-    const context = ambientAudioRef.current;
-    ambientAudioRef.current = null;
-    setAmbientSound('');
-    context?.close?.().catch?.(() => {});
-  }, []);
-
-  const stopChapterMusic = useCallback(() => {
-    chapterAudioRef.current?.pause?.();
-    setChapterMusicPlaying(false);
-  }, []);
-
-  const toggleChapterMusic = useCallback(async () => {
-    const audio = chapterAudioRef.current;
-    if (!audio || !chapter.musicUrl) return;
-    if (!audio.paused) {
-      stopChapterMusic();
-      return;
-    }
-    stopAmbientSound();
-    try {
-      audio.volume = chapterMusicVolume;
-      await audio.play();
-      setChapterMusicPlaying(true);
-    } catch {
-      setChapterMusicPlaying(false);
-      setToast('Не удалось включить музыку. Проверьте подключение и попробуйте ещё раз.');
-    }
-  }, [chapter.musicUrl, chapterMusicVolume, stopAmbientSound, stopChapterMusic]);
-
-  const toggleAmbientSound = useCallback((kind) => {
-    if (ambientSound === kind) {
-      stopAmbientSound();
-      return;
-    }
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) {
-      setToast('Этот браузер не поддерживает фоновые звуки.');
-      return;
-    }
-    stopChapterMusic();
-    const previous = ambientAudioRef.current;
-    previous?.close?.().catch?.(() => {});
-    const context = new AudioContext();
-    const duration = 3;
-    const buffer = context.createBuffer(1, context.sampleRate * duration, context.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let index = 0; index < data.length; index += 1) {
-      const noise = Math.random() * 2 - 1;
-      data[index] = kind === 'fire' ? noise * (Math.random() > .985 ? .9 : .12) : noise;
-    }
-    const source = context.createBufferSource();
-    const filter = context.createBiquadFilter();
-    const gain = context.createGain();
-    source.buffer = buffer;
-    source.loop = true;
-    filter.type = kind === 'rain' ? 'highpass' : 'lowpass';
-    filter.frequency.value = kind === 'rain' ? 1200 : kind === 'forest' ? 900 : 520;
-    gain.gain.value = kind === 'rain' ? .035 : kind === 'forest' ? .018 : .045;
-    source.connect(filter).connect(gain).connect(context.destination);
-    source.start();
-    ambientAudioRef.current = context;
-    setAmbientSound(kind);
-  }, [ambientSound, stopAmbientSound, stopChapterMusic]);
-
   useEffect(() => {
     const node = viewportRef.current;
     if (!node || !measurementReady) return undefined;
@@ -1311,23 +1208,12 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
           <button type="button" className="reader-reading-mode-quick" onClick={() => setPanel('reading-mode')} aria-label="Выбрать способ чтения">
             <ReadingModeIcon mode={settings.motion} size={18} /><span>Режим</span>
           </button>
-          {book.worldMapUrl ? (
-            <button type="button" className="reader-world-map-quick" onClick={() => setPanel('world-map')} aria-label="Открыть карту мира книги">
-              <MapIcon size={17} /><span>Карта</span>
-            </button>
-          ) : null}
           <button type="button" className="reader-dictionary-quick" onClick={() => setPanel('dictionary')} aria-label="Открыть личный словарь">
             <BookMarked size={17} /><span>Словарь</span>
           </button>
-          {chapter.musicUrl ? (
-            <button type="button" className={`reader-chapter-music-quick ${chapterMusicPlaying ? 'is-playing' : ''}`} onClick={toggleChapterMusic} aria-label={chapterMusicPlaying ? 'Поставить музыку главы на паузу' : 'Включить музыку главы'} title={chapter.musicTitle || chapter.musicFileName || 'Музыка главы'}>
-              {chapterMusicPlaying ? <Pause size={17} /> : <Play size={17} />}<span>Музыка</span>
-            </button>
-          ) : null}
           <a href={`/books/${book.slug}`}><BookOpen size={17} /> О книге</a>
           <button type="button" className="reader-menu-button" onClick={() => setPanel('menu')} aria-label="Меню читалки"><Menu size={21} /></button>
         </nav>
-        {chapter.musicUrl ? <audio ref={chapterAudioRef} src={chapter.musicUrl} preload="metadata" onPlay={() => setChapterMusicPlaying(true)} onPause={() => setChapterMusicPlaying(false)} onEnded={() => setChapterMusicPlaying(false)} /> : null}
 
         <div className="reader-stage">
           <div className="reader-pages-left" aria-live="polite">
@@ -1440,11 +1326,9 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
             <button type="button" onClick={() => setPanel('contents')}><List size={22} /><span><strong>Содержание</strong><small>Все главы книги</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('search')}><Search size={22} /><span><strong>Поиск по книге</strong><small>Найти слово во всех главах</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('annotations')}><Highlighter size={22} /><span><strong>Мои пометки</strong><small>{annotations.length ? `${annotations.length} сохранено` : 'Выделения, заметки и стикеры'}</small></span><ChevronRight size={18} /></button>
-            {book.worldMapUrl ? <button type="button" onClick={() => setPanel('world-map')}><MapIcon size={22} /><span><strong>Карта мира</strong><small>Открыть поверх чтения и закрыть одним нажатием</small></span><ChevronRight size={18} /></button> : null}
-            <button type="button" onClick={() => setPanel('chapter-map')}><MapIcon size={22} /><span><strong>Мини‑карта главы</strong><small>Все пометки и эмоции по ходу текста</small></span><ChevronRight size={18} /></button>
+            <button type="button" onClick={() => setPanel('chapter-map')}><Highlighter size={22} /><span><strong>Метки главы</strong><small>Все пометки и эмоции по ходу текста</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('dictionary')}><BookMarked size={22} /><span><strong>Личный словарь</strong><small>{readerHub.dictionary.length ? `${readerHub.dictionary.length} слов` : 'Незнакомые слова и пояснения'}</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('bookmarks')}><Bookmark size={22} /><span><strong>Мои закладки</strong><small>{bookmarks.length ? `${bookmarks.length} сохранено` : 'Любимое, важное и смешное'}</small></span><ChevronRight size={18} /></button>
-            <button type="button" onClick={() => setPanel('atmosphere')}><Music2 size={22} /><span><strong>Атмосфера чтения</strong><small>Музыка, дождь, лес или камин</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => { setPanel(null); setChromeHidden(true); }}><Film size={22} /><span><strong>Режим кино</strong><small>Оставить на экране только текст</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('reading-mode')}><ReadingModeIcon mode={settings.motion} size={22} /><span><strong>Способ чтения</strong><small>{READING_MODE_OPTIONS.find((mode) => mode.id === settings.motion)?.name}</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('settings')}><SlidersHorizontal size={22} /><span><strong>Темы и настройки</strong><small>Шрифт, размер, фон и яркость</small></span><ChevronRight size={18} /></button>
@@ -1493,17 +1377,8 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
         </ReaderSheet>
       ) : null}
 
-      {panel === 'world-map' && book.worldMapUrl ? (
-        <ReaderSheet title="Карта мира" eyebrow={book.title} onClose={() => setPanel(null)} wide>
-          <div className="reader-world-map-viewer">
-            <img src={book.worldMapUrl} alt={`Карта мира книги «${book.title}»`} />
-            <div><MapIcon size={18} /><span><strong>{book.worldMapName || 'Карта мира книги'}</strong><small>На телефоне карту можно приблизить жестом. Закройте окно, чтобы сразу вернуться к тексту.</small></span></div>
-          </div>
-        </ReaderSheet>
-      ) : null}
-
       {panel === 'chapter-map' ? (
-        <ReaderSheet title="Мини‑карта главы" eyebrow={readerChapterTitle(chapter)} onClose={() => setPanel('menu')} wide>
+        <ReaderSheet title="Метки главы" eyebrow={readerChapterTitle(chapter)} onClose={() => setPanel('menu')} wide>
           <div className="reader-mini-map">
             <div className="reader-mini-map-track" aria-hidden="true">
               {[...chapterAnnotations, ...readerHub.reactions.map((reaction) => ({
@@ -1555,29 +1430,6 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
             <label><span>Слово или выражение</span><input value={dictionaryDraft.word} onChange={(event) => setDictionaryDraft((current) => ({ ...current, word: event.target.value }))} /></label>
             <label><span>Значение</span><textarea rows="5" value={dictionaryDraft.meaning} onChange={(event) => setDictionaryDraft((current) => ({ ...current, meaning: event.target.value }))} placeholder="Запишите перевод или объяснение своими словами…" /></label>
             <button className="reader-sheet-primary" type="button" disabled={extraSaving} onClick={saveDictionaryEntry}>{extraSaving ? 'Сохраняем…' : 'Сохранить в словарь'}</button>
-          </div>
-        </ReaderSheet>
-      ) : null}
-
-      {panel === 'atmosphere' ? (
-        <ReaderSheet title="Атмосфера чтения" eyebrow="Звук можно выключить в любой момент" onClose={() => setPanel('menu')}>
-          <div className="reader-atmosphere-panel">
-            {chapter.musicUrl ? (
-              <section className="reader-chapter-music-card">
-                <button type="button" className={chapterMusicPlaying ? 'is-playing' : ''} onClick={toggleChapterMusic} aria-label={chapterMusicPlaying ? 'Поставить на паузу' : 'Включить музыку главы'}>
-                  {chapterMusicPlaying ? <Pause size={21} /> : <Play size={21} />}
-                </button>
-                <div><span>МУЗЫКА ГЛАВЫ</span><strong>{chapter.musicTitle || chapter.musicFileName || 'Без названия'}</strong><small>{chapter.musicArtist || book.title}</small></div>
-                <label><Volume2 size={17} /><input type="range" min="0" max="1" step="0.05" value={chapterMusicVolume} onChange={(event) => setChapterMusicVolume(Number(event.target.value))} aria-label="Громкость музыки главы" /></label>
-              </section>
-            ) : null}
-            {book.playlistUrl ? <a href={book.playlistUrl} target="_blank" rel="noreferrer"><Music2 size={22} /><span><strong>Плейлист книги</strong><small>Открыть музыкальную подборку команды</small></span><ExternalLink size={17} /></a> : null}
-            {[['rain', 'Дождь', 'Мягкий шум за окном'], ['forest', 'Лес', 'Тихая природная атмосфера'], ['fire', 'Камин', 'Тёплое потрескивание']].map(([id, title, description]) => (
-              <button type="button" className={ambientSound === id ? 'is-active' : ''} onClick={() => toggleAmbientSound(id)} key={id}>
-                {ambientSound === id ? <VolumeX size={22} /> : <Volume2 size={22} />}
-                <span><strong>{title}</strong><small>{ambientSound === id ? 'Нажмите, чтобы выключить' : description}</small></span>
-              </button>
-            ))}
           </div>
         </ReaderSheet>
       ) : null}

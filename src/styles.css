@@ -407,9 +407,11 @@ a { color: inherit; text-decoration: none; }
 .notification-control > div { display: grid; gap: 4px; }
 .notification-control strong { font-family: var(--serif); font-size: 18px; }
 .notification-control p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
-.notification-control > button { display: inline-flex; min-height: 40px; align-items: center; gap: 7px; padding: 0 14px; border: 1px solid var(--navy); color: var(--cream); background: var(--navy); font-size: 9px; font-weight: 900; cursor: pointer; }
-.notification-control > button:hover { color: var(--navy); background: var(--yellow); }
-.notification-control > button:disabled { cursor: wait; opacity: .65; }
+.notification-control-actions { display: flex !important; grid-auto-flow: column; gap: 7px !important; }
+.notification-control-actions > button { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; gap: 7px; padding: 0 14px; border: 1px solid var(--navy); color: var(--cream); background: var(--navy); font-size: 9px; font-weight: 900; cursor: pointer; }
+.notification-control-actions > button:hover { color: var(--navy); background: var(--yellow); }
+.notification-control-actions > button.is-secondary { color: var(--navy); background: transparent; }
+.notification-control-actions > button:disabled { cursor: wait; opacity: .65; }
 .notification-control > small { grid-column: 2 / -1; color: var(--muted); font-size: 9px; line-height: 1.4; }
 .notification-control.is-unavailable { grid-template-columns: auto 1fr; border-color: var(--line); }
 .library-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 28px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
@@ -801,7 +803,8 @@ footer > span { grid-column: 1 / -1; padding-top: 18px; border-top: 1px solid va
   .section-heading h2, .join h2 { font-size: 43px; }
   .my-library { padding-top: 76px; padding-bottom: 76px; }
   .notification-control { grid-template-columns: auto minmax(0,1fr); padding: 15px; }
-  .notification-control > button { grid-column: 1 / -1; justify-self: stretch; justify-content: center; }
+  .notification-control-actions { width: 100%; grid-column: 1 / -1; grid-auto-flow: row; }
+  .notification-control-actions > button { flex: 1; }
   .notification-control > small { grid-column: 1 / -1; }
   .library-empty { grid-template-columns: 1fr; }
   .library-empty a { grid-column: auto; }

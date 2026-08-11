@@ -1,15 +1,15 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Check, Clock3, GitFork, MapPinned, Save, Sparkles, WandSparkles } from 'lucide-react';
+import { Check, Clock3, GitFork, Save, Sparkles, WandSparkles } from 'lucide-react';
 import { getVisitorKey } from './site-analytics.js';
 import { loadReaderLibrary } from './reader-library.jsx';
 
-const TABS = [['map', 'Карта мира'], ['tree', 'Древо персонажей'], ['timeline', 'Таймлайн'], ['quiz', 'Какой вы персонаж?']];
+const TABS = [['tree', 'Древо персонажей'], ['timeline', 'Таймлайн'], ['quiz', 'Какой вы персонаж?']];
 
 export default function BookUniverse({ book }) {
   const [entries, setEntries] = useState([]);
-  const [active, setActive] = useState('map');
+  const [active, setActive] = useState('tree');
   const [answers, setAnswers] = useState([]);
   const [capsule, setCapsule] = useState({ firstImpression: '', finalImpression: '' });
   const [emotionTotals, setEmotionTotals] = useState([]);
@@ -32,7 +32,6 @@ export default function BookUniverse({ book }) {
   }, [book.id]);
 
   const characters = entries.filter((entry) => entry.category === 'character');
-  const places = entries.filter((entry) => entry.category === 'place');
   const timeline = entries.filter((entry) => entry.category === 'timeline');
   const quizResult = answers.length >= 3 && characters.length ? characters[answers.reduce((sum, value) => sum + value, 0) % characters.length] : null;
   const saveCapsule = async () => {
@@ -47,7 +46,6 @@ export default function BookUniverse({ book }) {
       <section className="book-universe">
         <div className="book-universe-heading"><Sparkles size={29} /><div><span className="editorial-section-number">МИР КНИГИ</span><h2>Открывается вместе с чтением</h2><p>Только уже знакомые вам места, связи и события — без будущих спойлеров.</p></div></div>
         <div className="book-universe-tabs">{TABS.map(([value, label]) => <button className={active === value ? 'is-active' : ''} type="button" onClick={() => setActive(value)} key={value}>{label}</button>)}</div>
-        {active === 'map' ? <div className="book-world-map">{places.length ? places.map((entry, index) => <article style={{ '--map-x': `${16 + (index * 29) % 70}%`, '--map-y': `${18 + (index * 37) % 62}%` }} key={entry.id}><MapPinned size={19} /><span><strong>{entry.name}</strong><small>{entry.description}</small></span></article>) : <p>Локации появятся после добавления мест в словарь книги.</p>}</div> : null}
         {active === 'tree' ? <div className="book-character-tree">{characters.length ? characters.map((entry) => <article key={entry.id}><GitFork size={18} /><div><strong>{entry.name}</strong><p>{entry.description}</p>{entry.connections ? <small>Связи: {entry.connections}</small> : null}</div></article>) : <p>Связи персонажей появятся по мере чтения.</p>}</div> : null}
         {active === 'timeline' ? <div className="book-timeline">{timeline.length ? timeline.map((entry, index) => <article key={entry.id}><span>{String(index + 1).padStart(2, '0')}</span><div><strong>{entry.name}</strong><p>{entry.description}</p></div></article>) : <p><Clock3 size={20} /> Хронология заполнится, когда команда добавит события в словарь.</p>}</div> : null}
         {active === 'quiz' ? <div className="book-character-quiz">
