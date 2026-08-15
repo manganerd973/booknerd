@@ -7,6 +7,8 @@ import {
   Bookmark,
   BookOpen,
   Check,
+  ChevronLeft,
+  ChevronRight,
   EyeOff,
   Heart,
   Menu,
@@ -230,7 +232,28 @@ function QuoteOfDay({ quote }) {
 }
 
 function HomepageFanarts({ artworks = [] }) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+
+  useEffect(() => {
+    if (artworks.length < 2) return;
+    setActiveIndex(Math.floor(Math.random() * artworks.length));
+  }, [artworks.length]);
+
+  useEffect(() => {
+    if (artworks.length < 2 || isPaused || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
+    const interval = window.setInterval(() => {
+      setActiveIndex((current) => (current + 1) % artworks.length);
+    }, 6500);
+    return () => window.clearInterval(interval);
+  }, [artworks.length, isPaused]);
+
   if (!artworks.length) return null;
+  const visibleIndex = activeIndex % artworks.length;
+  const secondaryArtworks = artworks.filter((_, index) => index !== visibleIndex).slice(0, 7);
+  const showPrevious = () => setActiveIndex((current) => (current - 1 + artworks.length) % artworks.length);
+  const showNext = () => setActiveIndex((current) => (current + 1) % artworks.length);
+
   return (
     <section className="homepage-fanarts section" aria-labelledby="homepage-fanarts-title">
       <div className="section-heading homepage-fanarts-heading">
@@ -240,9 +263,41 @@ function HomepageFanarts({ artworks = [] }) {
         </div>
         <p>Фанарты к нашим переводам — один взгляд на героев, атмосферу и мир перед первой главой.</p>
       </div>
-      <div className="homepage-fanart-grid">
-        {artworks.map((artwork, index) => (
-          <article className={index === 0 ? 'is-featured' : ''} key={artwork.id}>
+      <div
+        className="homepage-fanart-grid"
+        onMouseEnter={() => setIsPaused(true)}
+        onMouseLeave={() => setIsPaused(false)}
+        onFocusCapture={() => setIsPaused(true)}
+        onBlurCapture={() => setIsPaused(false)}
+      >
+        <article className="is-featured homepage-fanart-rotator">
+          {artworks.map((artwork, index) => (
+            <a
+              className={index === visibleIndex ? 'is-active' : ''}
+              href={`/books/${artwork.bookSlug}`}
+              aria-label={`Открыть книгу «${artwork.bookTitle}» по фанарту`}
+              aria-hidden={index !== visibleIndex}
+              tabIndex={index === visibleIndex ? 0 : -1}
+              key={artwork.id}
+            >
+              <img src={artwork.imageUrl} alt={artwork.caption || `Фанарт к книге «${artwork.bookTitle}»`} loading={index === 0 ? 'eager' : 'lazy'} />
+              <span>
+                <small>{artwork.bookTitle}</small>
+                <strong>{artwork.caption || 'Заглянуть в эту историю'}</strong>
+                <em>Открыть книгу <ArrowRight size={16} /></em>
+              </span>
+            </a>
+          ))}
+          {artworks.length > 1 ? (
+            <div className="homepage-fanart-switcher" aria-label="Переключение фанартов">
+              <button type="button" onClick={showPrevious} aria-label="Предыдущий фанарт"><ChevronLeft size={18} /></button>
+              <span>{visibleIndex + 1} / {artworks.length}</span>
+              <button type="button" onClick={showNext} aria-label="Следующий фанарт"><ChevronRight size={18} /></button>
+            </div>
+          ) : null}
+        </article>
+        {secondaryArtworks.map((artwork) => (
+          <article key={artwork.id}>
             <a href={`/books/${artwork.bookSlug}`} aria-label={`Открыть книгу «${artwork.bookTitle}» по фанарту`}>
               <img src={artwork.imageUrl} alt={artwork.caption || `Фанарт к книге «${artwork.bookTitle}»`} loading="lazy" />
               <span>

@@ -14,11 +14,11 @@ export default async function HomePage() {
   let quoteOfDay = null;
   let featuredArtworks = [];
   try {
-    [books, popularComments, quoteOfDay, featuredArtworks] = await Promise.all([listPublicBooks(), listPopularComments(6), getQuoteOfDay(), listFeaturedArtworks(8)]);
+    [books, popularComments, quoteOfDay, featuredArtworks] = await Promise.all([listPublicBooks(), listPopularComments(6), getQuoteOfDay(), listFeaturedArtworks(12)]);
   } catch {
     try { books = await listPublicBooks(); } catch { books = []; }
     try { quoteOfDay = await getQuoteOfDay(); } catch { quoteOfDay = null; }
-    try { featuredArtworks = await listFeaturedArtworks(8); } catch { featuredArtworks = []; }
+    try { featuredArtworks = await listFeaturedArtworks(12); } catch { featuredArtworks = []; }
   }
   return <BooknerdSite initialBooks={books} initialPopularComments={popularComments} initialQuoteOfDay={quoteOfDay} initialFeaturedArtworks={featuredArtworks} />;
 }

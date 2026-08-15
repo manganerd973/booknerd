@@ -1,5 +1,5 @@
-const SHELL_CACHE = 'booknerd-shell-v15';
-const OFFLINE_CACHE = 'booknerd-offline-books-v15';
+const SHELL_CACHE = 'booknerd-shell-v16';
+const OFFLINE_CACHE = 'booknerd-offline-books-v16';
 const SHELL_URLS = ['/', '/translations', '/library', '/notifications', '/calendar', '/manifest.webmanifest', '/booknerd-icon-v2-192.png'];
 
 self.addEventListener('install', (event) => {
