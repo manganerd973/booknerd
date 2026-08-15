@@ -23,26 +23,7 @@ import { LIBRARY_STATUS, loadReaderLibrary, removeReaderLibraryBook, updateReade
 import { ContinueReading, TranslationVoting } from './home-reader-features.jsx';
 import DiscoveryDashboard from './discovery-dashboard.jsx';
 import { MobileBottomNavigation } from './page-chrome.jsx';
-
-const FEATURED_GENRES = [
-  'ROMANCE',
-  'FANTASY',
-  'YOUNG ADULT',
-  'ROMANTASY',
-  'DARK ROMANCE',
-  'NEW ADULT',
-  'CONTEMPORARY',
-  'MYSTERY',
-  'THRILLER',
-  'SCIENCE FICTION',
-  'PARANORMAL',
-  'HISTORICAL',
-  'DYSTOPIA',
-  'HORROR',
-  'ADVENTURE',
-  'DRAMA',
-  'COMEDY',
-];
+import { FEATURED_GENRES, genreKey, uniqueGenres } from '../lib/genres.js';
 
 function Logo() {
   return (
@@ -190,7 +171,7 @@ function PopularComments({ comments }) {
     <section className="popular-comments section" aria-labelledby="popular-comments-title">
       <div className="section-heading">
         <div>
-          <span className="section-number">03 / ГОЛОС ЧИТАТЕЛЕЙ</span>
+          <span className="section-number">04 / ГОЛОС ЧИТАТЕЛЕЙ</span>
           <h2 id="popular-comments-title">Комментарии,<br /><em>которые любят.</em></h2>
         </div>
         <p>Самые высоко оценённые мысли о книгах и главах. Голосуйте за отзывы, которые откликаются.</p>
@@ -248,6 +229,36 @@ function QuoteOfDay({ quote }) {
   );
 }
 
+function HomepageFanarts({ artworks = [] }) {
+  if (!artworks.length) return null;
+  return (
+    <section className="homepage-fanarts section" aria-labelledby="homepage-fanarts-title">
+      <div className="section-heading homepage-fanarts-heading">
+        <div>
+          <span className="section-number">02 / ВНУТРИ ИСТОРИЙ</span>
+          <h2 id="homepage-fanarts-title">Сначала почувствуй.<br /><em>Потом читай.</em></h2>
+        </div>
+        <p>Фанарты к нашим переводам — один взгляд на героев, атмосферу и мир перед первой главой.</p>
+      </div>
+      <div className="homepage-fanart-grid">
+        {artworks.map((artwork, index) => (
+          <article className={index === 0 ? 'is-featured' : ''} key={artwork.id}>
+            <a href={`/books/${artwork.bookSlug}`} aria-label={`Открыть книгу «${artwork.bookTitle}» по фанарту`}>
+              <img src={artwork.imageUrl} alt={artwork.caption || `Фанарт к книге «${artwork.bookTitle}»`} loading="lazy" />
+              <span>
+                <small>{artwork.bookTitle}</small>
+                <strong>{artwork.caption || 'Заглянуть в эту историю'}</strong>
+                <em>Открыть книгу <ArrowRight size={16} /></em>
+              </span>
+            </a>
+          </article>
+        ))}
+      </div>
+      <a className="homepage-fanarts-library" href="/translations">Выбрать историю по настроению <ArrowRight size={18} /></a>
+    </section>
+  );
+}
+
 function PopularCommentBody({ comment }) {
   const [revealed, setRevealed] = useState(false);
   if (!comment.isSpoiler) return <blockquote>«{comment.body}»</blockquote>;
@@ -267,15 +278,14 @@ function PopularCommentBody({ comment }) {
   );
 }
 
-function App({ initialBooks = [], initialPopularComments = [], initialQuoteOfDay = null }) {
+function App({ initialBooks = [], initialPopularComments = [], initialQuoteOfDay = null, initialFeaturedArtworks = [] }) {
   const books = initialBooks;
-  const filters = useMemo(() => ['Все', ...new Set(books.flatMap((book) => book.genres?.length ? book.genres : [book.genre]).filter(Boolean))], [books]);
-  const tickerGenres = useMemo(() => [...new Set([
+  const filters = useMemo(() => ['Все', ...uniqueGenres(books.flatMap((book) => book.genres?.length ? book.genres : [book.genre]))], [books]);
+  const tickerGenres = useMemo(() => uniqueGenres([
     ...FEATURED_GENRES,
     ...books.flatMap((book) => book.genres?.length ? book.genres : [book.genre])
-      .filter(Boolean)
-      .map((genre) => String(genre).toLocaleUpperCase('ru-RU')),
-  ])], [books]);
+      .filter(Boolean),
+  ]).map((genre) => genre.toLocaleUpperCase('ru-RU')), [books]);
   const [activeFilter, setActiveFilter] = useState('Все');
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
@@ -332,7 +342,7 @@ function App({ initialBooks = [], initialPopularComments = [], initialQuoteOfDay
   const visibleBooks = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return books.filter((book) => {
-      const inFilter = activeFilter === 'Все' || (book.genres || [book.genre]).includes(activeFilter);
+      const inFilter = activeFilter === 'Все' || (book.genres || [book.genre]).some((genre) => genreKey(genre) === genreKey(activeFilter));
       const inSearch = !normalized || `${book.title} ${book.author} ${(book.genres || [book.genre]).join(' ')} ${(book.tropes || []).join(' ')}`.toLowerCase().includes(normalized);
       return inFilter && inSearch;
     });
@@ -430,6 +440,8 @@ function App({ initialBooks = [], initialPopularComments = [], initialQuoteOfDay
 
           <QuoteOfDay quote={initialQuoteOfDay} />
 
+          <HomepageFanarts artworks={initialFeaturedArtworks} />
+
           <ContinueReading items={libraryItems} books={books} />
 
           <DiscoveryDashboard books={books} />
@@ -437,7 +449,7 @@ function App({ initialBooks = [], initialPopularComments = [], initialQuoteOfDay
           <section className="catalog section" id="catalog">
             <div className="section-heading catalog-heading">
               <div>
-                <span className="section-number">02 / ВСЯ БИБЛИОТЕКА</span>
+                <span className="section-number">03 / ВСЯ БИБЛИОТЕКА</span>
                 <h2>Выбирай следующую<br /><em>книжную любовь</em></h2>
               </div>
               <p>От уютной романтики до миров, где магия требует слишком высокую цену.</p>
@@ -488,7 +500,7 @@ function App({ initialBooks = [], initialPopularComments = [], initialQuoteOfDay
           <section className="manifesto section" id="about">
             <div className="manifesto-card">
               <div className="manifesto-topline">
-                <span>04 / НАШ ПОДХОД</span>
+                <span>05 / НАШ ПОДХОД</span>
                 <Sparkles size={28} />
               </div>
               <blockquote>
@@ -530,7 +542,7 @@ function App({ initialBooks = [], initialPopularComments = [], initialQuoteOfDay
               <span>BOOK</span><span>NERD</span>
             </div>
             <div className="join-content">
-              <span className="section-number">05 / ЧИТАТЬ ДАЛЬШЕ</span>
+              <span className="section-number">06 / ЧИТАТЬ ДАЛЬШЕ</span>
               <h2>Новая глава уже<br /><em>на подходе.</em></h2>
               <p>Следи за новыми переводами и продолжай чтение прямо на сайте.</p>
               <a className="join-library-link" href="/translations">Открыть библиотеку <ArrowRight size={19} /></a>

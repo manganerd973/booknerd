@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import { ArrowRight, BookOpen, Search } from 'lucide-react';
 import { SiteFooter, SiteHeader } from './page-chrome.jsx';
+import { genreKey, uniqueGenres } from '../lib/genres.js';
 
 function TranslationCover({ book }) {
   if (book.coverUrl) return <div className="translation-cover"><img src={book.coverUrl} alt={`Обложка книги «${book.title}»`} /></div>;
@@ -16,11 +17,11 @@ function TranslationCover({ book }) {
 export default function TranslationsPage({ initialBooks = [] }) {
   const [query, setQuery] = useState('');
   const [genre, setGenre] = useState('Все');
-  const genres = useMemo(() => ['Все', ...new Set(initialBooks.flatMap((book) => book.genres || []))], [initialBooks]);
+  const genres = useMemo(() => ['Все', ...uniqueGenres(initialBooks.flatMap((book) => book.genres || []))], [initialBooks]);
   const books = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return initialBooks.filter((book) => {
-      const matchesGenre = genre === 'Все' || book.genres?.includes(genre);
+      const matchesGenre = genre === 'Все' || book.genres?.some((item) => genreKey(item) === genreKey(genre));
       const matchesQuery = !normalized || `${book.title} ${book.author} ${(book.genres || []).join(' ')} ${(book.tropes || []).join(' ')}`.toLowerCase().includes(normalized);
       return matchesGenre && matchesQuery;
     });

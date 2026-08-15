@@ -39,7 +39,7 @@ const quickLinks = [
   { href: '/library', label: 'Библиотека', key: 'library', icon: LibraryIcon },
   { href: '/search', label: 'Поиск', key: 'search', icon: Search },
   { href: '/calendar', label: 'Календарь', key: 'calendar', icon: CalendarDays },
-  { href: '/library#notifications', label: 'Уведомления', key: 'notifications', icon: Bell },
+  { href: '/notifications', label: 'Уведомления', key: 'notifications', icon: Bell },
   { href: '/profile', label: 'Профиль', key: 'profile', icon: UserRound },
 ];
 
@@ -57,7 +57,7 @@ export function MobileQuickNavigation({ active = '' }) {
 }
 
 export function MobileBottomNavigation({ active = '' }) {
-  const bottomLinks = quickLinks;
+  const bottomLinks = quickLinks.filter((link) => link.key !== 'search');
   return (
     <nav className="mobile-bottom-navigation" aria-label="Основные разделы">
       {bottomLinks.map(({ href, label, key, icon: Icon }) => (
@@ -84,6 +84,7 @@ export function SiteHeader({ active = '' }) {
         </nav>
         <div className="header-actions">
           <a className="icon-button" href="/search" aria-label="Расширенный поиск"><Search size={18} /></a>
+          <a className={active === 'notifications' ? 'icon-button is-active' : 'icon-button'} href="/notifications" aria-label="Уведомления"><Bell size={18} /></a>
           <a className="icon-button" href="/profile" aria-label="Профиль читателя"><UserRound size={18} /></a>
           <a className="telegram-button" href="/admin">Редакционная <ArrowRight size={17} /></a>
           <button className="menu-button" onClick={() => setOpen(true)} aria-label="Открыть меню"><Menu size={22} /></button>
@@ -95,8 +96,9 @@ export function SiteHeader({ active = '' }) {
           <nav>
             {links.map((link, index) => <a href={link.href} target={link.external ? '_blank' : undefined} rel={link.external ? 'noreferrer' : undefined} key={link.key}><span>0{index + 1}</span>{link.label}</a>)}
             <a href="/search"><span>08</span>Расширенный поиск</a>
-            <a href="/profile"><span>09</span>Профиль читателя</a>
-            <a href="/admin"><span>10</span>Редакционная</a>
+            <a href="/notifications"><span>09</span>Уведомления</a>
+            <a href="/profile"><span>10</span>Профиль читателя</a>
+            <a href="/admin"><span>11</span>Редакционная</a>
           </nav>
           <p>Истории, которые мы хотели прочитать сами.</p>
         </div>
@@ -111,7 +113,7 @@ export function SiteFooter() {
     <footer>
       <SiteLogo />
       <p>Книжная команда переводов · сделано читателями для читателей</p>
-      <div><a href="/translations">Переводы</a><a href="/library">Моя библиотека</a><a href="/calendar">Календарь</a><a href="/community">Сообщество</a><a href="/profile">Профиль</a><a href="/search">Поиск</a><a href="/about">О нас</a><a href="/team">Команда</a><a href="/go/telegram" target="_blank" rel="noreferrer">Telegram</a><a href="/admin">Редакционная</a></div>
+      <div><a href="/translations">Переводы</a><a href="/library">Моя библиотека</a><a href="/notifications">Уведомления</a><a href="/calendar">Календарь</a><a href="/community">Сообщество</a><a href="/profile">Профиль</a><a href="/search">Поиск</a><a href="/about">О нас</a><a href="/team">Команда</a><a href="/go/telegram" target="_blank" rel="noreferrer">Telegram</a><a href="/admin">Редакционная</a></div>
       <span>© 2026 BOOKNERD</span>
     </footer>
   );

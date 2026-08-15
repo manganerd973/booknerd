@@ -1,6 +1,6 @@
-const SHELL_CACHE = 'booknerd-shell-v12';
-const OFFLINE_CACHE = 'booknerd-offline-books-v12';
-const SHELL_URLS = ['/', '/translations', '/library', '/calendar', '/manifest.webmanifest', '/booknerd-icon-v2-192.png'];
+const SHELL_CACHE = 'booknerd-shell-v15';
+const OFFLINE_CACHE = 'booknerd-offline-books-v15';
+const SHELL_URLS = ['/', '/translations', '/library', '/notifications', '/calendar', '/manifest.webmanifest', '/booknerd-icon-v2-192.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(SHELL_CACHE).then((cache) => Promise.allSettled(SHELL_URLS.map((url) => cache.add(url)))).then(() => self.skipWaiting()));

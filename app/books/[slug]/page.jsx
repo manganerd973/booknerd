@@ -96,6 +96,8 @@ export default async function BookPage({ params }) {
         </aside>
       </section>
 
+      <BookArtGallery artworks={artworks} bookTitle={book.title} />
+
       <SeriesReadingOrder book={book} seriesBooks={seriesBooks} />
 
       {(book.translator || book.editor || book.proofreader || book.quoteOfDay) ? <section className="book-credits">
@@ -148,8 +150,6 @@ export default async function BookPage({ params }) {
           !hasHotScenes ? <div className="book-heat-guide-empty"><span>♡</span><p>В книге нет горячих сцен.</p></div> : null
         )}
       </section>
-
-      <BookArtGallery artworks={artworks} bookTitle={book.title} />
 
       <BookReviews bookId={book.id} />
 

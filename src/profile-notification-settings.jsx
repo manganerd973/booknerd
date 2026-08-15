@@ -10,7 +10,7 @@ export const GLOBAL_NOTIFICATION_KEY = 'booknerd-settings';
 const OPTIONS = [
   ['newChapter', 'Новые главы', 'Название книги и название новой главы'],
   ['authorBook', 'Новые книги', 'Название новой книги BOOKNERD'],
-  ['commentReply', 'Ответы на комментарии', 'Книга и глава, где вам ответили'],
+  ['commentReply', 'Ответы и плюсы', 'Книга и глава, где вам ответили или поставили плюс'],
 ];
 
 const OPTION_ICONS = { newChapter: BookOpen, authorBook: Library, commentReply: MessageCircle };

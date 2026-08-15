@@ -4,11 +4,10 @@ import { ensureDb } from '../../../../../lib/runtime.js';
 import { normalizeGoogleDriveUrl } from '../../../../../lib/google-drive.js';
 import { notifyBookPreferenceEvent, notifyPublishedBook } from '../../../../../lib/push-notifications.js';
 import { normalizeBookStatus } from '../../../../../lib/book-status.js';
+import { normalizeGenres } from '../../../../../lib/genres.js';
 
 function normalizePayload(payload = {}) {
-  const genres = Array.isArray(payload.genres)
-    ? payload.genres.map((genre) => String(genre).trim()).filter(Boolean).slice(0, 20)
-    : String(payload.genres || '').split(/[,;\n]+/).map((genre) => genre.trim()).filter(Boolean).slice(0, 20);
+  const genres = normalizeGenres(payload.genres);
   const tropes = Array.isArray(payload.tropes)
     ? payload.tropes.map((trope) => String(trope).trim()).filter(Boolean).slice(0, 40)
     : String(payload.tropes || '').split(/[,;\n]+/).map((trope) => trope.trim()).filter(Boolean).slice(0, 40);

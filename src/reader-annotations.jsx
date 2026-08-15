@@ -4,7 +4,6 @@ import React, { useMemo, useState } from 'react';
 import {
   Check,
   Bookmark,
-  BookOpen,
   Copy,
   Flag,
   Highlighter,
@@ -350,7 +349,7 @@ export function AnnotatedParagraph({ text, runs = [], as: Element = 'p', classNa
   );
 }
 
-export function SelectionAnnotationBar({ selection, onHighlight, onNote, onSticker, onBookmark, onReaction, onDictionary, onReport, onTranslate, onSearch, onCopy, onShare, onClose }) {
+export function SelectionAnnotationBar({ selection, onHighlight, onNote, onSticker, onBookmark, onReaction, onReport, onTranslate, onSearch, onCopy, onShare, onClose }) {
   const [view, setView] = useState('actions');
   if (!selection) return null;
 
@@ -394,7 +393,6 @@ export function SelectionAnnotationBar({ selection, onHighlight, onNote, onStick
       {view === 'more' ? (
         <div className="reader-selection-actions reader-selection-more">
           <button type="button" onClick={onBookmark}><Bookmark size={19} /><span>Закладка</span></button>
-          <button type="button" onClick={onDictionary}><BookOpen size={19} /><span>В словарь</span></button>
           <button type="button" onClick={onReport}><Flag size={19} /><span>Ошибка</span></button>
           <button type="button" onClick={onCopy}><Copy size={19} /><span>Копировать</span></button>
           <button type="button" onClick={onSearch}><Search size={19} /><span>Поиск</span></button>

@@ -248,6 +248,26 @@ export const notificationPreferences = sqliteTable('notification_preferences', {
   index('notification_preferences_book_idx').on(table.bookKey, table.newChapter),
 ]);
 
+export const readerNotifications = sqliteTable('reader_notifications', {
+  id: text('id').primaryKey(),
+  visitorKey: text('visitor_key').notNull(),
+  eventKey: text('event_key').notNull(),
+  type: text('type').notNull(),
+  bookId: text('book_id').references(() => books.id, { onDelete: 'cascade' }),
+  chapterId: text('chapter_id').references(() => chapters.id, { onDelete: 'cascade' }),
+  commentId: text('comment_id').references(() => comments.id, { onDelete: 'cascade' }),
+  actorName: text('actor_name').notNull().default(''),
+  title: text('title').notNull(),
+  body: text('body').notNull(),
+  url: text('url').notNull(),
+  readAt: text('read_at'),
+  createdAt: text('created_at').notNull(),
+}, (table) => [
+  uniqueIndex('reader_notifications_visitor_event_unique').on(table.visitorKey, table.eventKey),
+  index('reader_notifications_visitor_created_idx').on(table.visitorKey, table.createdAt),
+  index('reader_notifications_visitor_read_idx').on(table.visitorKey, table.readAt, table.createdAt),
+]);
+
 export const readerErrorReports = sqliteTable('reader_error_reports', {
   id: text('id').primaryKey(),
   visitorKey: text('visitor_key').notNull(),

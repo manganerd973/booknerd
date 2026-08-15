@@ -100,6 +100,19 @@ export default function CommentsSection({ bookId, chapterId = null }) {
     loadComments();
   }, [loadComments]);
 
+  useEffect(() => {
+    if (loading || !comments.length || typeof window === 'undefined') return;
+    const id = decodeURIComponent(window.location.hash || '').replace(/^#/, '');
+    if (!id.startsWith('comment-')) return;
+    const target = document.getElementById(id);
+    if (!target) return;
+    requestAnimationFrame(() => {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      target.classList.add('is-notification-target');
+      window.setTimeout(() => target.classList.remove('is-notification-target'), 3200);
+    });
+  }, [comments, loading]);
+
   const rememberAuthor = (value = authorName) => {
     const normalizedName = String(value || '').trim().replace(/\s+/g, ' ').slice(0, 60);
     if (normalizedName.length < 2) return false;
@@ -154,7 +167,7 @@ export default function CommentsSection({ bookId, chapterId = null }) {
     const replies = threads.get(comment.id) || [];
     return (
       <div className={`reader-comment-thread ${depth ? 'is-reply-thread' : ''}`} key={comment.id}>
-        <article className={`reader-comment ${depth ? 'is-reply' : ''}`}>
+        <article id={`comment-${comment.id}`} className={`reader-comment ${depth ? 'is-reply' : ''}`}>
           <header className="reader-comment-header">
             <strong>{comment.authorName}</strong>
           </header>

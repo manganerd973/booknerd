@@ -1,5 +1,7 @@
 import { hasReaderAccess } from '../../../../../lib/reader-access.js';
 import { ensureDb } from '../../../../../lib/runtime.js';
+import { removeReaderNotification, saveReaderNotification } from '../../../../../lib/reader-notifications.js';
+import { notifyBookPreferenceEvent } from '../../../../../lib/push-notifications.js';
 
 export async function POST(request, { params }) {
   if (!(await hasReaderAccess(request))) {
@@ -16,7 +18,10 @@ export async function POST(request, { params }) {
 
     const db = await ensureDb();
     const comment = await db.prepare(
-      `SELECT c.id FROM comments c JOIN books b ON b.id = c.book_id
+      `SELECT c.id, c.visitor_key, c.book_id, c.chapter_id, b.slug, b.title AS book_title,
+              ch.chapter_number, ch.title AS chapter_title
+       FROM comments c JOIN books b ON b.id = c.book_id
+       LEFT JOIN chapters ch ON ch.id = c.chapter_id
        WHERE c.id = ? AND c.status = 'approved' AND b.published = 1 LIMIT 1`
     ).bind(id).first();
     if (!comment) return Response.json({ error: 'Комментарий не найден.' }, { status: 404 });
@@ -35,6 +40,44 @@ export async function POST(request, { params }) {
       await db.prepare(
         `INSERT INTO comment_votes (comment_id, voter_key, value, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`
       ).bind(id, voterKey, value, now, now).run();
+    }
+
+    if (comment.visitor_key && comment.visitor_key !== voterKey) {
+      const eventKey = `comment-upvote:${id}:${voterKey}`;
+      if (currentVote === 1) {
+        const url = comment.chapter_id
+          ? `/books/${comment.slug}/chapters/${comment.chapter_id}?notification=1#comment-${id}`
+          : `/books/${comment.slug}#comment-${id}`;
+        await saveReaderNotification({
+          db,
+          visitorKey: comment.visitor_key,
+          eventKey,
+          type: 'comment_upvote',
+          bookId: comment.book_id,
+          chapterId: comment.chapter_id,
+          commentId: id,
+          title: 'Новый плюс к комментарию',
+          body: comment.chapter_id
+            ? `Кто-то поставил плюс вашему комментарию в «${comment.book_title}», глава ${comment.chapter_number}.`
+            : `Кто-то поставил плюс вашему комментарию в обсуждении «${comment.book_title}».`,
+          url,
+          createdAt: now,
+        });
+        await notifyBookPreferenceEvent({
+          bookId: comment.book_id,
+          preference: 'commentReply',
+          title: 'Новый плюс к комментарию',
+          body: comment.chapter_id
+            ? `Кто-то поставил плюс вашему комментарию в «${comment.book_title}», глава ${comment.chapter_number}.`
+            : `Кто-то поставил плюс вашему комментарию в обсуждении «${comment.book_title}».`,
+          url,
+          topic: `plus-${id.slice(0, 12)}-${voterKey.slice(0, 8)}`,
+          requestUrl: request.url,
+          targetVisitorKey: comment.visitor_key,
+        }).catch(() => {});
+      } else {
+        await removeReaderNotification({ db, visitorKey: comment.visitor_key, eventKey });
+      }
     }
 
     const counts = await db.prepare(

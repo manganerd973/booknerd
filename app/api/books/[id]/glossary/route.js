@@ -8,7 +8,9 @@ function normalizeVisitorKey(value) {
 export async function GET(request, { params }) {
   try {
     const { id: bookId } = await params;
-    const visitorKey = normalizeVisitorKey(new URL(request.url).searchParams.get('visitorKey'));
+    const searchParams = new URL(request.url).searchParams;
+    const visitorKey = normalizeVisitorKey(searchParams.get('visitorKey'));
+    const currentChapterId = String(searchParams.get('chapterId') || '').trim().slice(0, 100);
     const db = await ensureDb();
     let unlockedChapter = 0;
     if (visitorKey) {
@@ -20,6 +22,14 @@ export async function GET(request, { params }) {
          LIMIT 1`
       ).bind(visitorKey, bookId).first();
       unlockedChapter = Math.max(0, Number(progress?.chapter_number || 0));
+    }
+    if (currentChapterId) {
+      const currentChapter = await db.prepare(
+        `SELECT chapter_number FROM chapters
+         WHERE id = ? AND book_id = ? AND status = 'published'
+         LIMIT 1`
+      ).bind(currentChapterId, bookId).first();
+      unlockedChapter = Math.max(unlockedChapter, Number(currentChapter?.chapter_number || 0));
     }
     const result = await db.prepare(
       `SELECT id, category, name, pronunciation, description, connections, reveal_after_chapter, sort_order

@@ -58,6 +58,7 @@ import {
 const SETTINGS_KEY = 'booknerd-reader-settings-v2';
 const ANNOTATIONS_KEY_PREFIX = 'booknerd-reader-annotations-v1';
 const CHAPTER_EMOTIONS = ['😂', '😭', '😍', '😡', '😱', '🤍'];
+const READING_WORDS_PER_MINUTE = 220;
 
 const BOOKMARK_CATEGORIES = [
   { id: 'favorite', label: 'Любимый момент', symbol: '♡', color: '#ec8dad' },
@@ -137,6 +138,20 @@ function readerChapterTitle(chapter) {
 function blocksFor(chapter) {
   const documentValue = richDocumentFor(chapter.bodyRich, chapter.body);
   return documentValue.blocks.length ? documentValue.blocks : [{ type: 'paragraph', runs: [{ text: 'Текст этой главы готовится к публикации.' }] }];
+}
+
+function wordCountForChapter(chapter) {
+  const documentValue = richDocumentFor(chapter.bodyRich, chapter.body);
+  const text = documentValue.blocks.flatMap((block) => block.runs || []).map((run) => run.text || '').join(' ');
+  return text.match(/[\p{L}\p{N}]+(?:[’'\-][\p{L}\p{N}]+)*/gu)?.length || 0;
+}
+
+function formatReadingTime(minutes) {
+  const value = Math.max(1, Math.ceil(minutes));
+  const hours = Math.floor(value / 60);
+  const rest = value % 60;
+  if (!hours) return `${value} мин`;
+  return rest ? `${hours} ч ${rest} мин` : `${hours} ч`;
 }
 
 function ChapterFlow({
@@ -252,8 +267,9 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
   const [annotations, setAnnotations] = useState([]);
   const [annotationsReady, setAnnotationsReady] = useState(false);
   const [textSelection, setTextSelection] = useState(null);
-  const [readerHub, setReaderHub] = useState({ dictionary: [], reactions: [], emotionTotals: [], myEmotions: [] });
-  const [dictionaryDraft, setDictionaryDraft] = useState(null);
+  const [readerHub, setReaderHub] = useState({ reactions: [], emotionTotals: [], myEmotions: [] });
+  const [bookGlossary, setBookGlossary] = useState({ entries: [], total: 0, unlockedChapter: 0 });
+  const [glossaryQuery, setGlossaryQuery] = useState('');
 
   useEffect(() => {
     const ping = () => {
@@ -388,7 +404,6 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
     return fetch(`/api/reader-hub?${query.toString()}`, { cache: 'no-store' })
       .then((response) => response.json())
       .then((data) => setReaderHub({
-        dictionary: Array.isArray(data.dictionary) ? data.dictionary : [],
         reactions: Array.isArray(data.reactions) ? data.reactions : [],
         emotionTotals: Array.isArray(data.emotionTotals) ? data.emotionTotals : [],
         myEmotions: Array.isArray(data.myEmotions) ? data.myEmotions : [],
@@ -397,6 +412,14 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
   }, [book.id, chapter.id]);
 
   useEffect(() => { refreshReaderHub(); }, [refreshReaderHub]);
+
+  useEffect(() => {
+    const query = new URLSearchParams({ visitorKey: getVisitorKey(), chapterId: chapter.id });
+    fetch(`/api/books/${book.id}/glossary?${query.toString()}`, { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((data) => setBookGlossary(data.entries ? data : { entries: [], total: 0, unlockedChapter: 0 }))
+      .catch(() => setBookGlossary({ entries: [], total: 0, unlockedChapter: 0 }));
+  }, [book.id, chapter.id]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -503,8 +526,14 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
   const totalBookPages = Math.max(1, pageCounts.reduce((total, count) => total + count, 0));
   const currentBookPage = clamp(bookPageOffset + page + 1, 1, totalBookPages);
   const percent = Math.round((currentBookPage / totalBookPages) * 100);
-  const pagesLeftInChapter = Math.max(0, currentChapterPages - page - 1);
-  const estimatedMinutesLeft = Math.max(1, Math.ceil((totalBookPages - currentBookPage) * 1.8));
+  const chapterWordCounts = useMemo(() => chapterList.map(wordCountForChapter), [chapterList]);
+  const remainingWordCount = useMemo(() => {
+    const currentWords = chapterWordCounts[chapterIndex] || 0;
+    const currentChapterFraction = clamp((currentChapterPages - page) / Math.max(1, currentChapterPages), 0, 1);
+    const laterWords = chapterWordCounts.slice(chapterIndex + 1).reduce((total, count) => total + count, 0);
+    return Math.max(0, Math.ceil(currentWords * currentChapterFraction) + laterWords);
+  }, [chapterIndex, chapterWordCounts, currentChapterPages, page]);
+  const readingMinutesLeft = Math.max(1, Math.ceil(remainingWordCount / READING_WORDS_PER_MINUTE));
   const chapterBlockCount = Math.max(1, blocksFor(chapter).length);
   const currentChapterEmotionTotals = readerHub.emotionTotals.filter((item) => item.chapter_id === chapter.id);
   const myChapterEmotion = readerHub.myEmotions.find((item) => item.chapter_id === chapter.id)?.emoji || '';
@@ -914,49 +943,6 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
     }
   }, [book.id, chapter.id, clearTextSelection, refreshReaderHub, textSelection]);
 
-  const openDictionaryDraft = useCallback(() => {
-    if (!textSelection?.text) return;
-    setDictionaryDraft({ word: textSelection.text.slice(0, 240), meaning: '', quote: textSelection.text });
-    clearTextSelection();
-    setPanel('dictionary-edit');
-  }, [clearTextSelection, textSelection]);
-
-  const saveDictionaryEntry = useCallback(async () => {
-    if (!dictionaryDraft?.word?.trim()) return;
-    setExtraSaving(true);
-    try {
-      const response = await fetch('/api/reader-hub', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          action: 'dictionary',
-          visitorKey: getVisitorKey(),
-          bookId: book.id,
-          chapterId: chapter.id,
-          ...dictionaryDraft,
-        }),
-      });
-      if (!response.ok) throw new Error('Не удалось сохранить слово.');
-      setDictionaryDraft(null);
-      await refreshReaderHub();
-      setPanel('dictionary');
-      setToast('Слово добавлено в личный словарь');
-    } catch (error) {
-      setToast(error.message);
-    } finally {
-      setExtraSaving(false);
-    }
-  }, [book.id, chapter.id, dictionaryDraft, refreshReaderHub]);
-
-  const deleteDictionaryEntry = useCallback(async (id) => {
-    await fetch('/api/reader-hub', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ action: 'deleteDictionary', visitorKey: getVisitorKey(), id }),
-    }).catch(() => {});
-    refreshReaderHub();
-  }, [refreshReaderHub]);
-
   const saveChapterEmotion = useCallback(async (emoji) => {
     try {
       const response = await fetch('/api/reader-hub', {
@@ -1161,6 +1147,12 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
     }).slice(0, 30);
   }, [chapterList, searchQuery]);
 
+  const visibleGlossaryEntries = useMemo(() => {
+    const needle = glossaryQuery.trim().toLocaleLowerCase('ru-RU');
+    if (!needle) return bookGlossary.entries;
+    return bookGlossary.entries.filter((entry) => `${entry.name} ${entry.description} ${entry.category || ''} ${entry.connections || ''}`.toLocaleLowerCase('ru-RU').includes(needle));
+  }, [bookGlossary.entries, glossaryQuery]);
+
   const fontStyle = {
     '--reader-font-size': `${settings.fontSize}px`,
     '--reader-font-family': `"${settings.fontFamily}", Georgia, serif`,
@@ -1208,16 +1200,16 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
           <button type="button" className="reader-reading-mode-quick" onClick={() => setPanel('reading-mode')} aria-label="Выбрать способ чтения">
             <ReadingModeIcon mode={settings.motion} size={18} /><span>Режим</span>
           </button>
-          <button type="button" className="reader-dictionary-quick" onClick={() => setPanel('dictionary')} aria-label="Открыть личный словарь">
+          <button type="button" className="reader-dictionary-quick" onClick={() => setPanel('dictionary')} aria-label="Открыть словарь книги">
             <BookMarked size={17} /><span>Словарь</span>
           </button>
-          <a href={`/books/${book.slug}`}><BookOpen size={17} /> О книге</a>
+          <a href={`/books/${book.slug}`} aria-label="Открыть страницу книги"><BookOpen size={17} /><span>О книге</span></a>
           <button type="button" className="reader-menu-button" onClick={() => setPanel('menu')} aria-label="Меню читалки"><Menu size={21} /></button>
         </nav>
 
         <div className="reader-stage">
-          <div className="reader-pages-left" aria-live="polite">
-            {!measurementReady ? 'Считаем страницы…' : pagesLeftInChapter > 0 ? `Осталось ${pagesLeftInChapter} стр. · около ${estimatedMinutesLeft >= 60 ? `${Math.floor(estimatedMinutesLeft / 60)} ч ${estimatedMinutesLeft % 60} мин` : `${estimatedMinutesLeft} мин`} до конца книги` : 'Последняя страница главы'}
+          <div className="reader-pages-left" aria-live="polite" title={`Расчёт по фактическому объёму текста при ${READING_WORDS_PER_MINUTE} словах в минуту`}>
+            {!measurementReady ? 'Считаем оставшееся время…' : `${formatReadingTime(readingMinutesLeft)} до конца ${translationCompleted ? 'книги' : 'опубликованного текста'} · ${remainingWordCount.toLocaleString('ru-RU')} слов`}
           </div>
           <button type="button" className="reader-page-arrow reader-page-arrow-left" onClick={goBackward} disabled={!previous && page === 0} aria-label="Предыдущая страница"><ArrowLeft size={22} /></button>
           <div
@@ -1300,7 +1292,6 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
         onNote={openNewNote}
         onSticker={(sticker) => addAnnotation(textSelection, { color: '#fff1a8', sticker })}
         onReaction={reactToSelection}
-        onDictionary={openDictionaryDraft}
         onBookmark={() => openBookmarkDraft(textSelection)}
         onReport={openErrorDraft}
         onTranslate={translateSelectedText}
@@ -1327,7 +1318,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
             <button type="button" onClick={() => setPanel('search')}><Search size={22} /><span><strong>Поиск по книге</strong><small>Найти слово во всех главах</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('annotations')}><Highlighter size={22} /><span><strong>Мои пометки</strong><small>{annotations.length ? `${annotations.length} сохранено` : 'Выделения, заметки и стикеры'}</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('chapter-map')}><Highlighter size={22} /><span><strong>Метки главы</strong><small>Все пометки и эмоции по ходу текста</small></span><ChevronRight size={18} /></button>
-            <button type="button" onClick={() => setPanel('dictionary')}><BookMarked size={22} /><span><strong>Личный словарь</strong><small>{readerHub.dictionary.length ? `${readerHub.dictionary.length} слов` : 'Незнакомые слова и пояснения'}</small></span><ChevronRight size={18} /></button>
+            <button type="button" onClick={() => setPanel('dictionary')}><BookMarked size={22} /><span><strong>Словарь книги</strong><small>{bookGlossary.total ? `${bookGlossary.entries.length} из ${bookGlossary.total} записей доступно` : 'Пояснения от команды перевода'}</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('bookmarks')}><Bookmark size={22} /><span><strong>Мои закладки</strong><small>{bookmarks.length ? `${bookmarks.length} сохранено` : 'Любимое, важное и смешное'}</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => { setPanel(null); setChromeHidden(true); }}><Film size={22} /><span><strong>Режим кино</strong><small>Оставить на экране только текст</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('reading-mode')}><ReadingModeIcon mode={settings.motion} size={22} /><span><strong>Способ чтения</strong><small>{READING_MODE_OPTIONS.find((mode) => mode.id === settings.motion)?.name}</small></span><ChevronRight size={18} /></button>
@@ -1408,29 +1399,25 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       ) : null}
 
       {panel === 'dictionary' ? (
-        <ReaderSheet title="Личный словарь" eyebrow={`${readerHub.dictionary.length} сохранено`} onClose={() => setPanel('menu')} wide>
-          {!readerHub.dictionary.length ? (
-            <div className="reader-annotation-empty"><BookMarked size={31} /><strong>Словарь пока пуст</strong><span>Выделите слово или фразу и выберите «В словарь».</span></div>
+        <ReaderSheet title="Словарь книги" eyebrow={`${bookGlossary.entries.length} из ${bookGlossary.total} доступно`} onClose={() => setPanel('menu')} wide>
+          {bookGlossary.total ? <label className="reader-book-glossary-search"><Search size={19} /><input value={glossaryQuery} onChange={(event) => setGlossaryQuery(event.target.value)} placeholder="Найти слово или имя…" /></label> : null}
+          {!bookGlossary.total ? (
+            <div className="reader-annotation-empty"><BookMarked size={31} /><strong>Словарь книги пока пуст</strong><span>Здесь появятся пояснения от команды перевода.</span></div>
+          ) : !visibleGlossaryEntries.length ? (
+            <div className="reader-annotation-empty"><Search size={31} /><strong>Ничего не найдено</strong><span>Попробуйте другое слово или имя.</span></div>
           ) : (
-            <div className="reader-dictionary-list">
-              {readerHub.dictionary.map((entry) => (
+            <div className="reader-book-glossary-list">
+              {visibleGlossaryEntries.map((entry) => (
                 <article key={entry.id}>
-                  <div><small>{entry.chapter_title || readerChapterTitle(chapter)}</small><strong>{entry.word}</strong><p>{entry.meaning || 'Пояснение можно добавить позже.'}</p>{entry.quote ? <blockquote>“{entry.quote}”</blockquote> : null}</div>
-                  <button type="button" onClick={() => deleteDictionaryEntry(entry.id)} aria-label="Удалить из словаря"><Trash2 size={17} /></button>
+                  <small>{entry.category || 'Словарь'}{entry.pronunciation ? ` · ${entry.pronunciation}` : ''}</small>
+                  <strong>{entry.name}</strong>
+                  <p>{entry.description}</p>
+                  {entry.connections ? <span>{entry.connections}</span> : null}
                 </article>
               ))}
             </div>
           )}
-        </ReaderSheet>
-      ) : null}
-
-      {panel === 'dictionary-edit' && dictionaryDraft ? (
-        <ReaderSheet title="Добавить в словарь" eyebrow="Личная запись" onClose={() => { setDictionaryDraft(null); setPanel(null); }}>
-          <div className="reader-dictionary-editor">
-            <label><span>Слово или выражение</span><input value={dictionaryDraft.word} onChange={(event) => setDictionaryDraft((current) => ({ ...current, word: event.target.value }))} /></label>
-            <label><span>Значение</span><textarea rows="5" value={dictionaryDraft.meaning} onChange={(event) => setDictionaryDraft((current) => ({ ...current, meaning: event.target.value }))} placeholder="Запишите перевод или объяснение своими словами…" /></label>
-            <button className="reader-sheet-primary" type="button" disabled={extraSaving} onClick={saveDictionaryEntry}>{extraSaving ? 'Сохраняем…' : 'Сохранить в словарь'}</button>
-          </div>
+          {bookGlossary.total > bookGlossary.entries.length ? <p className="reader-book-glossary-lock">Ещё {bookGlossary.total - bookGlossary.entries.length} записей откроются по мере чтения — без спойлеров.</p> : null}
         </ReaderSheet>
       ) : null}
 

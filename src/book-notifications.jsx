@@ -9,7 +9,7 @@ const OPTIONS = [
   ['newChapter', 'Новая глава'],
   ['translationComplete', 'Завершение перевода'],
   ['authorBook', 'Новая книга автора'],
-  ['commentReply', 'Ответ на комментарий'],
+  ['commentReply', 'Ответы и плюсы'],
   ['teamNews', 'Новость команды'],
 ];
 

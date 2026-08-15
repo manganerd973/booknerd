@@ -1,6 +1,7 @@
 import { hasReaderAccess } from '../../../lib/reader-access.js';
 import { ensureDb } from '../../../lib/runtime.js';
 import { notifyBookPreferenceEvent } from '../../../lib/push-notifications.js';
+import { saveReaderNotification } from '../../../lib/reader-notifications.js';
 
 function mapComment(row) {
   return {
@@ -100,6 +101,25 @@ export async function POST(request) {
       const chapterRow = chapterId
         ? await db.prepare(`SELECT chapter_number, title FROM chapters WHERE id = ? LIMIT 1`).bind(chapterId).first()
         : null;
+      const notificationUrl = chapterId
+        ? `/books/${bookRow?.slug}/chapters/${chapterId}?notification=1#comment-${id}`
+        : `/books/${bookRow?.slug}#comment-${id}`;
+      await saveReaderNotification({
+        db,
+        visitorKey: parent.visitor_key,
+        eventKey: `reply:${id}`,
+        type: 'comment_reply',
+        bookId,
+        chapterId,
+        commentId: id,
+        actorName: authorName,
+        title: 'Ответ на ваш комментарий',
+        body: chapterRow
+          ? `${authorName} ответил(а) вам в «${bookRow?.title || 'BOOKNERD'}», глава ${chapterRow.chapter_number}.`
+          : `${authorName} ответил(а) вам в обсуждении «${bookRow?.title || 'BOOKNERD'}».`,
+        url: notificationUrl,
+        createdAt: now,
+      });
       await notifyBookPreferenceEvent({
         bookId,
         preference: 'commentReply',
@@ -107,7 +127,7 @@ export async function POST(request) {
         body: chapterRow
           ? `${chapterRow.title || `Глава ${chapterRow.chapter_number}`} · ${authorName} ответил(а) на ваш комментарий.`
           : `${authorName} ответил(а) на ваш комментарий к книге.`,
-        url: chapterId ? `/books/${bookRow?.slug}/chapters/${chapterId}#chapter-comments` : `/books/${bookRow?.slug}#comments-${bookId}`,
+        url: notificationUrl,
         topic: `reply-${id.slice(0, 18)}`,
         requestUrl: request.url,
         targetVisitorKey: parent.visitor_key,
