@@ -35,9 +35,39 @@ export const viewport = {
   themeColor: '#123c35',
 };
 
+const recoveryScript = `(() => {
+  const key = 'booknerd-shell-recovery-v1';
+  let recovering = false;
+  const wasRecovered = () => { try { return sessionStorage.getItem(key) === '1'; } catch { return false; } };
+  const markRecovered = () => { try { sessionStorage.setItem(key, '1'); } catch {} };
+  const messageOf = (value) => String(value?.message || value?.reason?.message || value?.reason || value || '');
+  const isBrokenAsset = (value) => /ChunkLoadError|Loading (?:CSS )?chunk|dynamically imported module|Importing a module script failed|Failed to fetch dynamically imported module/i.test(messageOf(value));
+  const recover = async () => {
+    if (recovering || wasRecovered()) return;
+    recovering = true;
+    markRecovered();
+    try {
+      if ('caches' in window) {
+        const names = await caches.keys();
+        await Promise.all(names.filter((name) => name.startsWith('booknerd-shell-')).map((name) => caches.delete(name)));
+      }
+      const registration = await navigator.serviceWorker?.getRegistration?.();
+      await registration?.update?.();
+    } catch {}
+    location.reload();
+  };
+  addEventListener('error', (event) => {
+    const target = event.target;
+    if (isBrokenAsset(event) || target?.tagName === 'SCRIPT' || (target?.tagName === 'LINK' && target.rel === 'stylesheet')) recover();
+  }, true);
+  addEventListener('unhandledrejection', (event) => { if (isBrokenAsset(event)) recover(); });
+  setTimeout(() => { try { sessionStorage.removeItem(key); } catch {} }, 12000);
+})();`;
+
 export default function RootLayout({ children }) {
   return (
     <html lang="ru">
+      <head><script dangerouslySetInnerHTML={{ __html: recoveryScript }} /></head>
       <body><PwaRegister /><AppPreferences />{children}</body>
     </html>
   );

@@ -979,10 +979,10 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                   <div className="admin-release-days">
                     <div className="admin-release-days-heading">
                       <span>Дни выхода новых глав</span>
-                      {bookForm.id && bookForm.status === 'Завершено' && (bookForm.releaseDays || []).length ? (
+                      {bookForm.id && (bookForm.releaseDays || []).length ? (
                         <button type="button" onClick={disconnectBookFromCalendar} disabled={calendarDisconnecting}>
                           {calendarDisconnecting ? <LoaderCircle className="spin" size={16} /> : <CalendarX size={16} />}
-                          {calendarDisconnecting ? 'Отключаем…' : 'Отключить от календаря'}
+                          {calendarDisconnecting ? 'Удаляем…' : 'Убрать из календаря'}
                         </button>
                       ) : null}
                     </div>
@@ -1001,7 +1001,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                         <span>{day}</span>
                       </label>
                     ))}</div>
-                    {bookForm.id && bookForm.status === 'Завершено' && !(bookForm.releaseDays || []).length ? <small className="admin-calendar-status">Книга не подключена к календарю.</small> : null}
+                    {bookForm.id && !(bookForm.releaseDays || []).length ? <small className="admin-calendar-status">Книга не подключена к календарю.</small> : null}
                   </div>
                   <AdminSeriesOrder value={bookForm.seriesReadingOrder || []} onChange={(seriesReadingOrder) => setBookForm({ ...bookForm, seriesReadingOrder })} />
                   <label className="admin-full-field"><span>Аннотация</span><textarea value={bookForm.synopsis} onChange={(event) => setBookForm({ ...bookForm, synopsis: event.target.value })} placeholder="Расскажите читателю, о чём эта история…" rows={7} /><small>{bookForm.synopsis.length} / 12 000</small></label>
