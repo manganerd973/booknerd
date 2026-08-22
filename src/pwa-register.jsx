@@ -28,9 +28,19 @@ export default function PwaRegister() {
       setConnection('restored');
       window.setTimeout(() => setConnection('online'), 3200);
     };
+    const offlineBookNavigation = (event) => {
+      if (window.navigator.onLine || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const link = event.target.closest?.('a[href]');
+      if (!link || link.hasAttribute('download') || (link.target && link.target !== '_self')) return;
+      const target = new URL(link.href, window.location.href);
+      if (target.origin !== window.location.origin || !target.pathname.startsWith('/books/')) return;
+      event.preventDefault();
+      window.location.assign(target.href);
+    };
     window.addEventListener('appinstalled', installed);
     window.addEventListener('offline', offline);
     window.addEventListener('online', online);
+    window.addEventListener('click', offlineBookNavigation, true);
     if (!window.navigator.onLine) setConnection('offline');
     if (window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true) {
       trackSiteInstall('standalone');
@@ -39,6 +49,7 @@ export default function PwaRegister() {
       window.removeEventListener('appinstalled', installed);
       window.removeEventListener('offline', offline);
       window.removeEventListener('online', online);
+      window.removeEventListener('click', offlineBookNavigation, true);
       if (controllerChanged) navigator.serviceWorker.removeEventListener('controllerchange', controllerChanged);
     };
   }, []);

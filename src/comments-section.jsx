@@ -58,7 +58,7 @@ function CommentBody({ comment }) {
   );
 }
 
-export default function CommentsSection({ bookId, chapterId = null }) {
+export default function CommentsSection({ bookId, chapterId = null, scope = 'comments' }) {
   const [comments, setComments] = useState([]);
   const [authorName, setAuthorName] = useState('');
   const [savedAuthorName, setSavedAuthorName] = useState('');
@@ -71,14 +71,17 @@ export default function CommentsSection({ bookId, chapterId = null }) {
   const [error, setError] = useState('');
   const [replyingTo, setReplyingTo] = useState(null);
   const threads = buildThreads(comments);
-  const sectionId = `comments-${chapterId || bookId}`;
-  const formId = `comment-form-${chapterId || bookId}`;
+  const context = chapterId ? 'comments' : scope === 'discussion' ? 'discussion' : 'comments';
+  const anchorPrefix = context === 'discussion' ? 'discussion-comment' : 'comment';
+  const sectionId = `${context}-comments-${chapterId || bookId}`;
+  const formId = `${context}-comment-form-${chapterId || bookId}`;
 
   const loadComments = useCallback(async () => {
     setLoading(true);
     try {
       const query = new URLSearchParams({ bookId });
       if (chapterId) query.set('chapterId', chapterId);
+      query.set('context', context);
       const data = await commentsApi(`/api/comments?${query.toString()}`);
       setComments(data.comments || []);
       setError('');
@@ -87,7 +90,7 @@ export default function CommentsSection({ bookId, chapterId = null }) {
     } finally {
       setLoading(false);
     }
-  }, [bookId, chapterId]);
+  }, [bookId, chapterId, context]);
 
   useEffect(() => {
     try {
@@ -103,7 +106,7 @@ export default function CommentsSection({ bookId, chapterId = null }) {
   useEffect(() => {
     if (loading || !comments.length || typeof window === 'undefined') return;
     const id = decodeURIComponent(window.location.hash || '').replace(/^#/, '');
-    if (!id.startsWith('comment-')) return;
+    if (!id.startsWith(`${anchorPrefix}-`)) return;
     const target = document.getElementById(id);
     if (!target) return;
     requestAnimationFrame(() => {
@@ -111,7 +114,7 @@ export default function CommentsSection({ bookId, chapterId = null }) {
       target.classList.add('is-notification-target');
       window.setTimeout(() => target.classList.remove('is-notification-target'), 3200);
     });
-  }, [comments, loading]);
+  }, [anchorPrefix, comments, loading]);
 
   const rememberAuthor = (value = authorName) => {
     const normalizedName = String(value || '').trim().replace(/\s+/g, ' ').slice(0, 60);
@@ -138,7 +141,7 @@ export default function CommentsSection({ bookId, chapterId = null }) {
       await commentsApi('/api/comments', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ bookId, chapterId, parentId: replyingTo?.id || null, visitorKey: getVisitorKey(), authorName, body, isSpoiler, website }),
+        body: JSON.stringify({ bookId, chapterId, context, parentId: replyingTo?.id || null, visitorKey: getVisitorKey(), authorName, body, isSpoiler, website }),
       });
       rememberAuthor(authorName);
       setBody('');
@@ -167,7 +170,7 @@ export default function CommentsSection({ bookId, chapterId = null }) {
     const replies = threads.get(comment.id) || [];
     return (
       <div className={`reader-comment-thread ${depth ? 'is-reply-thread' : ''}`} key={comment.id}>
-        <article id={`comment-${comment.id}`} className={`reader-comment ${depth ? 'is-reply' : ''}`}>
+        <article id={`${anchorPrefix}-${comment.id}`} className={`reader-comment ${depth ? 'is-reply' : ''}`}>
           <header className="reader-comment-header">
             <strong>{comment.authorName}</strong>
           </header>
@@ -187,9 +190,9 @@ export default function CommentsSection({ bookId, chapterId = null }) {
   return (
     <section className="reader-comments" aria-labelledby={sectionId}>
       <div className="reader-comments-heading">
-        <span className="editorial-section-number">{chapterId ? 'КОММЕНТАРИИ К ГЛАВЕ' : 'КОММЕНТАРИИ К КНИГЕ'}</span>
-        <h2 id={sectionId}>Обсуждение</h2>
-        <p>Комментарии публикуются сразу. Если в тексте есть важная деталь сюжета, отметьте её как спойлер.</p>
+        <span className="editorial-section-number">{chapterId ? 'КОММЕНТАРИИ К ГЛАВЕ' : context === 'discussion' ? 'ОБСУЖДЕНИЕ ЧИТАТЕЛЕЙ' : 'КОММЕНТАРИИ К КНИГЕ'}</span>
+        <h2 id={sectionId}>{context === 'discussion' ? 'Поговорим об истории' : 'Обсуждение'}</h2>
+        <p>{context === 'discussion' ? 'Отвечайте друг другу, ставьте плюс или минус и отправляйте жалобу, если комментарий нарушает правила.' : 'Комментарии публикуются сразу. Если в тексте есть важная деталь сюжета, отметьте её как спойлер.'}</p>
       </div>
 
       <div className="reader-comments-layout">

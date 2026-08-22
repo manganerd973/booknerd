@@ -1,7 +1,10 @@
-const SHELL_CACHE = 'booknerd-shell-v22';
-const OFFLINE_CACHE = 'booknerd-offline-library-v1';
+const SHELL_CACHE = 'booknerd-shell-v24';
+const OFFLINE_CACHE = 'booknerd-offline-library-v2';
 const OFFLINE_FALLBACK = '/offline.html';
-const NAVIGATION_TIMEOUT = 20000;
+const NAVIGATION_TIMEOUT = 45000;
+const ASSET_TIMEOUT = 30000;
+const BOOK_DOWNLOAD_TIMEOUT = 45000;
+const BOOK_DOWNLOAD_CONCURRENCY = 3;
 const PRELOAD_URLS = ['/', OFFLINE_FALLBACK, '/manifest.webmanifest', '/booknerd-icon-v2-192.png'];
 const STATIC_DESTINATIONS = new Set(['style', 'script', 'font', 'image']);
 
@@ -29,7 +32,7 @@ async function fetchAndCacheAsset(cache, url) {
   const request = new Request(url, { credentials: 'include', cache: 'reload' });
   const existing = await cache.match(request);
   if (existing) return true;
-  const response = await fetch(request);
+  const response = await fetchWithTimeout(request, ASSET_TIMEOUT);
   if (!response.ok || response.redirected) return false;
   await cache.put(request, response.clone());
   return true;
@@ -46,7 +49,7 @@ async function warmShell() {
   const cache = await caches.open(SHELL_CACHE);
   await Promise.allSettled(PRELOAD_URLS.map(async (url) => {
     const request = new Request(url, { credentials: 'include', cache: 'reload' });
-    const response = await fetch(request);
+    const response = await fetchWithTimeout(request, ASSET_TIMEOUT);
     if (!response.ok || response.redirected) return;
     await cacheDocument(cache, request, response);
   }));
@@ -57,12 +60,14 @@ async function migrateLegacyCaches() {
   const offline = await caches.open(OFFLINE_CACHE);
   for (const key of keys) {
     if (key === SHELL_CACHE || key === OFFLINE_CACHE) continue;
-    if (key.startsWith('booknerd-offline-books-') || key.startsWith('booknerd-shell-')) {
+    const legacyOffline = key.startsWith('booknerd-offline-books-') || key.startsWith('booknerd-offline-library-');
+    const legacyShell = key.startsWith('booknerd-shell-');
+    if (legacyOffline || legacyShell) {
       const legacy = await caches.open(key);
       for (const request of await legacy.keys()) {
         const url = new URL(request.url);
-        const keep = key.startsWith('booknerd-offline-books-')
-          ? url.pathname.startsWith('/books/') || url.pathname.startsWith('/api/covers/')
+        const keep = legacyOffline
+          ? url.pathname.startsWith('/books/') || url.pathname.startsWith('/api/covers/') || isAppAsset(url.pathname)
           : isAppAsset(url.pathname);
         if (!keep || await offline.match(request)) continue;
         const response = await legacy.match(request);
@@ -71,6 +76,10 @@ async function migrateLegacyCaches() {
     }
     if (key.startsWith('booknerd-')) await caches.delete(key);
   }
+}
+
+async function enableNavigationPreload() {
+  if (self.registration.navigationPreload) await self.registration.navigationPreload.enable();
 }
 
 function fetchWithTimeout(request, timeout = NAVIGATION_TIMEOUT) {
@@ -84,31 +93,41 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(migrateLegacyCaches().then(() => self.clients.claim()));
+  event.waitUntil(Promise.all([migrateLegacyCaches(), enableNavigationPreload()]).then(() => self.clients.claim()));
 });
 
 self.addEventListener('message', (event) => {
   if (event.data?.type !== 'BOOKNERD_SAVE_BOOK') return;
   const urls = [...new Set((event.data.urls || []).filter((url) => typeof url === 'string' && url.startsWith('/')))];
+  const port = event.ports?.[0];
   event.waitUntil((async () => {
     try {
       const cache = await caches.open(OFFLINE_CACHE);
       let saved = 0;
+      let completed = 0;
       const failedRequired = [];
-      for (const url of urls) {
-        const request = new Request(url, { credentials: 'include', cache: 'reload' });
-        const response = await fetch(request);
-        if (!response.ok || response.redirected) {
+      const saveUrl = async (url) => {
+        try {
+          const request = new Request(url, { credentials: 'include', cache: 'reload' });
+          const response = await fetchWithTimeout(request, BOOK_DOWNLOAD_TIMEOUT);
+          const redirectedToAccess = response.redirected && new URL(response.url).pathname.startsWith('/reader-access');
+          if (!response.ok || redirectedToAccess) throw new Error('Страница недоступна для сохранения.');
+          await cacheDocument(cache, request, response);
+          saved += 1;
+        } catch {
           if (url.startsWith('/books/')) failedRequired.push(url);
-          continue;
+        } finally {
+          completed += 1;
+          port?.postMessage({ type: 'progress', completed, total: urls.length, saved });
         }
-        await cacheDocument(cache, request, response);
-        saved += 1;
+      };
+      for (let index = 0; index < urls.length; index += BOOK_DOWNLOAD_CONCURRENCY) {
+        await Promise.all(urls.slice(index, index + BOOK_DOWNLOAD_CONCURRENCY).map(saveUrl));
       }
       if (!saved || failedRequired.length) throw new Error('Не все главы удалось сохранить. Проверьте соединение и повторите загрузку.');
-      event.ports?.[0]?.postMessage({ ok: true, saved });
+      port?.postMessage({ type: 'complete', ok: true, saved, total: urls.length });
     } catch (error) {
-      event.ports?.[0]?.postMessage({ ok: false, error: error?.message || 'Не удалось сохранить книгу.' });
+      port?.postMessage({ type: 'complete', ok: false, error: error?.message || 'Не удалось сохранить книгу.' });
     }
   })());
 });
@@ -122,7 +141,9 @@ self.addEventListener('fetch', (event) => {
   if (request.mode === 'navigate') {
     event.respondWith((async () => {
       try {
-        const response = await fetchWithTimeout(request);
+        let response = null;
+        try { response = await event.preloadResponse; } catch { /* Fall back to a regular request. */ }
+        if (!response) response = await fetchWithTimeout(request);
         if (response.ok && !response.redirected) {
           event.waitUntil(caches.open(SHELL_CACHE).then((cache) => cacheDocument(cache, request, response.clone())));
         }
@@ -148,7 +169,7 @@ self.addEventListener('fetch', (event) => {
       const cached = await caches.match(request);
       if (cached) return cached;
       try {
-        const response = await fetch(request);
+        const response = await fetchWithTimeout(request, ASSET_TIMEOUT);
         if (response.ok && !response.redirected) {
           event.waitUntil(caches.open(SHELL_CACHE).then((cache) => cache.put(request, response.clone())));
         }

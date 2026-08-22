@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
-import { ArrowRight, BookOpen, Search } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ArrowRight, BookOpen, Grid3X3, List, Search } from 'lucide-react';
 import { SiteFooter, SiteHeader } from './page-chrome.jsx';
 import { genreKey, uniqueGenres } from '../lib/genres.js';
+
+const CATALOG_VIEW_KEY = 'booknerd-catalog-view-v1';
 
 function TranslationCover({ book }) {
   if (book.coverUrl) return <div className="translation-cover"><img src={book.coverUrl} alt={`Обложка книги «${book.title}»`} /></div>;
@@ -17,6 +19,7 @@ function TranslationCover({ book }) {
 export default function TranslationsPage({ initialBooks = [] }) {
   const [query, setQuery] = useState('');
   const [genre, setGenre] = useState('Все');
+  const [viewMode, setViewMode] = useState('grid');
   const genres = useMemo(() => ['Все', ...uniqueGenres(initialBooks.flatMap((book) => book.genres || []))], [initialBooks]);
   const books = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -26,6 +29,15 @@ export default function TranslationsPage({ initialBooks = [] }) {
       return matchesGenre && matchesQuery;
     });
   }, [genre, initialBooks, query]);
+
+  useEffect(() => {
+    try { setViewMode(localStorage.getItem(CATALOG_VIEW_KEY) === 'list' ? 'list' : 'grid'); } catch { /* optional */ }
+  }, []);
+
+  const chooseView = (nextView) => {
+    setViewMode(nextView);
+    try { localStorage.setItem(CATALOG_VIEW_KEY, nextView); } catch { /* optional */ }
+  };
 
   return (
     <div className="site-shell inner-site-shell">
@@ -38,10 +50,16 @@ export default function TranslationsPage({ initialBooks = [] }) {
         <section className="translations-library">
           <div className="translations-tools">
             <div className="filter-list">{genres.map((item) => <button className={genre === item ? 'active' : ''} onClick={() => setGenre(item)} key={item}>{item}</button>)}</div>
-            <label className="translations-search"><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Название или автор" /></label>
+            <div className="translations-actions">
+              <label className="translations-search"><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Название или автор" /></label>
+              <div className="translations-view-controls" role="group" aria-label="Вид каталога">
+                <button type="button" className={viewMode === 'grid' ? 'is-active' : ''} onClick={() => chooseView('grid')} aria-pressed={viewMode === 'grid'}><Grid3X3 size={17} /><span>Плитка</span></button>
+                <button type="button" className={viewMode === 'list' ? 'is-active' : ''} onClick={() => chooseView('list')} aria-pressed={viewMode === 'list'}><List size={18} /><span>Список</span></button>
+              </div>
+            </div>
           </div>
           {books.length ? (
-            <div className="translations-grid">
+            <div className={`translations-grid is-${viewMode}`}>
               {books.map((book) => (
                 <article
                   className="translation-card"

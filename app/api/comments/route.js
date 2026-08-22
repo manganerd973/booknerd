@@ -3,6 +3,14 @@ import { ensureDb } from '../../../lib/runtime.js';
 import { notifyBookPreferenceEvent } from '../../../lib/push-notifications.js';
 import { saveReaderNotification } from '../../../lib/reader-notifications.js';
 
+const commentContexts = new Set(['comments', 'discussion']);
+
+function normalizeContext(value, chapterId = null) {
+  if (chapterId) return 'comments';
+  const context = String(value || '').trim();
+  return commentContexts.has(context) ? context : 'comments';
+}
+
 function mapComment(row) {
   return {
     id: row.id,
@@ -34,6 +42,7 @@ export async function GET(request) {
     const url = new URL(request.url);
     const bookId = String(url.searchParams.get('bookId') || '').trim();
     const chapterId = String(url.searchParams.get('chapterId') || '').trim();
+    const context = normalizeContext(url.searchParams.get('context'), chapterId);
     if (!bookId) return Response.json({ error: 'Книга не указана.' }, { status: 400 });
 
     const db = await ensureDb();
@@ -42,14 +51,14 @@ export async function GET(request) {
           SUM(CASE WHEN v.value = 1 THEN 1 ELSE 0 END) AS up_votes,
           SUM(CASE WHEN v.value = -1 THEN 1 ELSE 0 END) AS down_votes
           FROM comments c LEFT JOIN comment_votes v ON v.comment_id = c.id
-          WHERE c.book_id = ? AND c.chapter_id = ? AND c.status = 'approved'
-          GROUP BY c.id ORDER BY c.created_at ASC LIMIT 100`).bind(bookId, chapterId)
+          WHERE c.book_id = ? AND c.chapter_id = ? AND c.context = ? AND c.status = 'approved'
+          GROUP BY c.id ORDER BY c.created_at ASC LIMIT 100`).bind(bookId, chapterId, context)
       : db.prepare(`SELECT c.id, c.parent_id, c.author_name, c.body, c.is_spoiler, c.created_at,
           SUM(CASE WHEN v.value = 1 THEN 1 ELSE 0 END) AS up_votes,
           SUM(CASE WHEN v.value = -1 THEN 1 ELSE 0 END) AS down_votes
           FROM comments c LEFT JOIN comment_votes v ON v.comment_id = c.id
-          WHERE c.book_id = ? AND c.chapter_id IS NULL AND c.status = 'approved'
-          GROUP BY c.id ORDER BY c.created_at ASC LIMIT 100`).bind(bookId);
+          WHERE c.book_id = ? AND c.chapter_id IS NULL AND c.context = ? AND c.status = 'approved'
+          GROUP BY c.id ORDER BY c.created_at ASC LIMIT 100`).bind(bookId, context);
     const result = await statement.all();
     return Response.json({ comments: (result.results || []).map(mapComment) });
   } catch (error) {
@@ -64,6 +73,7 @@ export async function POST(request) {
     const payload = await request.json();
     const bookId = String(payload.bookId || '').trim();
     const chapterId = String(payload.chapterId || '').trim() || null;
+    const context = normalizeContext(payload.context, chapterId);
     const parentId = String(payload.parentId || '').trim() || null;
     const visitorKey = normalizeVisitorKey(payload.visitorKey);
     const authorName = String(payload.authorName || '').trim().replace(/\s+/g, ' ').slice(0, 60);
@@ -84,18 +94,18 @@ export async function POST(request) {
     const parent = parentId
       ? await db.prepare(
         `SELECT id, visitor_key FROM comments
-         WHERE id = ? AND book_id = ? AND COALESCE(chapter_id, '') = COALESCE(?, '') AND status = 'approved'
+         WHERE id = ? AND book_id = ? AND COALESCE(chapter_id, '') = COALESCE(?, '') AND context = ? AND status = 'approved'
          LIMIT 1`
-      ).bind(parentId, bookId, chapterId).first()
+      ).bind(parentId, bookId, chapterId, context).first()
       : null;
     if (parentId && !parent) return Response.json({ error: 'Комментарий для ответа не найден.' }, { status: 404 });
 
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     await db.prepare(
-      `INSERT INTO comments (id, book_id, chapter_id, parent_id, visitor_key, author_name, body, is_spoiler, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'approved', ?, ?)`
-    ).bind(id, bookId, chapterId, parent?.id || null, visitorKey, authorName, body, isSpoiler ? 1 : 0, now, now).run();
+      `INSERT INTO comments (id, book_id, chapter_id, context, parent_id, visitor_key, author_name, body, is_spoiler, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', ?, ?)`
+    ).bind(id, bookId, chapterId, context, parent?.id || null, visitorKey, authorName, body, isSpoiler ? 1 : 0, now, now).run();
     if (parent?.visitor_key && parent.visitor_key !== visitorKey) {
       const bookRow = await db.prepare(`SELECT slug, title FROM books WHERE id = ? LIMIT 1`).bind(bookId).first();
       const chapterRow = chapterId
@@ -103,7 +113,9 @@ export async function POST(request) {
         : null;
       const notificationUrl = chapterId
         ? `/books/${bookRow?.slug}/chapters/${chapterId}?notification=1#comment-${id}`
-        : `/books/${bookRow?.slug}#comment-${id}`;
+        : context === 'discussion'
+          ? `/books/${bookRow?.slug}#discussion-comment-${id}`
+          : `/books/${bookRow?.slug}#comment-${id}`;
       await saveReaderNotification({
         db,
         visitorKey: parent.visitor_key,

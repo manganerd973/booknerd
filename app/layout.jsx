@@ -64,10 +64,19 @@ const recoveryScript = `(() => {
   setTimeout(() => { try { sessionStorage.removeItem(key); } catch {} }, 12000);
 })();`;
 
+const themeScript = `(() => {
+  try {
+    const saved = localStorage.getItem('booknerd-app-theme-v1') || 'original';
+    const theme = ['original', 'white', 'black', 'system'].includes(saved) ? saved : 'original';
+    document.documentElement.dataset.appTheme = theme;
+    document.documentElement.style.colorScheme = theme === 'black' ? 'dark' : theme === 'white' ? 'light' : '';
+  } catch {}
+})();`;
+
 export default function RootLayout({ children }) {
   return (
     <html lang="ru">
-      <head><script dangerouslySetInnerHTML={{ __html: recoveryScript }} /></head>
+      <head><script dangerouslySetInnerHTML={{ __html: themeScript }} /><script dangerouslySetInnerHTML={{ __html: recoveryScript }} /></head>
       <body><PwaRegister /><AppPreferences />{children}</body>
     </html>
   );

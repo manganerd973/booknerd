@@ -11,6 +11,7 @@ import {
   FileText,
   Flame,
   Heart,
+  Images,
   MessageCircle,
   Star,
 } from 'lucide-react';
@@ -28,9 +29,18 @@ import { MobileBottomNavigation } from './page-chrome.jsx';
 const TABS = [
   ['about', 'О книге'],
   ['chapters', 'Главы'],
+  ['fanarts', 'Фанарты'],
   ['comments', 'Комментарии'],
   ['discussion', 'Обсуждение'],
 ];
+
+function TabIcon({ tab }) {
+  if (tab === 'about') return <Heart size={17} />;
+  if (tab === 'chapters') return <BookOpen size={17} />;
+  if (tab === 'fanarts') return <Images size={17} />;
+  if (tab === 'comments') return <MessageCircle size={17} />;
+  return <Star size={17} />;
+}
 
 function PrimaryReadButton({ book, chapters }) {
   const [item, setItem] = useState(null);
@@ -63,12 +73,12 @@ function BookFacts({ book, chapters }) {
   const facts = [
     ['Тип', 'Роман'],
     ['Статус / перевод', `${book.status || 'Онгоинг'} · ${Math.max(0, Math.min(100, Number(book.progress || 0)))}%`],
-    ['Выпуск', book.publicationYear ? `${book.publicationYear} г.` : 'Не указан'],
-    ['Страна', book.country || 'Не указана'],
+    book.publicationYear ? ['Выпуск', `${book.publicationYear} г.`] : null,
+    String(book.country || '').trim() ? ['Страна', book.country] : null,
     ['Опубликовано', chapterSummary],
     ['Объём', book.pageCount ? `${book.pageCount} стр.` : 'Уточняется'],
-  ];
-  return <section className="book-facts-grid" aria-label="Основная информация о книге">{facts.map(([label, value]) => <article key={label}><small>{label}</small><strong>{value}</strong></article>)}</section>;
+  ].filter(Boolean);
+  return <section className={`book-facts-grid count-${facts.length}`} aria-label="Основная информация о книге">{facts.map(([label, value]) => <article key={label}><small>{label}</small><strong>{value}</strong></article>)}</section>;
 }
 
 function ChaptersPanel({ book, chapters }) {
@@ -91,7 +101,7 @@ function ChaptersPanel({ book, chapters }) {
   );
 }
 
-function AboutPanel({ book, chapters, artworks, seriesBooks }) {
+function AboutPanel({ book, chapters, seriesBooks }) {
   const heatGuide = chapters.filter((chapter) => Number(chapter.heatLevel || 0) > 0);
   const hasHotScenes = Boolean(book.hasHotScenes || heatGuide.length);
   const hotSceneChapters = book.hotSceneChapters || heatGuide.map((chapter) => chapter.heatPages || String(chapter.chapterNumber)).filter(Boolean).join(', ');
@@ -102,14 +112,13 @@ function AboutPanel({ book, chapters, artworks, seriesBooks }) {
       <section className="book-detail-body is-about-only">
         <article className="book-synopsis">
           <span className="editorial-section-number">01 / АННОТАЦИЯ</span><h2>Об этой истории</h2><p>{book.synopsis || 'Аннотация появится совсем скоро.'}</p>
-          {book.dedication ? <blockquote className="book-dedication"><small>Посвящение</small><p>«{book.dedication}»</p></blockquote> : null}
           <div className="book-about-taxonomy">
             {(book.genres || []).length ? <div><small>Жанры</small><p>{book.genres.map((genre) => <span key={genre}>{genre}</span>)}</p></div> : null}
             {(book.tropes || []).length ? <div><small>Тропы</small><p>{book.tropes.map((trope) => <span key={trope}>{trope}</span>)}</p></div> : null}
+            {(book.triggerWarnings || []).length ? <div className="book-about-triggers"><small><AlertTriangle size={14} /> Триггеры</small><p>{book.triggerWarnings.map((warning) => <span key={warning}>{warning}</span>)}</p></div> : null}
           </div>
         </article>
       </section>
-      <BookArtGallery artworks={artworks} bookTitle={book.title} />
       <SeriesReadingOrder book={book} seriesBooks={seriesBooks} />
       {(book.translator || book.editor || book.proofreader || book.quoteOfDay) ? (
         <section className="book-credits">
@@ -120,13 +129,6 @@ function AboutPanel({ book, chapters, artworks, seriesBooks }) {
       ) : null}
       <BookGlossary bookId={book.id} />
       <BookUniverse book={{ ...book, chapters }} />
-      {(book.triggerWarnings || []).length ? (
-        <section className="book-trigger-warnings" aria-labelledby="book-trigger-warnings-title">
-          <div><AlertTriangle size={23} /><div><span className="editorial-section-number">БЕРЕЖНО К СЕБЕ</span><h2 id="book-trigger-warnings-title">Предупреждения о триггерах</h2></div></div>
-          <p>Перед чтением обратите внимание: в книге встречаются темы, которые могут быть чувствительными.</p>
-          <div>{book.triggerWarnings.map((warning) => <span key={warning}>{warning}</span>)}</div>
-        </section>
-      ) : null}
       <section className="book-heat-guide" aria-labelledby="book-heat-guide-title">
         <div className="book-heat-guide-heading"><div><span className="editorial-section-number">ПУТЕВОДИТЕЛЬ ПО ГЛАВАМ</span><h2 id="book-heat-guide-title">Горячие сцены — по желанию</h2></div><Flame size={34} /></div>
         <p>Путеводитель для любителей горячих сцен, а также для тех, кто предпочитает их избегать.</p>
@@ -139,11 +141,12 @@ function AboutPanel({ book, chapters, artworks, seriesBooks }) {
 
 export default function BookDetailPage({ book, chapters = [], artworks = [], seriesBooks = [] }) {
   const [activeTab, setActiveTab] = useState('about');
-  const badges = useMemo(() => [book.genre, book.publicationYear, book.status].filter(Boolean), [book.genre, book.publicationYear, book.status]);
+  const badges = useMemo(() => [book.genre, book.publicationYear].filter(Boolean), [book.genre, book.publicationYear]);
 
   useEffect(() => {
     const hash = window.location.hash.replace(/^#/, '');
-    if (hash.startsWith('comment-')) setActiveTab('comments');
+    if (hash.startsWith('discussion-comment-')) setActiveTab('discussion');
+    else if (hash.startsWith('comment-')) setActiveTab('comments');
     else if (TABS.some(([value]) => value === hash)) setActiveTab(hash);
   }, []);
 
@@ -169,16 +172,18 @@ export default function BookDetailPage({ book, chapters = [], artworks = [], ser
           <BookRating bookId={book.id} />
           <PrimaryReadButton book={book} chapters={chapters} />
           <div className="book-profile-secondary"><BookLibraryControl bookId={book.id} /><OfflineBookButton book={book} chapters={chapters} />{book.driveUrl ? <a className="editorial-drive-link" href={book.driveUrl} target="_blank" rel="noreferrer">Файл книги <ExternalLink size={16} /></a> : null}</div>
+          {book.dedication ? <div className="book-profile-dedication"><small>Посвящение</small><p>{book.dedication}</p></div> : null}
         </div>
       </section>
       <nav id="book-information" className="book-information-tabs" aria-label="Разделы страницы книги" role="tablist">
-        {TABS.map(([value, label]) => <button type="button" id={`book-tab-${value}`} className={activeTab === value ? 'is-active' : ''} onClick={() => selectTab(value)} aria-controls="book-tab-content" aria-selected={activeTab === value} role="tab" key={value}>{value === 'about' ? <Heart size={17} /> : value === 'chapters' ? <BookOpen size={17} /> : value === 'comments' ? <MessageCircle size={17} /> : <Star size={17} />}{label}{value === 'chapters' ? <span>{chapters.length}</span> : null}</button>)}
+        {TABS.map(([value, label]) => <button type="button" id={`book-tab-${value}`} className={activeTab === value ? 'is-active' : ''} onClick={() => selectTab(value)} aria-controls="book-tab-content" aria-selected={activeTab === value} role="tab" key={value}><TabIcon tab={value} />{label}{value === 'chapters' ? <span>{chapters.length}</span> : value === 'fanarts' && artworks.length ? <span>{artworks.length}</span> : null}</button>)}
       </nav>
       <section id="book-tab-content" className="book-tab-panel" role="tabpanel" aria-labelledby={`book-tab-${activeTab}`}>
-        {activeTab === 'about' ? <AboutPanel book={book} chapters={chapters} artworks={artworks} seriesBooks={seriesBooks} /> : null}
+        {activeTab === 'about' ? <AboutPanel book={book} chapters={chapters} seriesBooks={seriesBooks} /> : null}
         {activeTab === 'chapters' ? <ChaptersPanel book={book} chapters={chapters} /> : null}
+        {activeTab === 'fanarts' ? <BookArtGallery artworks={artworks} bookTitle={book.title} /> : null}
         {activeTab === 'comments' ? <CommentsSection bookId={book.id} /> : null}
-        {activeTab === 'discussion' ? <BookReviews bookId={book.id} /> : null}
+        {activeTab === 'discussion' ? <><BookReviews bookId={book.id} /><CommentsSection bookId={book.id} scope="discussion" /></> : null}
       </section>
       <MobileBottomNavigation active="translations" />
     </main>

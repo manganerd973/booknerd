@@ -112,6 +112,7 @@ export const comments = sqliteTable('comments', {
   id: text('id').primaryKey(),
   bookId: text('book_id').notNull().references(() => books.id, { onDelete: 'cascade' }),
   chapterId: text('chapter_id').references(() => chapters.id, { onDelete: 'cascade' }),
+  context: text('context').notNull().default('comments'),
   parentId: text('parent_id'),
   visitorKey: text('visitor_key').notNull().default(''),
   authorName: text('author_name').notNull(),

@@ -18,7 +18,7 @@ export async function POST(request, { params }) {
 
     const db = await ensureDb();
     const comment = await db.prepare(
-      `SELECT c.id, c.visitor_key, c.book_id, c.chapter_id, b.slug, b.title AS book_title,
+      `SELECT c.id, c.visitor_key, c.book_id, c.chapter_id, c.context, b.slug, b.title AS book_title,
               ch.chapter_number, ch.title AS chapter_title
        FROM comments c JOIN books b ON b.id = c.book_id
        LEFT JOIN chapters ch ON ch.id = c.chapter_id
@@ -47,7 +47,9 @@ export async function POST(request, { params }) {
       if (currentVote === 1) {
         const url = comment.chapter_id
           ? `/books/${comment.slug}/chapters/${comment.chapter_id}?notification=1#comment-${id}`
-          : `/books/${comment.slug}#comment-${id}`;
+          : comment.context === 'discussion'
+            ? `/books/${comment.slug}#discussion-comment-${id}`
+            : `/books/${comment.slug}#comment-${id}`;
         await saveReaderNotification({
           db,
           visitorKey: comment.visitor_key,

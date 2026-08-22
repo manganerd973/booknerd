@@ -1178,6 +1178,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                     <div className="admin-comment-meta">
                       <span>{comment.status === 'approved' ? 'Опубликован' : 'Скрыт'}</span>
                       {comment.kind === 'review' ? <b>Отзыв · {comment.rating}/10</b> : null}
+                      {comment.kind === 'comment' && comment.context === 'discussion' ? <b>Обсуждение</b> : null}
                       {comment.isSpoiler ? <b className="admin-comment-spoiler">Спойлер</b> : null}
                       {(comment.reports || []).length ? <b>Жалоб: {comment.reports.length}</b> : null}
                       <time dateTime={comment.createdAt}>{formatAdminDate(comment.createdAt)}</time>
@@ -1194,8 +1195,8 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                     ) : null}
                     <div className="admin-comment-source">
                       <BookOpen size={15} />
-                      <a href={comment.chapterId ? `/books/${comment.bookSlug}/chapters/${comment.chapterId}` : `/books/${comment.bookSlug}`} target="_blank" rel="noreferrer">
-                        {comment.bookTitle}{comment.chapterTitle ? ` · глава ${comment.chapterNumber}: ${comment.chapterTitle}` : ' · страница книги'}
+                      <a href={comment.chapterId ? `/books/${comment.bookSlug}/chapters/${comment.chapterId}#comment-${comment.id}` : comment.context === 'discussion' ? `/books/${comment.bookSlug}#discussion-comment-${comment.id}` : `/books/${comment.bookSlug}#comment-${comment.id}`} target="_blank" rel="noreferrer">
+                        {comment.bookTitle}{comment.chapterTitle ? ` · глава ${comment.chapterNumber}: ${comment.chapterTitle}` : comment.context === 'discussion' ? ' · обсуждение' : ' · страница книги'}
                       </a>
                     </div>
                     <div className="admin-comment-actions">

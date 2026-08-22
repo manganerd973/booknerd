@@ -8,8 +8,12 @@
 
 .translations-library { max-width: 1440px; margin: auto; padding: 64px 5vw 120px; }
 .translations-tools { display: flex; align-items: center; justify-content: space-between; gap: 28px; padding-bottom: 22px; border-bottom: 1px solid var(--line); }
+.translations-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 14px; }
 .translations-search { display: flex; width: min(320px, 100%); align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--navy); }
 .translations-search input { width: 100%; background: transparent; border: 0; outline: 0; }
+.translations-view-controls { display: inline-flex; align-items: center; gap: 6px; }
+.translations-view-controls button { min-height: 42px; display: inline-flex; align-items: center; gap: 7px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); background: color-mix(in srgb,var(--paper) 90%,var(--coral) 10%); font: inherit; font-size: 9px; font-weight: 850; cursor: pointer; }
+.translations-view-controls button.is-active { border-color: var(--navy); color: var(--cream); background: var(--navy); }
 .translations-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 68px 28px; margin-top: 46px; }
 .translation-card { min-width: 0; cursor: pointer; }
 .translation-card:focus-visible { outline: 3px solid var(--yellow); outline-offset: 5px; }
@@ -33,15 +37,35 @@
 .translation-card-progress { height: 3px; margin: 18px 0; background: rgba(18,60,53,.12); }
 .translation-card-progress i { display: block; height: 100%; background: var(--blue); }
 .translation-card-copy a { display: inline-flex; align-items: center; gap: 13px; padding-bottom: 5px; border-bottom: 1px solid var(--navy); font-size: 11px; font-weight: 900; }
+.translations-grid.is-list { grid-template-columns: 1fr; gap: 14px; margin-top: 32px; }
+.translations-grid.is-list .translation-card { display: grid; min-height: 230px; grid-template-columns: 154px minmax(0,1fr); overflow: hidden; border: 1px solid var(--line); background: color-mix(in srgb,var(--paper) 94%,var(--coral) 6%); }
+.translations-grid.is-list .translation-cover { width: 154px; height: 230px; margin: 0; padding: 17px; box-shadow: none; }
+.translations-grid.is-list .translation-cover > strong { font-size: 22px; }
+.translations-grid.is-list .translation-cover > span,.translations-grid.is-list .translation-cover > small { font-size: 6px; }
+.translations-grid.is-list .translation-card:hover .translation-cover { transform: none; box-shadow: none; }
+.translations-grid.is-list .translation-card-copy { display: grid; align-content: center; padding: 24px 28px; }
+.translations-grid.is-list .translation-card-copy h2 { font-size: clamp(28px,4vw,44px); }
+.translations-grid.is-list .translation-card-copy > small { margin-top: 9px; }
+.translations-grid.is-list .translation-tropes { margin-top: 10px; }
+.translations-grid.is-list .translation-card-progress { width: min(520px,100%); margin: 14px 0; }
+.translations-grid.is-list .translation-card-copy a { width: fit-content; }
 .page-empty { grid-column: 1 / -1; padding: 90px 20px; text-align: center; border: 1px dashed var(--line); }
 .page-empty h2 { margin: 12px 0 5px; font-family: var(--serif); font-size: 32px; }
 .page-empty p { margin: 0; color: var(--muted); }
 
-.library-hero { min-height: 330px; align-items: center; color: var(--cream); background-color: var(--navy); background-image: radial-gradient(rgba(255,255,255,.14) .7px,transparent .7px),linear-gradient(115deg,var(--navy),#071713); }
+.library-hero { min-height: 330px; align-items: center; color: var(--cream); background: linear-gradient(125deg,var(--navy),color-mix(in srgb,var(--navy) 70%,var(--coral) 30%)); }
 .library-hero .section-number { color: var(--yellow); }
 .library-hero > div { padding-left: 28px; border-left: 7px solid var(--yellow); }
 .library-hero h1 { font-family: var(--sans); font-size: clamp(52px,6vw,84px); font-weight: 900; line-height: .96; text-transform: uppercase; letter-spacing: -.055em; }
 .library-hero p { margin-top: 18px; color: color-mix(in srgb,var(--cream) 58%,transparent); font-family: var(--sans); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .14em; }
+html[data-app-theme='white'] .library-hero { color: var(--ink); border-bottom-color: var(--line); background: linear-gradient(125deg,#ffffff,#e8f2ed); }
+html[data-app-theme='white'] .library-hero p { color: var(--muted); }
+html[data-app-theme='black'] .library-hero { color: var(--ink); background: linear-gradient(125deg,#080a09,#173a31); }
+html[data-app-theme='black'] .library-hero p { color: var(--muted); }
+@media (prefers-color-scheme: dark) {
+  html[data-app-theme='system'] .library-hero { color: var(--ink); background: linear-gradient(125deg,#080a09,#173a31); }
+  html[data-app-theme='system'] .library-hero p { color: var(--muted); }
+}
 .library-page-content { max-width: 1440px; margin: auto; padding: 36px 5vw 120px; }
 .library-page-tabs { position: sticky; z-index: 14; top: 0; display: flex; gap: 8px; overflow-x: auto; margin: 0 -5vw 26px; padding: 13px 5vw; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--paper) 92%, transparent); scrollbar-width: none; backdrop-filter: blur(15px); }
 .library-page-tabs::-webkit-scrollbar { display: none; }
@@ -480,8 +504,23 @@
   .translations-tools .filter-list { width: 100%; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 5px; scrollbar-width: none; }
   .translations-tools .filter-list::-webkit-scrollbar { display: none; }
   .translations-tools .filter-list button { flex: 0 0 auto; }
+  .translations-actions { width: 100%; align-items: stretch; }
   .translations-search { width: 100%; }
   .translations-grid { grid-template-columns: 1fr; }
+  .translations-view-controls button { width: 46px; justify-content: center; padding: 0; }
+  .translations-view-controls button span { display: none; }
+  .translations-grid.is-list { gap: 10px; margin-top: 22px; }
+  .translations-grid.is-list .translation-card { min-height: 170px; grid-template-columns: 112px minmax(0,1fr); }
+  .translations-grid.is-list .translation-cover { width: 112px; height: 170px; padding: 11px; }
+  .translations-grid.is-list .translation-cover > span,.translations-grid.is-list .translation-cover > b,.translations-grid.is-list .translation-cover > small { display: none; }
+  .translations-grid.is-list .translation-cover > strong { font-size: 15px; }
+  .translations-grid.is-list .translation-card-copy { padding: 13px 14px; }
+  .translations-grid.is-list .translation-card-copy > span { font-size: 7px; }
+  .translations-grid.is-list .translation-card-copy h2 { margin-top: 6px; font-size: 19px; }
+  .translations-grid.is-list .translation-card-copy p { font-size: 9px; }
+  .translations-grid.is-list .translation-series,.translations-grid.is-list .translation-card-copy > small:not(.translation-series),.translations-grid.is-list .translation-tropes { display: none; }
+  .translations-grid.is-list .translation-card-progress { margin: 10px 0; }
+  .translations-grid.is-list .translation-card-copy a { font-size: 8px; }
   .library-hero { min-height: 220px; padding-top: 38px; padding-bottom: 38px; }
   .library-hero > div { padding-left: 17px; border-left-width: 5px; }
   .library-hero h1 { font-size: clamp(34px,10.5vw,48px); }
@@ -527,7 +566,7 @@
   .library-page-empty > a { margin-left: 0; }
   .library-page-content > .reader-personal-stats { margin-top: 64px; border-radius: 20px; }
   .calendar-hero-icon { right: 18px; bottom: 18px; width: 24px; height: 24px; padding: 10px; }
-  .translation-cover { width: min(360px, 88%); margin: auto; }
+  .translations-grid.is-grid .translation-cover { width: min(360px, 88%); margin: auto; }
   .translation-card-copy { padding-right: 4px; padding-left: 4px; }
   .profile-banner { grid-template-columns: 64px minmax(0,1fr); gap: 16px; min-height: 0; margin: 18px 14px 0; padding: 25px 18px; border-radius: 22px; }
   .profile-avatar { width: 64px; height: 64px; }

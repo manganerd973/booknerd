@@ -187,7 +187,7 @@ function PopularComments({ comments }) {
               <div className="popular-comment-author"><strong>{comment.authorName}</strong><span>о книге «{comment.bookTitle}»</span></div>
               <div className="popular-comment-footer">
                 <div className="popular-comment-feedback"><CommentVotes commentId={comment.id} initialUpVotes={comment.upVotes} initialDownVotes={comment.downVotes} compact /><CommentReport commentId={comment.id} compact /></div>
-                <a href={comment.chapterId ? `/books/${comment.bookSlug}/chapters/${comment.chapterId}` : `/books/${comment.bookSlug}`}>
+                <a href={comment.chapterId ? `/books/${comment.bookSlug}/chapters/${comment.chapterId}#comment-${comment.id}` : comment.context === 'discussion' ? `/books/${comment.bookSlug}#discussion-comment-${comment.id}` : `/books/${comment.bookSlug}#comment-${comment.id}`}>
                   К обсуждению <ArrowRight size={15} />
                 </a>
               </div>

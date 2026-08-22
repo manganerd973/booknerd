@@ -1,11 +1,18 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, Download, Expand, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Expand, Grid3X3, Images, List, X } from 'lucide-react';
+
+const FANART_VIEW_KEY = 'booknerd-fanart-view-v1';
 
 export default function BookArtGallery({ artworks = [], bookTitle = '' }) {
   const [activeIndex, setActiveIndex] = useState(null);
+  const [viewMode, setViewMode] = useState('grid');
   const activeArtwork = activeIndex == null ? null : artworks[activeIndex];
+
+  useEffect(() => {
+    try { setViewMode(localStorage.getItem(FANART_VIEW_KEY) === 'list' ? 'list' : 'grid'); } catch { /* optional */ }
+  }, []);
 
   useEffect(() => {
     if (activeIndex == null) return undefined;
@@ -23,22 +30,25 @@ export default function BookArtGallery({ artworks = [], bookTitle = '' }) {
     };
   }, [activeIndex, artworks.length]);
 
-  if (!artworks.length) return null;
+  const chooseView = (nextView) => {
+    setViewMode(nextView);
+    try { localStorage.setItem(FANART_VIEW_KEY, nextView); } catch { /* optional */ }
+  };
 
   return (
     <section className="book-art-section" aria-labelledby="book-art-title">
       <div className="book-art-heading">
         <div><span className="editorial-section-number">04 / АРТЫ К КНИГЕ</span><h2 id="book-art-title">Заглянуть в историю</h2></div>
-        <p>Атмосфера, герои и места из мира «{bookTitle}».</p>
+        <div className="book-art-heading-side"><p>Атмосфера, герои и места из мира «{bookTitle}».</p><div className="book-art-view-controls" role="group" aria-label="Вид фанартов"><button type="button" className={viewMode === 'grid' ? 'is-active' : ''} onClick={() => chooseView('grid')} aria-pressed={viewMode === 'grid'}><Grid3X3 size={17} /> Плитка</button><button type="button" className={viewMode === 'list' ? 'is-active' : ''} onClick={() => chooseView('list')} aria-pressed={viewMode === 'list'}><List size={18} /> Список</button></div></div>
       </div>
-      <div className={`book-art-grid ${artworks.length === 1 ? 'is-single' : ''}`}>
+      {artworks.length ? <div className={`book-art-grid is-${viewMode}`}>
         {artworks.map((artwork, index) => (
           <button type="button" key={artwork.id} onClick={() => setActiveIndex(index)} aria-label={`Открыть арт ${index + 1}`}>
             <img src={artwork.imageUrl} alt={artwork.caption || `Арт к книге «${bookTitle}»`} loading="lazy" />
             <span><small>{index === 0 ? 'АРТ ДНЯ' : index === 1 ? 'ФАНАРТ НЕДЕЛИ' : String(index + 1).padStart(2, '0')}</small><strong>{artwork.caption || bookTitle}</strong><Expand size={17} /></span>
           </button>
         ))}
-      </div>
+      </div> : <div className="book-art-empty"><Images size={32} /><strong>Фанартов пока нет</strong><p>Когда команда добавит арты, они появятся здесь аккуратной галереей.</p></div>}
 
       {activeArtwork && (
         <div className="book-art-lightbox" role="dialog" aria-modal="true" aria-label="Просмотр арта" onClick={() => setActiveIndex(null)}>
