@@ -4,8 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Check, Clock3, GitFork, Save, Sparkles, WandSparkles } from 'lucide-react';
 import { getVisitorKey } from './site-analytics.js';
 import { loadReaderLibrary } from './reader-library.jsx';
-
-const TABS = [['tree', 'Древо персонажей'], ['timeline', 'Таймлайн'], ['quiz', 'Какой вы персонаж?']];
+import BookWorldMap from './book-world-map.jsx';
 
 export default function BookUniverse({ book }) {
   const [entries, setEntries] = useState([]);
@@ -14,6 +13,7 @@ export default function BookUniverse({ book }) {
   const [capsule, setCapsule] = useState({ firstImpression: '', finalImpression: '' });
   const [emotionTotals, setEmotionTotals] = useState([]);
   const [finished, setFinished] = useState(false);
+  const [currentChapter, setCurrentChapter] = useState(0);
   const [notice, setNotice] = useState('');
 
   useEffect(() => {
@@ -27,27 +27,43 @@ export default function BookUniverse({ book }) {
       const saved = (hub.capsules || []).find((item) => item.book_id === book.id);
       if (saved) setCapsule({ firstImpression: saved.first_impression || '', finalImpression: saved.final_impression || '' });
       setEmotionTotals(hub.emotionTotals || []);
-      setFinished((library || []).some((item) => item.bookId === book.id && item.status === 'finished'));
+      const libraryEntry = (library || []).find((item) => item.bookId === book.id);
+      const isFinished = libraryEntry?.status === 'finished';
+      setFinished(isFinished);
+      const lastChapter = (book.chapters || []).find((chapter) => chapter.id === libraryEntry?.lastChapterId);
+      setCurrentChapter(isFinished ? Number.MAX_SAFE_INTEGER : Number(lastChapter?.chapterNumber || 0));
     }).catch(() => {});
   }, [book.id]);
 
   const characters = entries.filter((entry) => entry.category === 'character');
   const timeline = entries.filter((entry) => entry.category === 'timeline');
+  const tabs = useMemo(() => [
+    characters.length ? ['tree', 'Древо персонажей'] : null,
+    timeline.length ? ['timeline', 'Таймлайн'] : null,
+    book.worldMap ? ['map', 'Карта мира'] : null,
+    characters.length >= 2 ? ['quiz', 'Какой вы персонаж?'] : null,
+  ].filter(Boolean), [characters.length, timeline.length, book.worldMap]);
   const quizResult = answers.length >= 3 && characters.length ? characters[answers.reduce((sum, value) => sum + value, 0) % characters.length] : null;
+
+  useEffect(() => {
+    if (!tabs.length || tabs.some(([value]) => value === active)) return;
+    setActive(book.worldMap ? 'map' : tabs[0][0]);
+  }, [tabs, active, book.worldMap]);
   const saveCapsule = async () => {
     const response = await fetch('/api/reader-hub', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ visitorKey: getVisitorKey(), action: 'capsule', bookId: book.id, ...capsule }) });
     const data = await response.json().catch(() => ({}));
     setNotice(response.ok ? 'Капсула времени сохранена.' : data.error || 'Не удалось сохранить.');
   };
 
-  if (!entries.length && !book.searchAliases?.length) return <TimeCapsule book={book} capsule={capsule} setCapsule={setCapsule} finished={finished} save={saveCapsule} notice={notice} />;
+  if (!entries.length && !book.worldMap) return <TimeCapsule book={book} capsule={capsule} setCapsule={setCapsule} finished={finished} save={saveCapsule} notice={notice} />;
   return (
     <>
       <section className="book-universe">
         <div className="book-universe-heading"><Sparkles size={29} /><div><span className="editorial-section-number">МИР КНИГИ</span><h2>Открывается вместе с чтением</h2><p>Только уже знакомые вам места, связи и события — без будущих спойлеров.</p></div></div>
-        <div className="book-universe-tabs">{TABS.map(([value, label]) => <button className={active === value ? 'is-active' : ''} type="button" onClick={() => setActive(value)} key={value}>{label}</button>)}</div>
+        <div className="book-universe-tabs">{tabs.map(([value, label]) => <button className={active === value ? 'is-active' : ''} type="button" onClick={() => setActive(value)} key={value}>{label}</button>)}</div>
         {active === 'tree' ? <div className="book-character-tree">{characters.length ? characters.map((entry) => <article key={entry.id}><GitFork size={18} /><div><strong>{entry.name}</strong><p>{entry.description}</p>{entry.connections ? <small>Связи: {entry.connections}</small> : null}</div></article>) : <p>Связи персонажей появятся по мере чтения.</p>}</div> : null}
         {active === 'timeline' ? <div className="book-timeline">{timeline.length ? timeline.map((entry, index) => <article key={entry.id}><span>{String(index + 1).padStart(2, '0')}</span><div><strong>{entry.name}</strong><p>{entry.description}</p></div></article>) : <p><Clock3 size={20} /> Хронология заполнится, когда команда добавит события в словарь.</p>}</div> : null}
+        {active === 'map' && book.worldMap ? <BookWorldMap worldMap={book.worldMap} currentChapter={currentChapter} /> : null}
         {active === 'quiz' ? <div className="book-character-quiz">
           {characters.length < 2 ? <p>Тест появится, когда в словаре откроются как минимум два персонажа.</p> : quizResult ? <article><WandSparkles size={26} /><small>ВАМ БЛИЖЕ ВСЕГО</small><h3>{quizResult.name}</h3><p>{quizResult.description}</p><button type="button" onClick={() => setAnswers([])}>Пройти ещё раз</button></article> : <div><h3>{['Как вы действуете в сложной ситуации?', 'Что для вас важнее всего?', 'Какую роль вы выбираете в команде?'][answers.length]}</h3>{['Думаю и наблюдаю', 'Действую сразу', 'Сначала защищаю близких'].map((answer, index) => <button type="button" onClick={() => setAnswers([...answers, index])} key={answer}>{answer}</button>)}</div>}
         </div> : null}

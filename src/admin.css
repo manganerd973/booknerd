@@ -339,6 +339,52 @@
 .admin-artwork-empty strong { color: var(--admin-ink); font-family: Georgia, serif; font-size: 21px; font-weight: 500; }
 .admin-artwork-empty p { margin: 0; font-size: 10px; }
 
+.admin-book-map-section { margin-top: 48px; }
+.admin-map-count { display: inline-flex; min-height: 42px; align-items: center; gap: 8px; padding: 0 15px; color: var(--admin-ink); background: var(--admin-yellow); font-size: 11px; font-weight: 900; }
+.admin-map-loading { display: flex; min-height: 180px; align-items: center; justify-content: center; gap: 9px; border: 1px solid var(--admin-line); color: var(--admin-ink-soft); background: var(--admin-card); font-size: 11px; }
+.admin-map-workspace { display: grid; grid-template-columns: minmax(0,1.65fr) minmax(290px,.7fr); gap: 18px; padding: 20px; border: 1px solid var(--admin-line); background: var(--admin-card); }
+.admin-map-stage-column { display: grid; align-content: start; gap: 12px; min-width: 0; }
+.admin-map-stage { display: grid; min-height: 360px; place-items: center; overflow: hidden; border: 1px solid var(--admin-line); background: #e8e5d8; }
+.admin-map-stage.is-placing { outline: 3px solid rgba(85,169,140,.25); outline-offset: -3px; cursor: crosshair; }
+.admin-map-image { position: relative; width: 100%; line-height: 0; }
+.admin-map-image > img { display: block; width: 100%; height: auto; max-height: 680px; object-fit: contain; user-select: none; }
+.admin-map-image > button { position: absolute; display: grid; width: 34px; height: 34px; grid-template-columns: 15px 8px; place-items: center; gap: 0; padding: 0; border: 2px solid #fffdf4; border-radius: 50%; color: #fff; background: var(--admin-ink); box-shadow: 0 4px 13px rgba(7,34,29,.3); transform: translate(-50%,-50%); cursor: pointer; }
+.admin-map-image > button span { font-size: 8px; font-weight: 900; line-height: 1; }
+.admin-map-image > button.is-active { color: var(--admin-ink); background: var(--admin-yellow); box-shadow: 0 0 0 4px rgba(247,213,79,.3); }
+.admin-map-empty { display: grid; min-height: 360px; place-items: center; align-content: center; gap: 9px; padding: 24px; color: var(--admin-ink-soft); text-align: center; }
+.admin-map-empty svg { color: var(--admin-mint); }
+.admin-map-empty strong { color: var(--admin-ink); font-family: Georgia,serif; font-size: 25px; font-weight: 500; }
+.admin-map-empty p { max-width: 330px; margin: 0; font-size: 10px; line-height: 1.6; }
+.admin-map-toolbar { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.admin-map-toolbar > button { justify-content: center; }
+.admin-map-title { display: grid; gap: 7px; }
+.admin-map-title > span,.admin-map-marker-editor label > span { color: var(--admin-ink); font-size: 9px; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; }
+.admin-map-title input,.admin-map-marker-editor input,.admin-map-marker-editor textarea { width: 100%; padding: 0 12px; border: 1px solid var(--admin-line); outline: 0; color: var(--admin-ink); background: #fffef8; font: inherit; font-size: 11px; }
+.admin-map-title input,.admin-map-marker-editor input { height: 45px; }
+.admin-map-marker-editor textarea { padding-top: 12px; resize: vertical; line-height: 1.55; }
+.admin-map-title input:focus,.admin-map-marker-editor input:focus,.admin-map-marker-editor textarea:focus { border-color: var(--admin-mint); box-shadow: 0 0 0 2px rgba(85,169,140,.12); }
+.admin-map-sidebar { display: grid; min-width: 0; align-content: start; gap: 13px; }
+.admin-map-location-list { display: grid; max-height: 315px; overflow-y: auto; border: 1px solid var(--admin-line); background: #fffef8; }
+.admin-map-location-list > p { margin: 0; padding: 22px; color: var(--admin-ink-soft); font-size: 10px; line-height: 1.65; }
+.admin-map-location-list > button { display: grid; grid-template-columns: 30px minmax(0,1fr); align-items: center; gap: 9px; min-height: 58px; padding: 8px 11px; border: 0; border-bottom: 1px solid var(--admin-line); color: var(--admin-ink); background: transparent; text-align: left; cursor: pointer; }
+.admin-map-location-list > button:last-child { border-bottom: 0; }
+.admin-map-location-list > button > span { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 50%; color: #fff; background: var(--admin-ink); font-size: 9px; font-weight: 900; }
+.admin-map-location-list > button > div { display: grid; min-width: 0; gap: 3px; }
+.admin-map-location-list strong,.admin-map-location-list small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-map-location-list strong { font: 500 13px/1.2 Georgia,serif; }
+.admin-map-location-list small { color: var(--admin-ink-soft); font-size: 8px; }
+.admin-map-location-list > button.is-active { background: rgba(85,169,140,.12); }
+.admin-map-location-list > button.is-active > span { color: var(--admin-ink); background: var(--admin-yellow); }
+.admin-map-marker-editor { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--admin-line); background: rgba(85,169,140,.08); }
+.admin-map-marker-editor header { display: flex; align-items: center; justify-content: space-between; }
+.admin-map-marker-editor header strong { font-family: Georgia,serif; font-size: 17px; font-weight: 500; }
+.admin-map-marker-editor header button { display: grid; width: 31px; height: 31px; place-items: center; border: 1px solid var(--admin-line); color: var(--admin-ink); background: transparent; cursor: pointer; }
+.admin-map-marker-editor label { display: grid; gap: 7px; }
+.admin-map-marker-editor label small { color: var(--admin-ink-soft); font-size: 8px; line-height: 1.5; }
+.admin-map-marker-editor > .admin-danger { justify-self: start; }
+.admin-map-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; padding-top: 3px; }
+.admin-map-actions .admin-primary { margin-left: auto; }
+
 .admin-chapter-section { margin-top: 48px; }
 .admin-chapter-section.is-disabled { opacity: .72; }
 .admin-chapter-workspace { display: grid; grid-template-columns: 280px minmax(0,1fr); min-height: 600px; border: 1px solid var(--admin-line); background: var(--admin-card); }
@@ -610,6 +656,8 @@
 }
 
 @media (max-width: 900px) {
+  .admin-map-workspace { grid-template-columns: 1fr; }
+  .admin-map-stage { min-height: 300px; }
   .admin-login-page { grid-template-columns: 1fr; }
   .admin-login-aside { display: none; }
   .admin-sidebar { width: 280px; transform: translateX(-102%); transition: transform .25s ease; }

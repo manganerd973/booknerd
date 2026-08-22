@@ -50,6 +50,7 @@ export default function OfflineBookButton({ book, chapters = [] }) {
         `/books/${book.slug}`,
         ...chapters.map((chapter) => `/books/${book.slug}/chapters/${chapter.id}`),
         book.coverUrl,
+        book.worldMap?.imageUrl,
       ].filter(Boolean);
       const result = await new Promise((resolve, reject) => {
         const channel = new MessageChannel();
@@ -79,7 +80,7 @@ export default function OfflineBookButton({ book, chapters = [] }) {
       current[book.id] = { title: book.title, slug: book.slug, chapters: chapters.length, savedResources: result.saved, savedAt: new Date().toISOString() };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
       setSaved(true);
-      setNotice(`Готово: ${chapters.length} глав доступны без интернета.`);
+      setNotice(`Готово: ${chapters.length} глав${book.worldMap ? ' и карта' : ''} доступны без интернета.`);
     } catch (error) {
       setNotice(error.message);
     } finally {
@@ -93,7 +94,7 @@ export default function OfflineBookButton({ book, chapters = [] }) {
         {saving ? <LoaderCircle className="spin" size={18} /> : saved ? <RefreshCw size={18} /> : <Download size={18} />}
         {saving ? 'Сохраняем…' : saved ? 'Обновить офлайн‑версию' : 'Скачать для офлайн‑чтения'}
       </button>
-      {notice ? <small><Check size={13} /> {notice}</small> : saved ? <small><Check size={13} /> Сохранено на этом устройстве</small> : <small>Книга и все опубликованные главы останутся на устройстве.</small>}
+      {notice ? <small><Check size={13} /> {notice}</small> : saved ? <small><Check size={13} /> Сохранено на этом устройстве</small> : <small>Книга, опубликованные главы{book.worldMap ? ' и карта' : ''} останутся на устройстве.</small>}
     </div>
   );
 }

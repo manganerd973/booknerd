@@ -134,6 +134,53 @@ html[data-app-theme='black'] .reader-page { --ed-paper:#080a09; --ed-card:#12171
 .book-universe-tabs { display: flex; gap: 8px; overflow-x: auto; margin: 28px 0 20px; }
 .book-universe-tabs button { flex: 0 0 auto; min-height: 40px; padding: 0 14px; border: 1px solid var(--ed-line); border-radius: 999px; color: var(--ed-ink); background: transparent; font: inherit; font-size: 9px; font-weight: 900; cursor: pointer; }
 .book-universe-tabs button.is-active { color: #fffdf1; background: var(--ed-ink); }
+.book-world-map { overflow: hidden; border: 1px solid var(--ed-line); background: var(--ed-card); }
+.book-world-map-head { display: flex; min-height: 70px; align-items: center; justify-content: space-between; gap: 16px; padding: 13px 16px 13px 19px; border-bottom: 1px solid var(--ed-line); }
+.book-world-map-head > div:first-child { display: flex; min-width: 0; align-items: center; gap: 11px; }
+.book-world-map-head > div:first-child > svg { flex: 0 0 auto; color: var(--ed-mint); }
+.book-world-map-head > div:first-child > span { display: grid; min-width: 0; gap: 4px; }
+.book-world-map-head small { color: var(--ed-mint); font-size: 8px; font-weight: 900; letter-spacing: .12em; }
+.book-world-map-head strong { overflow: hidden; font-family: Georgia,serif; font-size: 19px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.book-world-map-controls { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 5px; }
+.book-world-map-controls button { display: grid; width: 36px; height: 36px; place-items: center; border: 1px solid var(--ed-line); border-radius: 9px; color: var(--ed-ink); background: color-mix(in srgb,var(--ed-card) 88%,var(--ed-mint)); cursor: pointer; }
+.book-world-map-controls button:hover:not(:disabled),.book-world-map-controls button:focus-visible { color: #fffdf1; background: var(--ed-ink); }
+.book-world-map-controls button:disabled { opacity: .35; cursor: default; }
+.book-world-map-controls > span { min-width: 42px; color: color-mix(in srgb,var(--ed-ink) 56%,transparent); font-size: 9px; font-weight: 900; text-align: center; }
+.book-world-map-layout { display: grid; grid-template-columns: minmax(0,1fr) 290px; min-height: 500px; }
+.book-world-map-viewport { position: relative; min-width: 0; min-height: 500px; overflow: hidden; border-right: 1px solid var(--ed-line); background: #dfe2d3; cursor: default; touch-action: none; }
+.book-world-map-viewport.is-zoomed { cursor: grab; }
+.book-world-map-viewport.is-zoomed:active { cursor: grabbing; }
+.book-world-map-canvas { position: relative; width: 100%; min-height: 100%; transform-origin: center center; will-change: transform; }
+.book-world-map-canvas > img { display: block; width: 100%; min-height: 500px; max-height: 690px; object-fit: contain; user-select: none; -webkit-user-drag: none; }
+.book-world-map-canvas > button { position: absolute; display: grid; width: 38px; height: 38px; grid-template-columns: 15px 8px; place-items: center; gap: 0; padding: 0; border: 2px solid #fffdf1; border-radius: 50%; color: #fffdf1; background: #123c35; box-shadow: 0 5px 16px rgba(5,27,23,.34); transform: translate(-50%,-50%) scale(calc(1 / var(--map-zoom,1))); cursor: pointer; }
+.book-world-map-canvas > button span { font-size: 8px; font-weight: 900; line-height: 1; }
+.book-world-map-canvas > button.is-active { color: #123c35; background: #ffd43b; box-shadow: 0 0 0 5px rgba(255,212,59,.28),0 5px 16px rgba(5,27,23,.34); }
+.book-world-map-canvas > button.is-locked { color: #fffdf1; background: rgba(18,60,53,.75); }
+.book-world-map-hint { position: absolute; right: 13px; bottom: 11px; left: 13px; z-index: 3; margin: 0; padding: 8px 10px; border-radius: 9px; color: rgba(255,255,255,.83); background: rgba(7,31,27,.72); font-size: 8px; line-height: 1.45; text-align: center; pointer-events: none; backdrop-filter: blur(7px); }
+.book-world-map-locations { display: grid; min-width: 0; align-content: start; background: var(--ed-card); }
+.book-world-map-locations > header { display: flex; min-height: 48px; align-items: center; justify-content: space-between; padding: 0 14px; border-bottom: 1px solid var(--ed-line); }
+.book-world-map-locations > header small { color: var(--ed-mint); font-size: 8px; font-weight: 900; letter-spacing: .1em; }
+.book-world-map-locations > header strong { display: grid; min-width: 28px; height: 28px; place-items: center; border-radius: 50%; color: #fffdf1; background: var(--ed-ink); font-size: 9px; }
+.book-world-map-locations > div { display: grid; max-height: 260px; overflow-y: auto; border-bottom: 1px solid var(--ed-line); }
+.book-world-map-locations > div > button { display: grid; grid-template-columns: 27px minmax(0,1fr); align-items: center; gap: 9px; min-height: 61px; padding: 9px 12px; border: 0; border-bottom: 1px solid var(--ed-line); color: var(--ed-ink); background: transparent; text-align: left; cursor: pointer; }
+.book-world-map-locations > div > button:last-child { border-bottom: 0; }
+.book-world-map-locations > div > button > span { display: grid; width: 27px; height: 27px; place-items: center; border-radius: 50%; color: #fffdf1; background: var(--ed-ink); font-size: 8px; font-weight: 900; }
+.book-world-map-locations > div > button > div { display: grid; min-width: 0; gap: 3px; }
+.book-world-map-locations > div strong,.book-world-map-locations > div small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.book-world-map-locations > div strong { font: 500 12px/1.2 Georgia,serif; }
+.book-world-map-locations > div small { color: color-mix(in srgb,var(--ed-ink) 54%,transparent); font-size: 8px; }
+.book-world-map-locations > div > button.is-active { background: color-mix(in srgb,var(--ed-card) 82%,var(--ed-mint)); }
+.book-world-map-locations > div > button.is-active > span { color: #123c35; background: #ffd43b; }
+.book-world-map-locations > p { margin: 0; padding: 22px 16px; color: color-mix(in srgb,var(--ed-ink) 57%,transparent); font-size: 10px; line-height: 1.6; }
+.book-world-map-locations > article { display: grid; gap: 7px; margin: 15px; padding: 17px; border: 1px solid var(--ed-line); background: color-mix(in srgb,var(--ed-card) 89%,var(--ed-mint)); }
+.book-world-map-locations > article > svg { color: var(--ed-mint); }
+.book-world-map-locations > article > small { margin-top: 3px; color: var(--ed-mint); font-size: 7px; font-weight: 900; letter-spacing: .12em; }
+.book-world-map-locations > article h3 { margin: 0; font-family: Georgia,serif; font-size: 22px; font-weight: 500; }
+.book-world-map-locations > article p { margin: 0; color: color-mix(in srgb,var(--ed-ink) 65%,transparent); font-size: 10px; line-height: 1.6; }
+.book-world-map-locations > article.is-locked { background: color-mix(in srgb,var(--ed-card) 94%,#8b938e); }
+.book-world-map.is-expanded { position: fixed; inset: 12px; z-index: 1000; display: grid; grid-template-rows: auto minmax(0,1fr); border-color: color-mix(in srgb,var(--ed-line) 70%,#123c35); box-shadow: 0 24px 80px rgba(0,0,0,.42); }
+.book-world-map.is-expanded .book-world-map-layout,.book-world-map.is-expanded .book-world-map-viewport { min-height: 0; height: 100%; }
+.book-world-map.is-expanded .book-world-map-canvas > img { min-height: 100%; max-height: calc(100dvh - 110px); }
 .book-character-tree > p,.book-timeline > p,.book-character-quiz > p { display: flex; min-height: 220px; align-items: center; justify-content: center; gap: 8px; margin: 0; color: rgba(18,60,53,.58); }
 .book-character-tree { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
 .book-character-tree article { display: flex; gap: 12px; padding: 20px; border: 1px solid var(--ed-line); background: rgba(255,253,241,.52); }
@@ -164,6 +211,19 @@ html[data-app-theme='black'] .reader-page { --ed-paper:#080a09; --ed-card:#12171
 
 @media (max-width: 720px) {
   .book-credits > div:nth-child(2),.book-character-tree,.book-capsule-fields { grid-template-columns: 1fr; }
+  .book-world-map-head { align-items: flex-start; flex-direction: column; }
+  .book-world-map-controls { width: 100%; }
+  .book-world-map-controls button { flex: 1; }
+  .book-world-map-layout { grid-template-columns: 1fr; }
+  .book-world-map-viewport { min-height: 330px; border-right: 0; border-bottom: 1px solid var(--ed-line); }
+  .book-world-map-canvas > img { min-height: 330px; max-height: 520px; }
+  .book-world-map-locations > div { max-height: 190px; }
+  .book-world-map-locations > article { margin-bottom: 18px; }
+  .book-world-map.is-expanded { inset: 0; }
+  .book-world-map.is-expanded .book-world-map-head { gap: 8px; padding: 10px 12px; }
+  .book-world-map.is-expanded .book-world-map-layout { min-height: 0; overflow-y: auto; }
+  .book-world-map.is-expanded .book-world-map-viewport { min-height: 58dvh; height: 58dvh; }
+  .book-world-map.is-expanded .book-world-map-canvas > img { min-height: 58dvh; max-height: 58dvh; }
 }
 .book-art-heading { display: flex; align-items: end; justify-content: space-between; gap: 30px; margin-bottom: 34px; }
 .book-art-heading h2 { margin: 10px 0 0; font-family: Georgia, serif; font-size: clamp(38px, 5vw, 62px); font-weight: 500; letter-spacing: -.05em; line-height: .95; }

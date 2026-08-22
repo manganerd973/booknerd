@@ -1,4 +1,4 @@
-const SHELL_CACHE = 'booknerd-shell-v24';
+const SHELL_CACHE = 'booknerd-shell-v25';
 const OFFLINE_CACHE = 'booknerd-offline-library-v2';
 const OFFLINE_FALLBACK = '/offline.html';
 const NAVIGATION_TIMEOUT = 45000;

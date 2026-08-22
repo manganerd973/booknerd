@@ -63,7 +63,7 @@ export default function AdminBookGlossary({ bookId, onNotice }) {
   return (
     <section className="admin-glossary-section" id="admin-book-glossary">
       <div className="admin-list-head">
-        <div><span>05 / СЛОВАРЬ</span><h2>Слова и их значения</h2><p>Напишите слово из книги и простое объяснение. При необходимости укажите главу, после которой его можно показать без спойлера.</p></div>
+        <div><span>06 / СЛОВАРЬ</span><h2>Слова и их значения</h2><p>Напишите слово из книги и простое объяснение. При необходимости укажите главу, после которой его можно показать без спойлера.</p></div>
         <button className="admin-secondary" type="button" onClick={() => setDraft(blankEntry)}><Plus size={17} /> Добавить слово</button>
       </div>
       <div className="admin-glossary-layout">

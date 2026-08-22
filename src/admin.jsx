@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import RichChapterEditor from './rich-chapter-editor.jsx';
 import AdminBookGlossary from './admin-book-glossary.jsx';
+import AdminBookMap from './admin-book-map.jsx';
 import AdminSeriesOrder from './admin-series-order.jsx';
 import AdminReaderNotes from './admin-reader-notes.jsx';
 import { BOOK_TRANSLATION_STATUSES } from '../lib/book-status.js';
@@ -1078,9 +1079,11 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
               )}
             </section>
 
+            {bookForm.id ? <AdminBookMap bookId={bookForm.id} onNotice={flash} /> : null}
+
             <section className={`admin-chapter-section ${!bookForm.id ? 'is-disabled' : ''}`}>
               <div className="admin-list-head">
-                <div><span>04 / ГЛАВЫ</span><h2>Текст перевода</h2><p>Добавляйте главы, храните черновики и публикуйте готовый текст.</p></div>
+                <div><span>05 / ГЛАВЫ</span><h2>Текст перевода</h2><p>Добавляйте главы, храните черновики и публикуйте готовый текст.</p></div>
                 <button className="admin-secondary" onClick={startNewChapter} disabled={!bookForm.id}><Plus size={18} /> Новая глава</button>
               </div>
               {!bookForm.id ? (

@@ -38,6 +38,7 @@ export const books = sqliteTable('books', {
   worldMapName: text('world_map_name').notNull().default(''),
   worldMapContentType: text('world_map_content_type').notNull().default(''),
   worldMapSizeBytes: integer('world_map_size_bytes').notNull().default(0),
+  worldMapMarkers: text('world_map_markers').notNull().default('[]'),
   published: integer('published', { mode: 'boolean' }).notNull().default(false),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
