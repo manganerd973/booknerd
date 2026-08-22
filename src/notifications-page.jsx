@@ -1,21 +1,33 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Bell, BellRing, BookOpen, CheckCheck, LoaderCircle, MessageCircle, Plus, Settings } from 'lucide-react';
+import {
+  Bell,
+  BellRing,
+  BookOpen,
+  CheckCheck,
+  EyeOff,
+  LoaderCircle,
+  MessageCircle,
+  MoreHorizontal,
+  Plus,
+  RotateCcw,
+  Settings,
+} from 'lucide-react';
 import { getVisitorKey } from './site-analytics.js';
 import { SiteFooter, SiteHeader } from './page-chrome.jsx';
 
 const FILTERS = [
   ['all', 'Все'],
-  ['unread', 'Непрочитанные'],
-  ['new_chapter', 'Новые главы'],
+  ['unread', 'Новые'],
+  ['new_chapter', 'Главы'],
   ['comments', 'Комментарии'],
+  ['hidden', 'Скрытые'],
 ];
 
 const TYPE_META = {
-  new_chapter: { label: 'Новая глава', icon: BookOpen },
-  comment_reply: { label: 'Ответ', icon: MessageCircle },
-  comment_upvote: { label: 'Плюс', icon: Plus },
+  comment_reply: { label: 'Ответ на комментарий', icon: MessageCircle },
+  comment_upvote: { label: 'Плюс к комментарию', icon: Plus },
 };
 
 function formatDate(value) {
@@ -26,6 +38,60 @@ function formatDate(value) {
   } catch {
     return '';
   }
+}
+
+function formatRelative(value) {
+  const milliseconds = Date.now() - new Date(value).getTime();
+  if (!Number.isFinite(milliseconds) || milliseconds < 0) return formatDate(value);
+  const minutes = Math.max(1, Math.floor(milliseconds / 60000));
+  if (minutes < 60) return new Intl.RelativeTimeFormat('ru-RU', { numeric: 'auto' }).format(-minutes, 'minute');
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return new Intl.RelativeTimeFormat('ru-RU', { numeric: 'auto' }).format(-hours, 'hour');
+  const days = Math.floor(hours / 24);
+  if (days < 7) return new Intl.RelativeTimeFormat('ru-RU', { numeric: 'auto' }).format(-days, 'day');
+  return formatDate(value);
+}
+
+function chapterName(number, title) {
+  const base = number == null ? 'Новая глава' : `Глава ${number}`;
+  const cleanTitle = String(title || '').trim();
+  return cleanTitle && cleanTitle.toLocaleLowerCase('ru-RU') !== base.toLocaleLowerCase('ru-RU')
+    ? `${base} · ${cleanTitle}`
+    : base;
+}
+
+function groupNotifications(items) {
+  const result = [];
+  const groups = new Map();
+  for (const item of items) {
+    if (item.type !== 'new_chapter' || !item.bookId) {
+      result.push({ ...item, ids: [item.id] });
+      continue;
+    }
+    const key = `${item.bookId}:${item.hiddenAt ? 'hidden' : 'visible'}`;
+    let group = groups.get(key);
+    if (!group) {
+      group = { ...item, ids: [], chapters: [] };
+      groups.set(key, group);
+      result.push(group);
+    }
+    group.ids.push(item.id);
+    group.chapters.push({
+      id: item.id,
+      chapterId: item.chapterId,
+      chapterNumber: item.chapterNumber,
+      chapterTitle: item.chapterTitle || item.body,
+      url: item.url,
+      readAt: item.readAt,
+      hiddenAt: item.hiddenAt,
+      createdAt: item.createdAt,
+    });
+  }
+  for (const group of groups.values()) {
+    group.readAt = group.chapters.every((chapter) => chapter.readAt) ? group.chapters[0]?.readAt : null;
+    group.hiddenAt = group.chapters.every((chapter) => chapter.hiddenAt) ? group.chapters[0]?.hiddenAt : null;
+  }
+  return result.sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt));
 }
 
 async function notificationApi(options = {}) {
@@ -46,12 +112,21 @@ async function notificationApi(options = {}) {
   return data;
 }
 
+function BookCover({ item }) {
+  return item.coverUrl ? (
+    <img className="notification-book-cover" src={item.coverUrl} alt={`Обложка книги «${item.bookTitle || item.title}»`} loading="lazy" decoding="async" />
+  ) : (
+    <span className="notification-book-cover is-placeholder"><BookOpen size={25} /></span>
+  );
+}
+
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState('');
+  const [openMenu, setOpenMenu] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -67,21 +142,33 @@ export default function NotificationsPage() {
     return () => { active = false; };
   }, []);
 
-  const visible = useMemo(() => notifications.filter((item) => {
+  const grouped = useMemo(() => groupNotifications(notifications), [notifications]);
+  const visible = useMemo(() => grouped.filter((item) => {
+    if (filter === 'hidden') return Boolean(item.hiddenAt);
+    if (item.hiddenAt) return false;
     if (filter === 'unread') return !item.readAt;
     if (filter === 'comments') return item.type === 'comment_reply' || item.type === 'comment_upvote';
     if (filter === 'new_chapter') return item.type === 'new_chapter';
     return true;
-  }), [filter, notifications]);
+  }), [filter, grouped]);
 
-  const openNotification = async (item) => {
+  const updateLocalItems = (ids, changes) => {
+    const selected = new Set(ids);
+    setNotifications((current) => current.map((entry) => selected.has(entry.id) ? { ...entry, ...changes } : entry));
+  };
+
+  const openNotification = async (item, destination = item.url) => {
+    const ids = item.ids || [item.id];
     setSaving(item.id);
+    setOpenMenu('');
     if (!item.readAt) {
-      setNotifications((current) => current.map((entry) => entry.id === item.id ? { ...entry, readAt: new Date().toISOString() } : entry));
-      setUnreadCount((count) => Math.max(0, count - 1));
-      try { await notificationApi({ method: 'POST', body: { id: item.id } }); } catch { /* The destination still opens. */ }
+      const readAt = new Date().toISOString();
+      const newlyRead = notifications.filter((entry) => ids.includes(entry.id) && !entry.readAt && !entry.hiddenAt).length;
+      updateLocalItems(ids, { readAt });
+      setUnreadCount((count) => Math.max(0, count - newlyRead));
+      try { await notificationApi({ method: 'POST', body: { ids } }); } catch { /* The destination still opens. */ }
     }
-    window.location.assign(item.url);
+    window.location.assign(destination);
   };
 
   const markAllRead = async () => {
@@ -90,7 +177,7 @@ export default function NotificationsPage() {
     try {
       const data = await notificationApi({ method: 'POST', body: { action: 'mark-all-read' } });
       const readAt = data.readAt || new Date().toISOString();
-      setNotifications((current) => current.map((item) => ({ ...item, readAt: item.readAt || readAt })));
+      setNotifications((current) => current.map((item) => item.hiddenAt ? item : { ...item, readAt: item.readAt || readAt }));
       setUnreadCount(0);
     } catch (saveError) {
       setError(saveError.message);
@@ -98,6 +185,51 @@ export default function NotificationsPage() {
       setSaving('');
     }
   };
+
+  const hideRead = async () => {
+    setSaving('hide-read');
+    setError('');
+    try {
+      const now = new Date().toISOString();
+      await notificationApi({ method: 'POST', body: { action: 'hide-read' } });
+      setNotifications((current) => current.map((item) => item.readAt && !item.hiddenAt ? { ...item, hiddenAt: now } : item));
+    } catch (saveError) {
+      setError(saveError.message);
+    } finally {
+      setSaving('');
+    }
+  };
+
+  const toggleHidden = async (item) => {
+    const ids = item.ids || [item.id];
+    const restoring = Boolean(item.hiddenAt);
+    const now = new Date().toISOString();
+    setSaving(item.id);
+    setOpenMenu('');
+    try {
+      const data = await notificationApi({ method: 'POST', body: { action: restoring ? 'restore' : 'hide', ids } });
+      updateLocalItems(ids, restoring ? { hiddenAt: null } : { hiddenAt: now, readAt: now });
+      setUnreadCount(Number(data.unreadCount || 0));
+    } catch (saveError) {
+      setError(saveError.message);
+    } finally {
+      setSaving('');
+    }
+  };
+
+  const renderMenu = (item) => (
+    <div className="notification-card-menu-wrap">
+      <button type="button" className="notification-card-menu-button" aria-label={item.hiddenAt ? 'Вернуть уведомление' : 'Действия с уведомлением'} aria-expanded={openMenu === item.id} onClick={() => setOpenMenu((current) => current === item.id ? '' : item.id)}>
+        <MoreHorizontal size={20} />
+      </button>
+      {openMenu === item.id ? (
+        <button type="button" className="notification-card-menu-popover" onClick={() => toggleHidden(item)}>
+          {item.hiddenAt ? <RotateCcw size={15} /> : <EyeOff size={15} />}
+          {item.hiddenAt ? 'Вернуть' : 'Скрыть'}
+        </button>
+      ) : null}
+    </div>
+  );
 
   return (
     <div className="site-shell inner-site-shell notifications-page">
@@ -112,6 +244,11 @@ export default function NotificationsPage() {
         </section>
 
         <section className="notifications-page-content">
+          <div className="notifications-mobile-head">
+            <h1><Bell size={24} /> Уведомления</h1>
+            <button type="button" onClick={hideRead} disabled={saving === 'hide-read'}>{saving === 'hide-read' ? <LoaderCircle className="spin" size={16} /> : <EyeOff size={16} />} Скрыть прочитанные</button>
+          </div>
+
           <div className="notifications-toolbar">
             <div>
               <BellRing size={24} />
@@ -138,24 +275,64 @@ export default function NotificationsPage() {
             <div className="notifications-empty is-error"><Bell size={30} /><strong>{error}</strong><button type="button" onClick={() => window.location.reload()}>Попробовать снова</button></div>
           ) : visible.length ? (
             <div className="notifications-list">
-              {visible.map((item) => {
-                const meta = TYPE_META[item.type] || { label: 'BOOKNERD', icon: Bell };
-                const Icon = meta.icon;
-                return (
-                  <button type="button" className={item.readAt ? 'is-read' : 'is-unread'} onClick={() => openNotification(item)} disabled={saving === item.id} key={item.id}>
-                    <span className="notification-item-icon"><Icon size={21} /></span>
-                    <span className="notification-item-copy">
-                      <small>{meta.label} · {formatDate(item.createdAt)}</small>
-                      <strong>{item.title}</strong>
-                      <p>{item.body}</p>
+              {visible.map((item) => item.type === 'new_chapter' ? (
+                <article className={`notification-book-card ${item.readAt ? 'is-read' : 'is-unread'} ${item.hiddenAt ? 'is-hidden' : ''}`} key={`${item.bookId}-${item.hiddenAt ? 'hidden' : 'visible'}`}>
+                  <header>
+                    <BookCover item={item} />
+                    <div>
+                      <small>Книга из раздела «Читаю»</small>
+                      <h2>{item.bookTitle || item.title.replace(/^Новая глава:\s*/i, '')}</h2>
+                    </div>
+                    {renderMenu(item)}
+                  </header>
+                  <div className="notification-chapter-update">
+                    <strong>{item.chapters?.length > 1 ? 'Вышли новые главы' : 'Вышла новая глава'}</strong>
+                    <div className="notification-chapter-list">
+                      {(item.chapters || []).slice(0, 3).map((chapter) => (
+                        <button type="button" onClick={() => openNotification(item, chapter.url)} disabled={saving === item.id} key={chapter.id}>
+                          <span>{chapterName(chapter.chapterNumber, chapter.chapterTitle)}</span>
+                          <time>{formatRelative(chapter.createdAt)}</time>
+                        </button>
+                      ))}
+                      {(item.chapters?.length || 0) > 3 ? <small>Ещё глав: {item.chapters.length - 3}</small> : null}
+                    </div>
+                  </div>
+                  <div className="notification-reading-position">
+                    <span>
+                      <small>Вы остановились</small>
+                      <strong>{item.lastChapterNumber == null ? 'Чтение ещё не начато' : chapterName(item.lastChapterNumber, item.lastChapterTitle)}</strong>
+                      {item.lastChapterNumber != null && item.lastPage > 0 ? <em>Страница {item.lastPage + 1}</em> : null}
                     </span>
-                    <span className="notification-item-open">{saving === item.id ? <LoaderCircle className="spin" size={18} /> : <ArrowRight size={19} />}</span>
-                  </button>
-                );
-              })}
+                    <div>
+                      <button type="button" className="is-primary" onClick={() => openNotification(item, item.chapters?.[0]?.url || item.url)} disabled={saving === item.id}>
+                        {saving === item.id ? <LoaderCircle className="spin" size={17} /> : <BookOpen size={17} />}
+                        К новой главе {item.chapters?.[0]?.chapterNumber ?? ''}
+                      </button>
+                      {item.resumeUrl && item.lastChapterId !== item.chapters?.[0]?.chapterId ? (
+                        <button type="button" onClick={() => openNotification(item, item.resumeUrl)} disabled={saving === item.id}>Продолжить с главы {item.lastChapterNumber}</button>
+                      ) : null}
+                    </div>
+                  </div>
+                  <footer><time>{formatDate(item.createdAt)}</time>{item.readAt ? <span>Прочитано</span> : <span>Новое</span>}</footer>
+                </article>
+              ) : (
+                <article className={`notification-social-card ${item.readAt ? 'is-read' : 'is-unread'} ${item.hiddenAt ? 'is-hidden' : ''}`} key={item.id}>
+                  <BookCover item={item} />
+                  <div>
+                    <small>{TYPE_META[item.type]?.label || 'BOOKNERD'} · {formatRelative(item.createdAt)}</small>
+                    <h2>{item.bookTitle || item.title}</h2>
+                    <p>{item.body}</p>
+                    <button type="button" onClick={() => openNotification(item)} disabled={saving === item.id}>
+                      {React.createElement(TYPE_META[item.type]?.icon || Bell, { size: 17 })}
+                      {item.type === 'comment_reply' ? 'Открыть ответ' : 'Открыть комментарий'}
+                    </button>
+                  </div>
+                  {renderMenu(item)}
+                </article>
+              ))}
             </div>
           ) : (
-            <div className="notifications-empty"><Bell size={32} /><strong>Здесь пока тихо</strong><p>{filter === 'new_chapter' ? 'Новые главы появятся здесь для книг из раздела «Читаю».' : 'Подходящих уведомлений пока нет.'}</p></div>
+            <div className="notifications-empty"><Bell size={32} /><strong>{filter === 'hidden' ? 'Скрытых уведомлений нет' : 'Здесь пока тихо'}</strong><p>{filter === 'new_chapter' ? 'Новые главы появятся здесь для книг из раздела «Читаю».' : 'Подходящих уведомлений пока нет.'}</p></div>
           )}
         </section>
       </main>

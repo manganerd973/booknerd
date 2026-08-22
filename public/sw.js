@@ -1,6 +1,7 @@
-const SHELL_CACHE = 'booknerd-shell-v17';
+const SHELL_CACHE = 'booknerd-shell-v18';
 const OFFLINE_CACHE = 'booknerd-offline-library-v1';
 const OFFLINE_FALLBACK = '/offline.html';
+const NAVIGATION_TIMEOUT = 20000;
 const PRELOAD_URLS = ['/', OFFLINE_FALLBACK, '/manifest.webmanifest', '/booknerd-icon-v2-192.png'];
 const STATIC_DESTINATIONS = new Set(['style', 'script', 'font', 'image']);
 
@@ -72,7 +73,7 @@ async function migrateLegacyCaches() {
   }
 }
 
-function fetchWithTimeout(request, timeout = 8000) {
+function fetchWithTimeout(request, timeout = NAVIGATION_TIMEOUT) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
   return fetch(request, { signal: controller.signal }).finally(() => clearTimeout(timer));
@@ -153,7 +154,7 @@ self.addEventListener('fetch', (event) => {
         }
         return response;
       } catch {
-        return Response.error();
+        return await caches.match(request, { ignoreSearch: true }) || Response.error();
       }
     })());
   }

@@ -48,7 +48,7 @@ function HeroBookCover({ book, className = '' }) {
       aria-label={`Открыть книгу «${book.title}»`}
     >
       {book.coverUrl ? (
-        <img src={book.coverUrl} alt={`Обложка книги «${book.title}»`} />
+        <img src={book.coverUrl} alt={`Обложка книги «${book.title}»`} decoding="async" />
       ) : (
         <>
           <span className="cover-kicker">перевод booknerd</span>
@@ -107,7 +107,7 @@ function BookCover({ book }) {
   if (book.coverUrl) {
     return (
       <div className="book-cover uploaded-book-cover">
-        <img src={book.coverUrl} alt={`Обложка книги «${book.title}»`} />
+        <img src={book.coverUrl} alt={`Обложка книги «${book.title}»`} loading="lazy" decoding="async" />
       </div>
     );
   }
@@ -250,6 +250,7 @@ function HomepageFanarts({ artworks = [] }) {
 
   if (!artworks.length) return null;
   const visibleIndex = activeIndex % artworks.length;
+  const activeArtwork = artworks[visibleIndex];
   const secondaryArtworks = artworks.filter((_, index) => index !== visibleIndex).slice(0, 7);
   const showPrevious = () => setActiveIndex((current) => (current - 1 + artworks.length) % artworks.length);
   const showNext = () => setActiveIndex((current) => (current + 1) % artworks.length);
@@ -271,23 +272,19 @@ function HomepageFanarts({ artworks = [] }) {
         onBlurCapture={() => setIsPaused(false)}
       >
         <article className="is-featured homepage-fanart-rotator">
-          {artworks.map((artwork, index) => (
-            <a
-              className={index === visibleIndex ? 'is-active' : ''}
-              href={`/books/${artwork.bookSlug}`}
-              aria-label={`Открыть книгу «${artwork.bookTitle}» по фанарту`}
-              aria-hidden={index !== visibleIndex}
-              tabIndex={index === visibleIndex ? 0 : -1}
-              key={artwork.id}
-            >
-              <img src={artwork.imageUrl} alt={artwork.caption || `Фанарт к книге «${artwork.bookTitle}»`} loading={index === 0 ? 'eager' : 'lazy'} />
-              <span>
-                <small>{artwork.bookTitle}</small>
-                <strong>{artwork.caption || 'Заглянуть в эту историю'}</strong>
-                <em>Открыть книгу <ArrowRight size={16} /></em>
-              </span>
-            </a>
-          ))}
+          <a
+            className="is-active"
+            href={`/books/${activeArtwork.bookSlug}`}
+            aria-label={`Открыть книгу «${activeArtwork.bookTitle}» по фанарту`}
+            key={activeArtwork.id}
+          >
+            <img src={activeArtwork.imageUrl} alt={activeArtwork.caption || `Фанарт к книге «${activeArtwork.bookTitle}»`} loading="eager" decoding="async" />
+            <span>
+              <small>{activeArtwork.bookTitle}</small>
+              <strong>{activeArtwork.caption || 'Заглянуть в эту историю'}</strong>
+              <em>Открыть книгу <ArrowRight size={16} /></em>
+            </span>
+          </a>
           {artworks.length > 1 ? (
             <div className="homepage-fanart-switcher" aria-label="Переключение фанартов">
               <button type="button" onClick={showPrevious} aria-label="Предыдущий фанарт"><ChevronLeft size={18} /></button>
@@ -299,7 +296,7 @@ function HomepageFanarts({ artworks = [] }) {
         {secondaryArtworks.map((artwork) => (
           <article key={artwork.id}>
             <a href={`/books/${artwork.bookSlug}`} aria-label={`Открыть книгу «${artwork.bookTitle}» по фанарту`}>
-              <img src={artwork.imageUrl} alt={artwork.caption || `Фанарт к книге «${artwork.bookTitle}»`} loading="lazy" />
+              <img src={artwork.imageUrl} alt={artwork.caption || `Фанарт к книге «${artwork.bookTitle}»`} loading="lazy" decoding="async" />
               <span>
                 <small>{artwork.bookTitle}</small>
                 <strong>{artwork.caption || 'Заглянуть в эту историю'}</strong>
@@ -409,11 +406,11 @@ function App({ initialBooks = [], initialPopularComments = [], initialQuoteOfDay
       if (current) {
         setLibraryItems((items) => items.filter((item) => item.bookId !== book.id));
         await removeReaderLibraryBook(book.id);
-        setNotice('Книга убрана из вашей библиотеки');
+        setNotice('Книга убрана из закладок');
       } else {
         const item = await updateReaderLibrary({ bookId: book.id, status: 'saved' });
         setLibraryItems((items) => [item, ...items.filter((entry) => entry.bookId !== book.id)]);
-        setNotice('Добавлено в «Мою библиотеку»');
+        setNotice('Добавлено в закладки');
       }
     } catch (error) {
       setNotice(error.message);
@@ -438,7 +435,7 @@ function App({ initialBooks = [], initialPopularComments = [], initialQuoteOfDay
           <Logo />
           <nav className="desktop-nav" aria-label="Главная навигация">
             <a href="/translations">Переводы</a>
-            <a href="/library">Моя библиотека</a>
+            <a href="/library">Закладки</a>
             <a href="/calendar">Календарь глав</a>
             <a href="/community">Сообщество</a>
             <a href="/about">О проекте</a>
@@ -504,7 +501,7 @@ function App({ initialBooks = [], initialPopularComments = [], initialQuoteOfDay
           <section className="catalog section" id="catalog">
             <div className="section-heading catalog-heading">
               <div>
-                <span className="section-number">03 / ВСЯ БИБЛИОТЕКА</span>
+                <span className="section-number">03 / ВЕСЬ КАТАЛОГ</span>
                 <h2>Выбирай следующую<br /><em>книжную любовь</em></h2>
               </div>
               <p>От уютной романтики до миров, где магия требует слишком высокую цену.</p>
@@ -600,7 +597,7 @@ function App({ initialBooks = [], initialPopularComments = [], initialQuoteOfDay
               <span className="section-number">06 / ЧИТАТЬ ДАЛЬШЕ</span>
               <h2>Новая глава уже<br /><em>на подходе.</em></h2>
               <p>Следи за новыми переводами и продолжай чтение прямо на сайте.</p>
-              <a className="join-library-link" href="/translations">Открыть библиотеку <ArrowRight size={19} /></a>
+              <a className="join-library-link" href="/translations">Открыть каталог <ArrowRight size={19} /></a>
               <small>Все опубликованные главы появляются в онлайн-читалке.</small>
             </div>
           </section>
@@ -609,7 +606,7 @@ function App({ initialBooks = [], initialPopularComments = [], initialQuoteOfDay
         <footer>
           <Logo />
           <p>Книжная команда переводов · сделано читателями для читателей</p>
-          <div><a href="/translations">Переводы</a><a href="/library">Моя библиотека</a><a href="/calendar">Календарь</a><a href="/community">Сообщество</a><a href="/profile">Профиль</a><a href="/search">Поиск</a><a href="/about">О нас</a><a href="/team">Команда</a><a href="/go/telegram" target="_blank" rel="noreferrer">Telegram</a></div>
+          <div><a href="/translations">Переводы</a><a href="/library">Закладки</a><a href="/calendar">Календарь</a><a href="/community">Сообщество</a><a href="/profile">Профиль</a><a href="/search">Поиск</a><a href="/about">О нас</a><a href="/team">Команда</a><a href="/go/telegram" target="_blank" rel="noreferrer">Telegram</a></div>
           <span>© 2026 BOOKNERD</span>
         </footer>
         <MobileBottomNavigation active="home" />
@@ -619,7 +616,7 @@ function App({ initialBooks = [], initialPopularComments = [], initialQuoteOfDay
         <div className="overlay" role="dialog" aria-modal="true" aria-label="Поиск книг">
           <button className="overlay-close" onClick={() => setSearchOpen(false)} aria-label="Закрыть поиск"><X /></button>
           <div className="search-dialog">
-            <span>Поиск по библиотеке</span>
+            <span>Поиск по каталогу</span>
             <div className="search-input-wrap">
               <Search size={25} />
               <input
@@ -651,7 +648,7 @@ function App({ initialBooks = [], initialPopularComments = [], initialQuoteOfDay
           <div className="drawer-head"><Logo /><button onClick={() => setMenuOpen(false)}><X /></button></div>
           <nav>
             <a href="/translations" onClick={() => setMenuOpen(false)}><span>01</span>Переводы</a>
-            <a href="/library" onClick={() => setMenuOpen(false)}><span>02</span>Моя библиотека</a>
+            <a href="/library" onClick={() => setMenuOpen(false)}><span>02</span>Закладки</a>
             <a href="/calendar" onClick={() => setMenuOpen(false)}><span>03</span>Календарь глав</a>
             <a href="/community" onClick={() => setMenuOpen(false)}><span>04</span>Сообщество</a>
             <a href="/profile" onClick={() => setMenuOpen(false)}><span>05</span>Профиль</a>

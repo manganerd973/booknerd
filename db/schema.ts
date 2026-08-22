@@ -261,6 +261,7 @@ export const readerNotifications = sqliteTable('reader_notifications', {
   body: text('body').notNull(),
   url: text('url').notNull(),
   readAt: text('read_at'),
+  hiddenAt: text('hidden_at'),
   createdAt: text('created_at').notNull(),
 }, (table) => [
   uniqueIndex('reader_notifications_visitor_event_unique').on(table.visitorKey, table.eventKey),

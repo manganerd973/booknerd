@@ -5,6 +5,7 @@ import {
   ArrowRight,
   Bell,
   BookOpen,
+  Bookmark,
   CalendarDays,
   Home,
   Library as LibraryIcon,
@@ -14,6 +15,7 @@ import {
   UserRound,
   X,
 } from 'lucide-react';
+import ReadingNextSheet from './reading-next-sheet.jsx';
 
 export function SiteLogo() {
   return (
@@ -26,7 +28,7 @@ export function SiteLogo() {
 
 const links = [
   { href: '/translations', label: 'Переводы', key: 'translations' },
-  { href: '/library', label: 'Моя библиотека', key: 'library' },
+  { href: '/library', label: 'Закладки', key: 'library' },
   { href: '/calendar', label: 'Календарь глав', key: 'calendar' },
   { href: '/community', label: 'Сообщество', key: 'community' },
   { href: '/about', label: 'О проекте', key: 'about' },
@@ -36,7 +38,7 @@ const links = [
 
 const quickLinks = [
   { href: '/', label: 'Главная', key: 'home', icon: Home },
-  { href: '/library', label: 'Библиотека', key: 'library', icon: LibraryIcon },
+  { href: '/library', label: 'Закладки', key: 'library', icon: LibraryIcon },
   { href: '/search', label: 'Поиск', key: 'search', icon: Search },
   { href: '/calendar', label: 'Календарь', key: 'calendar', icon: CalendarDays },
   { href: '/notifications', label: 'Уведомления', key: 'notifications', icon: Bell },
@@ -57,16 +59,35 @@ export function MobileQuickNavigation({ active = '' }) {
 }
 
 export function MobileBottomNavigation({ active = '' }) {
-  const bottomLinks = quickLinks.filter((link) => link.key !== 'search');
+  const [readingOpen, setReadingOpen] = useState(false);
+  const bottomLinks = [
+    { href: '/', label: 'Главная', key: 'home', icon: Home },
+    { href: '/translations', label: 'Каталог', key: 'translations', icon: Search },
+    { href: '/library', label: 'Закладки', key: 'library', icon: Bookmark },
+    { href: '/profile', label: 'Профиль', key: 'profile', icon: UserRound },
+  ];
   return (
-    <nav className="mobile-bottom-navigation" aria-label="Основные разделы">
-      {bottomLinks.map(({ href, label, key, icon: Icon }) => (
-        <a className={active === key ? 'is-active' : ''} href={href} aria-current={active === key ? 'page' : undefined} key={key}>
-          <Icon size={20} />
-          <span>{label}</span>
-        </a>
-      ))}
-    </nav>
+    <>
+      <nav className="mobile-bottom-navigation" aria-label="Основные разделы">
+        {bottomLinks.slice(0, 2).map(({ href, label, key, icon: Icon }) => (
+          <a className={active === key ? 'is-active' : ''} href={href} aria-current={active === key ? 'page' : undefined} key={key}>
+            <Icon size={21} />
+            <span>{label}</span>
+          </a>
+        ))}
+        <button type="button" className={`mobile-read-trigger ${readingOpen ? 'is-active' : ''}`} onClick={() => setReadingOpen(true)} aria-expanded={readingOpen} aria-controls="reading-next-sheet">
+          <span><BookOpen size={27} /></span>
+          <strong>Читать</strong>
+        </button>
+        {bottomLinks.slice(2).map(({ href, label, key, icon: Icon }) => (
+          <a className={active === key ? 'is-active' : ''} href={href} aria-current={active === key ? 'page' : undefined} key={key}>
+            <Icon size={21} />
+            <span>{label}</span>
+          </a>
+        ))}
+      </nav>
+      <ReadingNextSheet open={readingOpen} onClose={() => setReadingOpen(false)} />
+    </>
   );
 }
 
@@ -113,7 +134,7 @@ export function SiteFooter() {
     <footer>
       <SiteLogo />
       <p>Книжная команда переводов · сделано читателями для читателей</p>
-      <div><a href="/translations">Переводы</a><a href="/library">Моя библиотека</a><a href="/notifications">Уведомления</a><a href="/calendar">Календарь</a><a href="/community">Сообщество</a><a href="/profile">Профиль</a><a href="/search">Поиск</a><a href="/about">О нас</a><a href="/team">Команда</a><a href="/go/telegram" target="_blank" rel="noreferrer">Telegram</a><a href="/admin">Редакционная</a></div>
+      <div><a href="/translations">Переводы</a><a href="/library">Закладки</a><a href="/notifications">Уведомления</a><a href="/calendar">Календарь</a><a href="/community">Сообщество</a><a href="/profile">Профиль</a><a href="/search">Поиск</a><a href="/about">О нас</a><a href="/team">Команда</a><a href="/go/telegram" target="_blank" rel="noreferrer">Telegram</a><a href="/admin">Редакционная</a></div>
       <span>© 2026 BOOKNERD</span>
     </footer>
   );

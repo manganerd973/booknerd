@@ -3,7 +3,7 @@ import { requireReaderAccess } from '../../lib/reader-access.js';
 import LibraryPage from '../../src/library-page.jsx';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Моя библиотека — BOOKNERD' };
+export const metadata = { title: 'Закладки — BOOKNERD' };
 
 export default async function Page() {
   await requireReaderAccess('/library');

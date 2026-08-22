@@ -93,7 +93,7 @@ export default function BookLibraryControl({ bookId }) {
     try {
       await removeReaderLibraryBook(bookId);
       setStatus('');
-      setNotice('Книга убрана из вашей библиотеки.');
+      setNotice('Книга убрана из закладок.');
     } catch (error) {
       setNotice(error.message);
     } finally {
@@ -105,7 +105,7 @@ export default function BookLibraryControl({ bookId }) {
     <div className="book-library-control">
       <div className="book-library-control-title">
         {loading ? <LoaderCircle className="spin" size={18} /> : <StatusIcon size={18} />}
-        <span><small>Моя библиотека</small><strong>{status ? LIBRARY_STATUS[status].label : 'Добавить книгу'}</strong></span>
+        <span><small>Мои закладки</small><strong>{status ? LIBRARY_STATUS[status].label : 'Добавить книгу'}</strong></span>
       </div>
       <div className="book-library-statuses">
         {options.map(([value, option]) => (
