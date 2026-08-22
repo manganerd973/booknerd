@@ -1295,6 +1295,8 @@ html[data-app-theme='black'] .book-profile-page {
 .book-profile-page .book-trigger-warnings > p,
 .book-profile-page .book-review-card blockquote,
 .book-profile-page .book-reviews-heading > p { color: color-mix(in srgb,var(--ed-ink) 72%,transparent); }
+.book-profile-page .book-synopsis p { font-family: var(--sans); font-style: normal; font-weight: 400; letter-spacing: normal; }
+.book-profile-badges > span.book-volume-badge { text-transform: none; letter-spacing: .02em; }
 
 .book-loading-screen { min-height: 100dvh; display: grid; place-items: center; align-content: center; gap: 12px; padding: 32px; color: var(--ink); background: var(--paper); text-align: center; }
 .book-loading-heart { width: 78px; height: 78px; display: grid; place-items: center; border-radius: 50%; color: var(--coral); background: color-mix(in srgb,var(--coral) 14%,transparent); animation: book-heart-pulse 1.15s ease-in-out infinite; }

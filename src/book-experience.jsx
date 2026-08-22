@@ -18,11 +18,11 @@ function inferredProfile(book) {
   const angst = /драма|утрат|смерт|травм|войн|насили|стекл/.test(haystack) ? 3 : 1;
   const triggers = (book.triggerWarnings || []).length > 4 ? 3 : (book.triggerWarnings || []).length ? 2 : 0;
   return {
-    romance: level(romance, ['Нет', 'Немного', 'Заметно', 'Много', 'Главная линия']),
-    angst: level(angst, ['Почти нет', 'Лёгкое', 'Среднее', 'Много', 'Разобьёт сердце']),
+    romance: level(romance, ['Отсутствует', 'Низкий', 'Умеренный', 'Высокий', 'Основная линия']),
+    angst: level(angst, ['Минимальная', 'Низкая', 'Умеренная', 'Высокая', 'Очень высокая']),
     pace: /триллер|детектив|экшен|приключ/.test(haystack) ? 'Быстрый' : 'Размеренный',
-    spice: book.hasHotScenes ? 'Есть откровенные сцены' : 'Без откровенных сцен',
-    triggers: level(triggers, ['Лёгкие', 'Умеренные', 'Заметные', 'Тяжёлые']),
+    spice: book.hasHotScenes ? 'Высокая' : 'Низкая',
+    triggers: level(triggers, ['Лёгкая', 'Умеренная', 'Заметная', 'Высокая']),
     atmosphere: [...(book.genres || []), ...(book.tropes || [])].slice(0, 5),
     age: book.hasHotScenes || triggers >= 3 ? '18+' : triggers >= 2 ? '16+' : '12+',
   };
@@ -31,18 +31,18 @@ function inferredProfile(book) {
 export function BookSuitability({ book }) {
   const profile = useMemo(() => inferredProfile(book), [book]);
   const [endingOpen, setEndingOpen] = useState(false);
-  const reason = [book.hasHotScenes ? 'откровенные сцены' : '', (book.triggerWarnings || []).slice(0, 2).join(', ')].filter(Boolean).join(' · ');
-  return <>
-    <section className="book-fit-card">
-      <div className="book-fit-heading"><span>БЫСТРАЯ ПРОВЕРКА</span><h2>Подойдёт ли мне эта книга?</h2></div>
-      <div className="book-fit-grid">
-        {[['Романтика', profile.romance], ['Количество стекла', profile.angst], ['Темп сюжета', profile.pace], ['Откровенность', profile.spice], ['Тяжесть триггеров', profile.triggers]].map(([name, value]) => <article key={name}><small>{name}</small><strong>{value}</strong></article>)}
-        <button type="button" className="book-ending-spoiler" onClick={() => setEndingOpen((value) => !value)}><small>Финал · спойлер</small><strong>{endingOpen ? (book.status === 'Завершено' ? 'Информация открыта редакцией' : 'Книга ещё выходит') : 'Нажмите, чтобы открыть'}</strong></button>
-      </div>
-    </section>
-    {profile.atmosphere.length ? <section className="book-atmosphere"><small>Атмосфера книги</small><p>{profile.atmosphere.map((item) => <span key={item}>{item}</span>)}</p></section> : null}
-    <section className="book-age-card"><strong>{profile.age}</strong><div><small>Возрастное ограничение</small><p>{reason || 'Возрастная маркировка рассчитана по содержанию книги.'}</p></div></section>
-  </>;
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const reasons = [book.hasHotScenes ? 'наличие откровенных сцен' : '', ...(book.triggerWarnings || []).slice(0, 2)].filter(Boolean);
+  const ageExplanation = reasons.length ? `Причина: ${reasons.join('; ')}.` : 'Ограничение установлено с учётом содержания книги.';
+  return <section className="book-quick-guide">
+    <div className="book-quick-guide-top">
+      <button type="button" className="book-quick-fit" onClick={() => setDetailsOpen((value) => !value)} aria-expanded={detailsOpen}><span>Подойдёт ли мне эта книга?</span><strong>{detailsOpen ? 'Скрыть' : 'Посмотреть'}</strong></button>
+      <span className="book-quick-age" title={ageExplanation}><small>Возрастное ограничение</small><strong>{profile.age}</strong></span>
+      <button type="button" className="book-quick-ending" onClick={() => setEndingOpen((value) => !value)}><span>Финал</span><strong>{endingOpen ? (book.status === 'Завершено' ? 'Открыт' : 'Книга выходит') : 'Спойлер'}</strong></button>
+    </div>
+    {profile.atmosphere.length ? <p className="book-quick-atmosphere"><small>Атмосфера:</small> {profile.atmosphere.map((item) => <span key={item}>{item}</span>)}</p> : null}
+    {detailsOpen ? <div className="book-quick-details">{[['Уровень романтики', profile.romance], ['Эмоциональная тяжесть', profile.angst], ['Темп повествования', profile.pace], ['Степень откровенности', profile.spice], ['Тяжесть триггеров', profile.triggers]].map(([name, value]) => <span key={name}><small>{name}</small><strong>{value}</strong></span>)}<p className="book-age-explanation"><strong>Возрастное ограничение: {profile.age}.</strong> {ageExplanation}</p></div> : null}
+  </section>;
 }
 
 export function RelationshipMap({ book, chapters }) {
@@ -84,4 +84,3 @@ export function ReaderAchievements({ book }) {
   }, [book.id]);
   return <section className="reader-achievements"><header><Sparkles size={21} /><div><small>БЕЗ СОРЕВНОВАНИЯ</small><h2>Личные достижения</h2></div></header><div>{items.map((item) => <article className={item.unlocked ? 'is-unlocked' : ''} key={item.title}><span>{item.icon}</span><strong>{item.title}</strong><small>{item.unlocked ? 'Получено' : 'Откроется само'}</small></article>)}</div></section>;
 }
-
