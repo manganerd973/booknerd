@@ -44,12 +44,12 @@ export async function PATCH(request) {
   try {
     const payload = await request.json();
     const id = String(payload.id || '').trim();
-    const status = payload.status === 'resolved' ? 'resolved' : 'new';
+    const status = ['new', 'resolved', 'not_error'].includes(payload.status) ? payload.status : 'new';
     if (!id) return Response.json({ error: 'Сообщение не указано.' }, { status: 400 });
     const db = await ensureDb();
     await db.prepare(
       `UPDATE reader_error_reports SET status = ?, resolved_by = ?, updated_at = ? WHERE id = ?`
-    ).bind(status, status === 'resolved' ? auth.email || auth.displayName || '' : '', new Date().toISOString(), id).run();
+    ).bind(status, status !== 'new' ? auth.email || auth.displayName || '' : '', new Date().toISOString(), id).run();
     return Response.json({ ok: true });
   } catch (error) {
     return Response.json({ error: error.message || 'Не удалось обновить сообщение.' }, { status: 500 });

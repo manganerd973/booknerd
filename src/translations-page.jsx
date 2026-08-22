@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, BookOpen, Grid3X3, List, Search } from 'lucide-react';
+import { ArrowRight, BookOpen, Dices, Grid3X3, List, Search } from 'lucide-react';
 import { SiteFooter, SiteHeader } from './page-chrome.jsx';
 import { genreKey, uniqueGenres } from '../lib/genres.js';
 
@@ -38,6 +38,12 @@ export default function TranslationsPage({ initialBooks = [] }) {
     setViewMode(nextView);
     try { localStorage.setItem(CATALOG_VIEW_KEY, nextView); } catch { /* optional */ }
   };
+  const chooseRandom = () => {
+    const pool = books.length ? books : initialBooks;
+    if (!pool.length) return;
+    const chosen = pool[Math.floor(Math.random() * pool.length)];
+    window.location.href = `/books/${chosen.slug}`;
+  };
 
   return (
     <div className="site-shell inner-site-shell">
@@ -51,6 +57,7 @@ export default function TranslationsPage({ initialBooks = [] }) {
           <div className="translations-tools">
             <div className="filter-list">{genres.map((item) => <button className={genre === item ? 'active' : ''} onClick={() => setGenre(item)} key={item}>{item}</button>)}</div>
             <div className="translations-actions">
+              <button type="button" className="random-book-button" onClick={chooseRandom}><Dices size={18} /><span>Не знаю, что читать</span></button>
               <label className="translations-search"><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Название или автор" /></label>
               <div className="translations-view-controls" role="group" aria-label="Вид каталога">
                 <button type="button" className={viewMode === 'grid' ? 'is-active' : ''} onClick={() => chooseView('grid')} aria-pressed={viewMode === 'grid'}><Grid3X3 size={17} /><span>Плитка</span></button>

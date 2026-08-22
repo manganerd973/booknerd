@@ -31,6 +31,7 @@ import {
   Sun,
   Trash2,
   Type,
+  Volume2,
   BookMarked,
   Film,
   X,
@@ -102,6 +103,7 @@ const THEME_OPTIONS = [
 ];
 
 const FONT_OPTIONS = [
+  { id: 'OpenDyslexic, Verdana', name: 'Для дислексии' },
   { id: 'Georgia', name: 'Georgia' },
   { id: 'Times New Roman', name: 'Times New Roman' },
   { id: 'Palatino', name: 'Palatino' },
@@ -1674,6 +1676,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
           <section className="reader-settings-block reader-font-settings">
             <button type="button" onClick={() => setPanel('fonts')}><Type size={22} /><span><small>Шрифт</small><strong>{FONT_OPTIONS.find((font) => font.id === settings.fontFamily)?.name}</strong></span><ChevronRight size={19} /></button>
             <button type="button" className={settings.bold ? 'is-active' : ''} onClick={() => updateSetting('bold', !settings.bold)}><BoldIcon size={22} /><span><small>Начертание</small><strong>Жирный текст</strong></span><i aria-hidden="true" /></button>
+            <button type="button" onClick={readAloud}><Volume2 size={22} /><span><small>Доступность</small><strong>Читать главу вслух</strong></span><ChevronRight size={19} /></button>
           </section>
           <button className="reader-reset-button" type="button" onClick={() => setSettings(DEFAULT_SETTINGS)}><RotateCcw size={19} /> Сбросить настройки</button>
         </ReaderSheet>
@@ -1752,3 +1755,13 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
     </main>
   );
 }
+  const readAloud = () => {
+    if (!('speechSynthesis' in window)) { setToast('Чтение вслух не поддерживается этим браузером.'); return; }
+    window.speechSynthesis.cancel();
+    const text = blocksFor(chapter).flatMap((block) => block.runs || []).map((run) => run.text || '').join(' ');
+    const speech = new SpeechSynthesisUtterance(text.slice(0, 30000));
+    speech.lang = 'ru-RU';
+    speech.rate = .95;
+    window.speechSynthesis.speak(speech);
+    setToast('Чтение вслух запущено. Повторное открытие главы остановит озвучивание.');
+  };

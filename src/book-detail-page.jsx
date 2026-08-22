@@ -25,6 +25,7 @@ import SeriesReadingOrder from './series-reading-order.jsx';
 import BookUniverse from './book-universe.jsx';
 import OfflineBookButton from './offline-book-button.jsx';
 import { MobileBottomNavigation } from './page-chrome.jsx';
+import { BookSuitability, CustomShelves, QuoteGallery, ReaderAchievements, RelationshipMap } from './book-experience.jsx';
 
 const TABS = [
   ['about', 'О книге'],
@@ -108,6 +109,7 @@ function AboutPanel({ book, chapters, seriesBooks }) {
 
   return (
     <>
+      <BookSuitability book={book} />
       <BookFacts book={book} chapters={chapters} />
       <section className="book-detail-body is-about-only">
         <article className="book-synopsis">
@@ -116,6 +118,18 @@ function AboutPanel({ book, chapters, seriesBooks }) {
             {(book.genres || []).length ? <div><small>Жанры</small><p>{book.genres.map((genre) => <span key={genre}>{genre}</span>)}</p></div> : null}
             {(book.tropes || []).length ? <div><small>Тропы</small><p>{book.tropes.map((trope) => <span key={trope}>{trope}</span>)}</p></div> : null}
             {(book.triggerWarnings || []).length ? <div className="book-about-triggers"><small><AlertTriangle size={14} /> Триггеры</small><p>{book.triggerWarnings.map((warning) => <span key={warning}>{warning}</span>)}</p></div> : null}
+            <div className={`book-about-heat ${hasHotScenes ? 'has-scenes' : 'no-scenes'}`}>
+              <small><Flame size={14} /> Горячие сцены</small>
+              <p>
+                <span className="book-about-heat-status">{hasHotScenes ? 'Есть' : 'Нет'}</span>
+                {hasHotScenes && heatGuide.length ? heatGuide.map((chapter) => (
+                  <a href={`/books/${book.slug}/chapters/${chapter.id}`} key={chapter.id}>
+                    Глава {chapter.chapterNumber}{chapter.heatPages ? ` · ${chapter.heatPages}` : ''}
+                  </a>
+                )) : null}
+                {hasHotScenes && !heatGuide.length && hotSceneChapters ? <span>Главы: {hotSceneChapters}</span> : null}
+              </p>
+            </div>
           </div>
         </article>
       </section>
@@ -129,12 +143,11 @@ function AboutPanel({ book, chapters, seriesBooks }) {
       ) : null}
       <BookGlossary bookId={book.id} />
       <BookUniverse book={{ ...book, chapters }} />
-      <section className="book-heat-guide" aria-labelledby="book-heat-guide-title">
-        <div className="book-heat-guide-heading"><div><span className="editorial-section-number">ПУТЕВОДИТЕЛЬ ПО ГЛАВАМ</span><h2 id="book-heat-guide-title">Горячие сцены — по желанию</h2></div><Flame size={34} /></div>
-        <p>Путеводитель для любителей горячих сцен, а также для тех, кто предпочитает их избегать.</p>
-        <div className="book-heat-summary"><div><span>Горячие сцены</span><strong>{hasHotScenes ? 'Да' : 'Нет'}</strong></div>{hasHotScenes && hotSceneChapters ? <div><span>Главы со сценами</span><strong>{hotSceneChapters}</strong></div> : null}</div>
-        {heatGuide.length ? <div className="book-heat-guide-list">{heatGuide.map((chapter) => <a href={`/books/${book.slug}/chapters/${chapter.id}`} key={chapter.id}><span>Глава {chapter.chapterNumber}</span><strong>{chapter.title}</strong>{chapter.heatPages ? <small>главы {chapter.heatPages}</small> : null}<em aria-label={`Уровень горячих сцен: ${chapter.heatLevel} из 3`}>{'🔥'.repeat(chapter.heatLevel)}</em><ArrowRight size={17} /></a>)}</div> : !hasHotScenes ? <div className="book-heat-guide-empty"><span>♡</span><p>В книге нет горячих сцен.</p></div> : null}
-      </section>
+      <RelationshipMap book={book} chapters={chapters} />
+      <QuoteGallery book={book} />
+      {seriesBooks.filter((item) => item.id !== book.id).length ? <section className="book-similar"><span>ПОХОЖИЕ ПЕРЕВОДЫ BOOKNERD</span><h2>Если вам понравилась эта книга</h2><div>{seriesBooks.filter((item) => item.id !== book.id).slice(0, 4).map((item) => <a href={`/books/${item.slug}`} key={item.id}><strong>{item.title}</strong><small>{[...(item.genres || []), ...(item.tropes || [])].slice(0, 3).join(' · ')}</small><ArrowRight size={16} /></a>)}</div></section> : null}
+      <CustomShelves book={book} />
+      <ReaderAchievements book={book} />
     </>
   );
 }

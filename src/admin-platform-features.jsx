@@ -63,12 +63,12 @@ export function AdminErrorReports({ onNotice }) {
   };
   useEffect(() => { reload(); }, []);
 
-  const toggle = async (report) => {
+  const updateStatus = async (report, status) => {
     try {
       await api('/api/admin/reader-errors', {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ id: report.id, status: report.status === 'new' ? 'resolved' : 'new' }),
+        body: JSON.stringify({ id: report.id, status }),
       });
       await reload();
     } catch (error) {
@@ -85,12 +85,12 @@ export function AdminErrorReports({ onNotice }) {
       {loading ? <div className="admin-loading"><LoaderCircle className="spin" /> Загружаем сообщения…</div> : (
         <div className="admin-error-list">
           {reports.length ? reports.map((report) => (
-            <article className={report.status === 'resolved' ? 'is-resolved' : ''} key={report.id}>
+            <article className={report.status !== 'new' ? 'is-resolved' : ''} key={report.id}>
               <header><span>{ERROR_LABELS[report.category] || ERROR_LABELS.other}</span><time>{formatDate(report.createdAt)}</time></header>
               <blockquote>“{report.selectedText}”</blockquote>
               {report.details ? <p>{report.details}</p> : null}
               <div><small>«{report.bookTitle}» · глава {report.chapterNumber} · страница {report.page + 1}</small><a href={`/books/${report.bookSlug}/chapters/${report.chapterId}?page=${report.page + 1}`} target="_blank" rel="noreferrer">Открыть место <ArrowRight size={14} /></a></div>
-              <button className={report.status === 'resolved' ? 'admin-secondary' : 'admin-primary'} onClick={() => toggle(report)}>{report.status === 'resolved' ? <RotateCcw size={16} /> : <Check size={16} />}{report.status === 'resolved' ? 'Вернуть в работу' : 'Исправлено'}</button>
+              <div className="admin-error-actions"><button className="admin-primary" onClick={() => updateStatus(report, 'resolved')}><Check size={16} /> Исправлено</button><button className="admin-secondary" onClick={() => updateStatus(report, 'not_error')}><X size={16} /> Не является ошибкой</button>{report.status !== 'new' ? <button className="admin-secondary" onClick={() => updateStatus(report, 'new')}><RotateCcw size={16} /> Вернуть</button> : null}</div>
             </article>
           )) : <div className="admin-empty"><Check size={36} /><h3>Новых ошибок нет</h3><p>Все сообщения читателей обработаны.</p></div>}
         </div>

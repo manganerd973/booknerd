@@ -42,6 +42,7 @@ import {
   ChapterHistory,
   ChapterPreview,
 } from './admin-platform-features.jsx';
+import { BackupCenter, BookCompleteness } from './admin-v27-features.jsx';
 
 const blankBook = {
   id: null,
@@ -871,6 +872,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
               <article><span>03</span><strong>{stats.chapters}</strong><p>глав добавлено</p></article>
               <article><span>04</span><strong>{stats.drafts}</strong><p>черновиков</p></article>
             </div>
+            {view === 'dashboard' && currentUser.role === 'owner' ? <BackupCenter onNotice={flash} /> : null}
 
             {currentUser.role === 'owner' ? (
               <>
@@ -957,6 +959,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
               <div><span className="admin-kicker">{bookForm.id ? 'РЕДАКТИРОВАНИЕ' : 'НОВАЯ ИСТОРИЯ'}</span><h1>{bookForm.title || 'Новая книга'}</h1></div>
               {bookForm.id && currentUser.role === 'owner' && <button className="admin-danger" onClick={deleteBook}><Trash2 size={17} /> Удалить книгу</button>}
             </div>
+            {bookForm.id ? <BookCompleteness book={bookForm} chapters={chapters} artworks={artworks} /> : null}
 
             <form className="admin-book-form" onSubmit={saveBook}>
               <div className="admin-form-main">
