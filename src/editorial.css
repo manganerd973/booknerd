@@ -799,13 +799,14 @@ html[data-app-theme='black'] .reader-page { --ed-paper:#080a09; --ed-card:#12171
 .reader-selection-stickers { padding: 8px 46px 13px 12px; }
 .reader-selection-stickers > .reader-selection-back { margin-bottom: 8px; }
 .reader-sticker-browser { display: grid; gap: 8px; }
-.reader-sticker-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.reader-sticker-tabs { display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; }
 .reader-sticker-tabs > button { display: flex; min-height: 40px; align-items: center; justify-content: center; gap: 7px; padding: 7px 10px; border: 1px solid rgba(18,60,53,.12); border-radius: 13px; color: rgba(23,62,56,.66); background: #f5f7f6; font: inherit; font-size: 10px; font-weight: 850; cursor: pointer; }
 .reader-sticker-tabs > button small { display: grid; min-width: 20px; height: 20px; place-items: center; border-radius: 999px; color: #173e38; background: rgba(18,60,53,.08); font-size: 8px; }
 .reader-sticker-tabs > button.is-active { border-color: #55a98c; color: #173e38; background: #eff9f4; box-shadow: inset 0 0 0 1px rgba(85,169,140,.18); }
 .reader-sticker-hint { margin: 0; color: rgba(23,62,56,.58); font-size: 9px; line-height: 1.35; text-align: center; }
 .reader-sticker-picker { display: grid; max-height: 270px; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 8px; overflow: auto; padding: 4px; scrollbar-width: thin; }
-.reader-sticker-picker > button { position: relative; display: flex; min-width: 0; min-height: 98px; align-items: center; justify-content: center; flex-direction: column; gap: 5px; overflow: hidden; padding: 7px 4px 6px; border: 1px solid rgba(18,60,53,.12); border-radius: 16px; color: #173e38; background: #fff; font: inherit; cursor: pointer; }
+.reader-sticker-picker > button { position: relative; display: flex; min-width: 0; min-height: 82px; align-items: center; justify-content: center; flex-direction: column; gap: 5px; overflow: hidden; padding: 7px 4px; border: 1px solid rgba(18,60,53,.12); border-radius: 16px; color: #173e38; background: #fff; font: inherit; cursor: pointer; }
+.reader-sticker-photo { border-radius: 12px; background-color: #fff; background-position: center; background-repeat: no-repeat; background-size: contain !important; filter: none; }
 .reader-sticker-picker > button:hover,
 .reader-sticker-picker > button.is-active { border-color: #55a98c; background: #eff9f4; box-shadow: 0 0 0 2px rgba(85,169,140,.2); }
 .reader-sticker-picker > button > svg { position: absolute; top: 4px; right: 4px; display: grid; width: 18px; height: 18px; padding: 3px; border-radius: 50%; color: #fff; background: #123c35; }
@@ -833,7 +834,7 @@ html[data-app-theme='black'] .reader-page { --ed-paper:#080a09; --ed-card:#12171
 .reader-annotation-note-card > small { color: var(--reader-accent); font-size: 9px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
 .reader-annotation-colors { display: flex; flex-wrap: wrap; gap: 11px; }
 .reader-annotation-colors > button.is-active { box-shadow: 0 0 0 2px var(--reader-ink); }
-.reader-annotation-sticker-card { display: flex; align-items: center; gap: 15px; padding: 13px 15px; border: 1px solid var(--reader-border); border-radius: 20px; background: var(--reader-control); }
+.reader-annotation-sticker-card { display: flex; align-items: center; justify-content: center; gap: 15px; padding: 13px 15px; border: 1px solid var(--reader-border); border-radius: 20px; background: var(--reader-control); }
 .reader-annotation-sticker-card > span { display: grid; gap: 3px; }
 .reader-annotation-sticker-card small { color: var(--reader-soft-ink); font-size: 9px; font-weight: 850; text-transform: uppercase; }
 .reader-annotation-sticker-card strong { font-size: 15px; }
@@ -941,6 +942,7 @@ html[data-app-theme='black'] .reader-page { --ed-paper:#080a09; --ed-card:#12171
   .reader-sticker-picker { max-height: 43dvh; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; }
   .reader-sticker-picker > button { min-height: 104px; border-radius: 15px; }
   .reader-sticker-picker .reader-sticker-art { width: 64px !important; height: 64px !important; }
+  .reader-sticker-picker .reader-sticker-photo { width: 72px !important; height: 72px !important; }
   .reader-sticker-picker .reader-sticker-art[data-sticker-sheet='doodles'] { height: 53px !important; margin: 5px 0 6px; }
   .reader-sticker-name { min-height: 23px; font-size: 9px; }
   .reader-inline-sticker-button { width: 43px; min-width: 43px; min-height: 43px; margin-left: .25em; }

@@ -1558,7 +1558,6 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
               {activeAnnotation.sticker ? (
                 <div className="reader-annotation-sticker-card">
                   <ReaderSticker stickerId={activeAnnotation.sticker} size={76} />
-                  <span><small>Эмоция</small><strong>{stickerById(activeAnnotation.sticker)?.name}</strong></span>
                 </div>
               ) : null}
               <section className="reader-annotation-note-card">

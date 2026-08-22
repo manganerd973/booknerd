@@ -29,6 +29,7 @@ export const HIGHLIGHT_COLORS = [
 // The supplied sticker sheet is an exact 5 × 8 grid. Keeping the sheet as a
 // sprite makes the reader fast and avoids loading dozens of separate files.
 export const READER_STICKERS = [
+  ...Array.from({ length: 25 }, (_, index) => ({ id: `custom-${String(index + 1).padStart(2, '0')}`, name: `Стикер ${index + 1}`, sheet: 'custom', src: `/reaction-stickers/sticker-${String(index + 1).padStart(2, '0')}.jpg` })),
   { id: 'love', name: 'Влюблённость', column: 0, row: 0 },
   { id: 'delight', name: 'Восторг', column: 1, row: 0 },
   { id: 'happy', name: 'Радость', column: 2, row: 0 },
@@ -98,6 +99,9 @@ export function stickerById(id) {
 export function ReaderSticker({ stickerId, size = 42, title, className = '' }) {
   const sticker = stickerById(stickerId);
   if (!sticker) return null;
+  if (sticker.sheet === 'custom') {
+    return <span className={`reader-sticker-art reader-sticker-photo ${className}`.trim()} role="img" aria-label={title || 'Стикер'} data-sticker-sheet="custom" style={{ width: size, height: size, backgroundImage: `url('${sticker.src}')` }} />;
+  }
   const columns = sticker.columns || 5;
   const rows = sticker.rows || 8;
   const cellAspectRatio = sticker.sheet === 'doodles'
@@ -113,7 +117,6 @@ export function ReaderSticker({ stickerId, size = 42, title, className = '' }) {
       className={`reader-sticker-art ${className}`.trim()}
       role="img"
       aria-label={title || sticker.name}
-      title={title || sticker.name}
       data-sticker-sheet={sticker.sheet || 'roundies'}
       style={{
         width: size,
@@ -129,15 +132,16 @@ export function ReaderSticker({ stickerId, size = 42, title, className = '' }) {
 export function StickerPicker({ value = '', onSelect }) {
   const selectedSticker = stickerById(value);
   const [group, setGroup] = useState(() => (
-    selectedSticker?.sheet === 'doodles' ? 'doodles' : 'roundies'
+    selectedSticker?.sheet === 'doodles' ? 'doodles' : selectedSticker && selectedSticker.sheet !== 'custom' ? 'roundies' : 'custom'
   ));
   const visibleStickers = READER_STICKERS.filter((sticker) => (
-    group === 'doodles' ? sticker.sheet === 'doodles' : sticker.sheet !== 'doodles'
+    group === 'custom' ? sticker.sheet === 'custom' : group === 'doodles' ? sticker.sheet === 'doodles' : !sticker.sheet
   ));
 
   return (
     <div className="reader-sticker-browser">
       <div className="reader-sticker-tabs" role="tablist" aria-label="Наборы стикеров">
+        <button type="button" className={group === 'custom' ? 'is-active' : ''} onClick={() => setGroup('custom')} role="tab" aria-selected={group === 'custom'}>Ваши стикеры<small>25</small></button>
         <button
           type="button"
           className={group === 'roundies' ? 'is-active' : ''}
@@ -145,7 +149,7 @@ export function StickerPicker({ value = '', onSelect }) {
           role="tab"
           aria-selected={group === 'roundies'}
         >
-          Милые эмоции
+          Круглые
           <small>40</small>
         </button>
         <button
@@ -155,25 +159,23 @@ export function StickerPicker({ value = '', onSelect }) {
           role="tab"
           aria-selected={group === 'doodles'}
         >
-          Яркие лица
+          Рисованные
           <small>20</small>
         </button>
       </div>
-      <p className="reader-sticker-hint">Нажмите на эмоцию — стикер добавится к выделенному отрывку.</p>
-      <div className="reader-sticker-picker" role="listbox" aria-label="Стикеры эмоций">
+      <p className="reader-sticker-hint">Выберите изображение — оно появится справа от выделенного отрывка.</p>
+      <div className="reader-sticker-picker" role="listbox" aria-label="Стикеры">
         {visibleStickers.map((sticker) => (
           <button
             type="button"
             className={value === sticker.id ? 'is-active' : ''}
             onClick={() => onSelect(sticker.id)}
-            aria-label={sticker.name}
+            aria-label="Выбрать стикер"
             aria-selected={value === sticker.id}
             role="option"
-            title={sticker.name}
             key={sticker.id}
           >
             <ReaderSticker stickerId={sticker.id} size={64} />
-            <span className="reader-sticker-name">{sticker.name}</span>
             {value === sticker.id ? <Check size={15} /> : null}
           </button>
         ))}

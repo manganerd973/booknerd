@@ -1,11 +1,12 @@
-const SHELL_CACHE = 'booknerd-shell-v30';
+const SHELL_CACHE = 'booknerd-shell-v31';
 const OFFLINE_CACHE = 'booknerd-offline-library-v2';
 const OFFLINE_FALLBACK = '/offline.html';
 const NAVIGATION_TIMEOUT = 45000;
 const ASSET_TIMEOUT = 30000;
 const BOOK_DOWNLOAD_TIMEOUT = 45000;
 const BOOK_DOWNLOAD_CONCURRENCY = 3;
-const PRELOAD_URLS = ['/', OFFLINE_FALLBACK, '/manifest.webmanifest', '/booknerd-icon-v2-192.png'];
+const REACTION_STICKER_URLS = Array.from({ length: 25 }, (_, index) => `/reaction-stickers/sticker-${String(index + 1).padStart(2, '0')}.jpg`);
+const PRELOAD_URLS = ['/', OFFLINE_FALLBACK, '/manifest.webmanifest', '/booknerd-icon-v2-192.png', ...REACTION_STICKER_URLS];
 const STATIC_DESTINATIONS = new Set(['style', 'script', 'font', 'image']);
 
 function isAppAsset(pathname) {
