@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
-import { Bookmark, BookOpen, Check, Heart, LoaderCircle, XCircle } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Bookmark, BookOpen, Check, ChevronDown, Heart, LoaderCircle, Trash2, XCircle } from 'lucide-react';
 import { getVisitorKey } from './site-analytics.js';
 
 export const LIBRARY_STATUS = {
@@ -54,6 +54,8 @@ export default function BookLibraryControl({ bookId }) {
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState('');
+  const [open, setOpen] = useState(false);
+  const controlRef = useRef(null);
 
   useEffect(() => {
     let active = true;
@@ -72,7 +74,19 @@ export default function BookLibraryControl({ bookId }) {
     return () => window.clearTimeout(timer);
   }, [notice]);
 
-  const options = useMemo(() => Object.entries(LIBRARY_STATUS), []);
+  useEffect(() => {
+    if (!open) return undefined;
+    const close = (event) => {
+      if (event.key === 'Escape' || (event.type === 'pointerdown' && !controlRef.current?.contains(event.target))) setOpen(false);
+    };
+    document.addEventListener('pointerdown', close);
+    window.addEventListener('keydown', close);
+    return () => {
+      document.removeEventListener('pointerdown', close);
+      window.removeEventListener('keydown', close);
+    };
+  }, [open]);
+
   const StatusIcon = status === 'finished' ? Check : status === 'reading' ? BookOpen : status === 'favorite' ? Heart : status === 'dropped' ? XCircle : Bookmark;
 
   const chooseStatus = async (nextStatus) => {
@@ -80,6 +94,7 @@ export default function BookLibraryControl({ bookId }) {
     try {
       const item = await updateReaderLibrary({ bookId, status: nextStatus, progress: nextStatus === 'finished' ? 100 : 0 });
       setStatus(item.status);
+      setOpen(false);
       setNotice(`Книга добавлена: ${LIBRARY_STATUS[item.status].label.toLowerCase()}.`);
     } catch (error) {
       setNotice(error.message);
@@ -93,6 +108,7 @@ export default function BookLibraryControl({ bookId }) {
     try {
       await removeReaderLibraryBook(bookId);
       setStatus('');
+      setOpen(false);
       setNotice('Книга убрана из закладок.');
     } catch (error) {
       setNotice(error.message);
@@ -102,19 +118,23 @@ export default function BookLibraryControl({ bookId }) {
   };
 
   return (
-    <div className="book-library-control">
-      <div className="book-library-control-title">
-        {loading ? <LoaderCircle className="spin" size={18} /> : <StatusIcon size={18} />}
-        <span><small>Мои закладки</small><strong>{status ? LIBRARY_STATUS[status].label : 'Добавить книгу'}</strong></span>
-      </div>
-      <div className="book-library-statuses">
-        {options.map(([value, option]) => (
-          <button type="button" className={status === value ? 'is-active' : ''} onClick={() => chooseStatus(value)} disabled={loading} key={value}>
-            {value === 'finished' && status === value ? <Check size={14} /> : null}{option.short}
-          </button>
-        ))}
-        {status ? <button type="button" className="is-remove" onClick={remove} disabled={loading}>Убрать</button> : null}
-      </div>
+    <div className="book-library-control" ref={controlRef}>
+      <button type="button" className="book-library-menu-trigger" onClick={() => setOpen((current) => !current)} aria-expanded={open} disabled={loading}>
+        {loading ? <LoaderCircle className="spin" size={19} /> : <StatusIcon size={19} />}
+        <span><small>Мои закладки</small><strong>{status ? LIBRARY_STATUS[status].label : 'В планах'}</strong></span>
+        <ChevronDown size={18} />
+      </button>
+      {open ? (
+        <div className="book-library-menu" role="menu">
+          <small>Переместить на полку</small>
+          {Object.entries(LIBRARY_STATUS).map(([value, option]) => (
+            <button type="button" className={status === value ? 'is-active' : ''} onClick={() => chooseStatus(value)} disabled={loading} role="menuitem" key={value}>
+              {status === value ? <Check size={15} /> : <span />}{option.short}
+            </button>
+          ))}
+          {status ? <button type="button" className="is-remove" onClick={remove} disabled={loading} role="menuitem"><Trash2 size={15} /> Убрать из закладок</button> : null}
+        </div>
+      ) : null}
       {notice ? <p role="status">{notice}</p> : null}
     </div>
   );
