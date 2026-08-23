@@ -18,6 +18,7 @@ import {
   Lock,
   Menu,
   MessageCircle,
+  MapPinned,
   Minus,
   Moon,
   Palette,
@@ -37,6 +38,7 @@ import {
   X,
 } from 'lucide-react';
 import CommentsSection from './comments-section.jsx';
+import BookWorldMap from './book-world-map.jsx';
 import { CompletionReviewForm } from './book-reviews.jsx';
 import { richDocumentFor } from '../lib/rich-document.js';
 import { getVisitorKey, trackReaderPresence } from './site-analytics.js';
@@ -1205,6 +1207,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
           <button type="button" className="reader-dictionary-quick" onClick={() => setPanel('dictionary')} aria-label="Открыть словарь книги">
             <BookMarked size={17} /><span>Словарь</span>
           </button>
+          {book.worldMap ? <button type="button" className="reader-map-quick" onClick={() => setPanel('world-map')} aria-label="Открыть карту мира книги"><MapPinned size={17} /><span>Карта</span></button> : null}
           <a href={`/books/${book.slug}`} aria-label="Открыть страницу книги"><BookOpen size={17} /><span>О книге</span></a>
           <button type="button" className="reader-menu-button" onClick={() => setPanel('menu')} aria-label="Меню читалки"><Menu size={21} /></button>
         </nav>
@@ -1321,6 +1324,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
             <button type="button" onClick={() => setPanel('annotations')}><Highlighter size={22} /><span><strong>Мои пометки</strong><small>{annotations.length ? `${annotations.length} сохранено` : 'Выделения, заметки и стикеры'}</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('chapter-map')}><Highlighter size={22} /><span><strong>Метки главы</strong><small>Все пометки и эмоции по ходу текста</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('dictionary')}><BookMarked size={22} /><span><strong>Словарь книги</strong><small>{bookGlossary.total ? `${bookGlossary.entries.length} из ${bookGlossary.total} записей доступно` : 'Пояснения от команды перевода'}</small></span><ChevronRight size={18} /></button>
+            {book.worldMap ? <button type="button" onClick={() => setPanel('world-map')}><MapPinned size={22} /><span><strong>Карта мира</strong><small>Локации без спойлеров во время чтения</small></span><ChevronRight size={18} /></button> : null}
             <button type="button" onClick={() => setPanel('bookmarks')}><Bookmark size={22} /><span><strong>Мои закладки</strong><small>{bookmarks.length ? `${bookmarks.length} сохранено` : 'Любимое, важное и смешное'}</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => { setPanel(null); setChromeHidden(true); }}><Film size={22} /><span><strong>Режим кино</strong><small>Оставить на экране только текст</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('reading-mode')}><ReadingModeIcon mode={settings.motion} size={22} /><span><strong>Способ чтения</strong><small>{READING_MODE_OPTIONS.find((mode) => mode.id === settings.motion)?.name}</small></span><ChevronRight size={18} /></button>
@@ -1366,6 +1370,15 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
                 <strong>{readerChapterTitle(result)}</strong><span>{result.snippet}</span>
               </a>
             ))}
+          </div>
+        </ReaderSheet>
+      ) : null}
+
+      {panel === 'world-map' && book.worldMap ? (
+        <ReaderSheet title="Карта мира" eyebrow={`${book.title} · прочитано до главы ${chapter.chapterNumber}`} onClose={() => setPanel(null)} wide>
+          <div className="reader-world-map-sheet">
+            <p>Открытые локации соответствуют вашему текущему месту в книге. Будущие точки остаются скрытыми от спойлеров.</p>
+            <BookWorldMap worldMap={book.worldMap} currentChapter={Number(chapter.chapterNumber || 0)} />
           </div>
         </ReaderSheet>
       ) : null}

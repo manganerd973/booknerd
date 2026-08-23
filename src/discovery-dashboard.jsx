@@ -5,8 +5,15 @@ import { ArrowRight, CakeSlice, CalendarHeart, Dice5, Flame, MessageCircle, Spar
 
 function dateSeed() {
   const today = new Date();
-  return Number(`${today.getFullYear()}${today.getMonth() + 1}${today.getDate()}`);
+  return Math.floor(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) / 86400000);
 }
+
+const DAILY_QUOTE_FALLBACKS = [
+  'Некоторые истории находят нас именно тогда, когда нужны.',
+  'Иногда новая глава — лучший способ начать сначала.',
+  'Самые любимые книжные миры всегда ждут возвращения.',
+  'Хорошая история заканчивается, но ещё долго не отпускает.',
+];
 
 function greeting() {
   const hour = new Date().getHours();
@@ -53,10 +60,20 @@ export default function DiscoveryDashboard({ books = [] }) {
   const [data, setData] = useState(null);
   const [daily, setDaily] = useState(INITIAL_DAILY);
   const [randomIndex, setRandomIndex] = useState(0);
-  const dayBook = books.length ? books[daily.seed % books.length] : null;
+  const dayIndex = books.length ? daily.seed % books.length : 0;
+  const dayBook = books.length ? books[dayIndex] : null;
   const greetingBook = books.length ? books[(daily.seed + daily.period.offset) % books.length] : null;
-  const randomBook = books[randomIndex] || dayBook;
-  const quoteBook = useMemo(() => books.find((book) => book.quoteOfDay) || dayBook, [books, dayBook]);
+  const randomCandidate = books[randomIndex] || dayBook;
+  const randomBook = books.length > 1 && randomCandidate?.id === dayBook?.id ? books[(dayIndex + 1) % books.length] : randomCandidate;
+  const quoteEntry = useMemo(() => {
+    const entries = books.flatMap((book) => String(book.quoteOfDay || '')
+      .split(/\n+|\s*\|\|\s*/)
+      .map((quote) => quote.trim())
+      .filter(Boolean)
+      .map((quote) => ({ quote, book })));
+    if (entries.length) return entries[daily.seed % entries.length];
+    return { quote: DAILY_QUOTE_FALLBACKS[daily.seed % DAILY_QUOTE_FALLBACKS.length], book: null };
+  }, [books, daily.seed]);
 
   useEffect(() => {
     fetch('/api/discovery', { cache: 'no-store' }).then((response) => response.ok ? response.json() : null).then(setData).catch(() => {});
@@ -65,12 +82,16 @@ export default function DiscoveryDashboard({ books = [] }) {
   useEffect(() => {
     const seed = dateSeed();
     setDaily({ seed, greeting: greeting(), period: dayPart() });
-    setRandomIndex(books.length ? seed % books.length : 0);
+    setRandomIndex(books.length > 1 ? (seed % books.length + 1) % books.length : 0);
   }, [books.length]);
 
   const reroll = () => {
     if (books.length < 2) return;
-    setRandomIndex((current) => (current + 1 + Math.floor(Math.random() * Math.max(1, books.length - 1))) % books.length);
+    setRandomIndex((current) => {
+      let next = (current + 1 + Math.floor(Math.random() * Math.max(1, books.length - 1))) % books.length;
+      if (next === dayIndex) next = (next + 1) % books.length;
+      return next;
+    });
   };
 
   return (
@@ -85,7 +106,7 @@ export default function DiscoveryDashboard({ books = [] }) {
       <div className="discovery-daily-grid">
         <article className="discovery-daily-card is-day"><Sparkles size={23} /><div><small>КНИГА ДНЯ</small><h3>{dayBook?.title || 'Новая история скоро'}</h3><p>{dayBook?.author || 'Команда BOOKNERD готовит рекомендацию.'}</p></div>{dayBook ? <a href={`/books/${dayBook.slug}`}>Открыть <ArrowRight size={16} /></a> : null}</article>
         <article className="discovery-daily-card is-random"><Dice5 size={23} /><div><small>ПОЛНОСТЬЮ СЛУЧАЙНАЯ</small><h3>{randomBook?.title || 'Испытайте удачу'}</h3><p>{randomBook?.genre || randomBook?.author || 'Одна кнопка — одна новая история.'}</p></div><button type="button" onClick={reroll}>Ещё раз</button></article>
-        <article className="discovery-daily-card is-quote"><MessageCircle size={23} /><div><small>ФРАЗА ИЗ КНИГИ</small><blockquote>{quoteBook?.quoteOfDay ? `«${quoteBook.quoteOfDay}»` : '«Некоторые истории находят нас именно тогда, когда нужны.»'}</blockquote><p>{quoteBook?.title || 'BOOKNERD'}</p></div></article>
+        <article className="discovery-daily-card is-quote"><MessageCircle size={23} /><div><small>ФРАЗА ИЗ КНИГИ</small><blockquote>«{quoteEntry.quote}»</blockquote><p>{quoteEntry.book?.title || 'BOOKNERD'}</p></div></article>
       </div>
 
       {data?.today?.length ? (

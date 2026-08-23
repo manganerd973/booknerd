@@ -47,6 +47,7 @@ export default function OfflineBookButton({ book, chapters = [] }) {
       const worker = registration.active || navigator.serviceWorker.controller;
       if (!worker) throw new Error('Перезагрузите страницу и попробуйте ещё раз.');
       const urls = [
+        '/library?tab=offline',
         `/books/${book.slug}`,
         ...chapters.map((chapter) => `/books/${book.slug}/chapters/${chapter.id}`),
         book.coverUrl,
@@ -77,7 +78,17 @@ export default function OfflineBookButton({ book, chapters = [] }) {
         worker.postMessage({ type: 'BOOKNERD_SAVE_BOOK', bookId: book.id, urls }, [channel.port2]);
       });
       const current = savedBooks();
-      current[book.id] = { title: book.title, slug: book.slug, chapters: chapters.length, savedResources: result.saved, savedAt: new Date().toISOString() };
+      current[book.id] = {
+        title: book.title,
+        author: book.author || '',
+        slug: book.slug,
+        coverUrl: book.coverUrl || '',
+        status: book.status || '',
+        chapters: chapters.length,
+        chapterItems: chapters.map((chapter) => ({ id: chapter.id, chapterNumber: chapter.chapterNumber, title: chapter.title })),
+        savedResources: result.saved,
+        savedAt: new Date().toISOString(),
+      };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
       setSaved(true);
       setNotice(`Готово: ${chapters.length} глав${book.worldMap ? ' и карта' : ''} доступны без интернета.`);

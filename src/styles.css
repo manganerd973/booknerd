@@ -1194,3 +1194,5 @@ footer > span { grid-column: 1 / -1; padding-top: 18px; border-top: 1px solid va
   .translation-candidates article { align-items: flex-start; flex-direction: column; }
   .translation-candidates button { width: 100%; }
 }
+.library-offline-note { display: flex; align-items: center; gap: 6px; color: #567168; font-size: 10px; line-height: 1.45; }
+.network-status-banner a { color: inherit; font-weight: 850; text-decoration: underline; text-underline-offset: 2px; }

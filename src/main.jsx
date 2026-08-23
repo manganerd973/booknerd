@@ -472,7 +472,7 @@ function App({ initialBooks = [], initialPopularComments = [], initialQuoteOfDay
                 </a>
               </div>
               <div className="hero-stats">
-                <div><strong>1 900+</strong><span>читателей</span></div>
+                <div><strong>3 000+</strong><span>читателей</span></div>
                 <div><strong>3×</strong><span>перевод · редактура · корректура</span></div>
                 <div><strong>100%</strong><span>любви к деталям</span></div>
               </div>

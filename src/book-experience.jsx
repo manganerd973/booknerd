@@ -29,11 +29,16 @@ function inferredProfile(book) {
 }
 
 export function BookSuitability({ book }) {
-  const profile = useMemo(() => inferredProfile(book), [book]);
+  const profile = useMemo(() => {
+    const fallback = inferredProfile(book);
+    const manual = book.suitabilityProfile && typeof book.suitabilityProfile === 'object' ? book.suitabilityProfile : {};
+    const filled = Object.fromEntries(Object.entries(manual).filter(([, value]) => String(value || '').trim()));
+    return { ...fallback, ...filled, age: String(book.ageRating || '').trim() || fallback.age };
+  }, [book]);
   const [endingOpen, setEndingOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const reasons = [book.hasHotScenes ? 'наличие откровенных сцен' : '', ...(book.triggerWarnings || []).slice(0, 2)].filter(Boolean);
-  const ageExplanation = reasons.length ? `Причина: ${reasons.join('; ')}.` : 'Ограничение установлено с учётом содержания книги.';
+  const ageExplanation = String(book.ageReason || '').trim() || (reasons.length ? `Причина: ${reasons.join('; ')}.` : 'Ограничение установлено с учётом содержания книги.');
   return <section className="book-quick-guide">
     <div className="book-quick-guide-top">
       <button type="button" className="book-quick-fit" onClick={() => setDetailsOpen((value) => !value)} aria-expanded={detailsOpen}><span>Подойдёт ли мне эта книга?</span><strong>{detailsOpen ? 'Скрыть' : 'Посмотреть'}</strong></button>
@@ -57,7 +62,10 @@ export function RelationshipMap({ book, chapters }) {
 }
 
 export function QuoteGallery({ book }) {
-  const quotes = [book.quoteOfDay, book.dedication].filter(Boolean).slice(0, 6);
+  const quotes = [
+    ...String(book.quoteOfDay || '').split(/\n+|\s*\|\|\s*/).map((quote) => quote.trim()).filter(Boolean),
+    book.dedication,
+  ].filter(Boolean).slice(0, 6);
   const [notice, setNotice] = useState('');
   if (!quotes.length) return null;
   const copy = async (quote) => { await navigator.clipboard?.writeText(`«${quote}»\n${book.title} — BOOKNERD\n${location.href}`); setNotice('Цитата и ссылка скопированы'); setTimeout(() => setNotice(''), 1800); };

@@ -12,6 +12,21 @@ export const LIBRARY_STATUS = {
   dropped: { label: 'Брошено', short: 'Брошено' },
 };
 
+const READER_LIBRARY_CACHE_KEY = 'booknerd-reader-library-cache-v1';
+
+function readLibraryCache() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(READER_LIBRARY_CACHE_KEY) || '[]');
+    return Array.isArray(cached) ? cached : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeLibraryCache(items) {
+  try { localStorage.setItem(READER_LIBRARY_CACHE_KEY, JSON.stringify(items || [])); } catch { /* Offline cache is optional. */ }
+}
+
 function announceLibraryChange(item) {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('booknerd-library-change', { detail: item }));
@@ -19,11 +34,20 @@ function announceLibraryChange(item) {
 }
 
 export async function loadReaderLibrary() {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return readLibraryCache();
   const visitorKey = getVisitorKey();
-  const response = await fetch(`/api/library?visitorKey=${encodeURIComponent(visitorKey)}`, { cache: 'no-store' });
-  if (!response.ok) throw new Error('Не удалось открыть личную библиотеку.');
-  const data = await response.json();
-  return Array.isArray(data.items) ? data.items : [];
+  try {
+    const response = await fetch(`/api/library?visitorKey=${encodeURIComponent(visitorKey)}`, { cache: 'no-store' });
+    if (!response.ok) throw new Error('Не удалось открыть личную библиотеку.');
+    const data = await response.json();
+    const items = Array.isArray(data.items) ? data.items : [];
+    writeLibraryCache(items);
+    return items;
+  } catch (error) {
+    const cached = readLibraryCache();
+    if (cached.length || typeof navigator !== 'undefined' && !navigator.onLine) return cached;
+    throw error;
+  }
 }
 
 export async function updateReaderLibrary({ bookId, status = 'saved', lastChapterId = null, lastPage = 0, progress = 0, preserveFinished = false }) {
@@ -35,6 +59,8 @@ export async function updateReaderLibrary({ bookId, status = 'saved', lastChapte
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || 'Не удалось обновить личную библиотеку.');
+  const cached = readLibraryCache();
+  writeLibraryCache([data.item, ...cached.filter((item) => item.bookId !== data.item.bookId)]);
   announceLibraryChange(data.item);
   return data.item;
 }
@@ -47,6 +73,7 @@ export async function removeReaderLibraryBook(bookId) {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || 'Не удалось убрать книгу.');
+  writeLibraryCache(readLibraryCache().filter((item) => item.bookId !== bookId));
   announceLibraryChange({ bookId, status: null });
 }
 

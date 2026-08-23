@@ -1,12 +1,13 @@
-const SHELL_CACHE = 'booknerd-shell-v31';
+const SHELL_CACHE = 'booknerd-shell-v34';
 const OFFLINE_CACHE = 'booknerd-offline-library-v2';
 const OFFLINE_FALLBACK = '/offline.html';
+const OFFLINE_LIBRARY = '/library?tab=offline';
 const NAVIGATION_TIMEOUT = 45000;
 const ASSET_TIMEOUT = 30000;
 const BOOK_DOWNLOAD_TIMEOUT = 45000;
 const BOOK_DOWNLOAD_CONCURRENCY = 3;
-const REACTION_STICKER_URLS = Array.from({ length: 25 }, (_, index) => `/reaction-stickers/sticker-${String(index + 1).padStart(2, '0')}.jpg`);
-const PRELOAD_URLS = ['/', OFFLINE_FALLBACK, '/manifest.webmanifest', '/booknerd-icon-v2-192.png', ...REACTION_STICKER_URLS];
+const REACTION_STICKER_URLS = Array.from({ length: 57 }, (_, index) => `/reaction-stickers/sticker-${String(index + 1).padStart(2, '0')}.jpg`);
+const PRELOAD_URLS = ['/', OFFLINE_LIBRARY, OFFLINE_FALLBACK, '/manifest.webmanifest', '/booknerd-icon-v2-192.png', ...REACTION_STICKER_URLS];
 const STATIC_DESTINATIONS = new Set(['style', 'script', 'font', 'image']);
 
 function isAppAsset(pathname) {
@@ -68,7 +69,7 @@ async function migrateLegacyCaches() {
       for (const request of await legacy.keys()) {
         const url = new URL(request.url);
         const keep = legacyOffline
-          ? url.pathname.startsWith('/books/') || url.pathname.startsWith('/api/covers/') || isAppAsset(url.pathname)
+          ? url.pathname.startsWith('/books/') || url.pathname === '/library' || url.pathname.startsWith('/api/covers/') || isAppAsset(url.pathname)
           : isAppAsset(url.pathname);
         if (!keep || await offline.match(request)) continue;
         const response = await legacy.match(request);
@@ -153,8 +154,11 @@ self.addEventListener('fetch', (event) => {
         const offline = await caches.open(OFFLINE_CACHE);
         const savedPage = await offline.match(request, { ignoreSearch: true });
         if (savedPage) return savedPage;
+        const offlineLibrary = await offline.match(OFFLINE_LIBRARY, { ignoreSearch: true });
+        if (offlineLibrary) return offlineLibrary;
         const shell = await caches.open(SHELL_CACHE);
         return await shell.match(request, { ignoreSearch: true })
+          || await shell.match(OFFLINE_LIBRARY, { ignoreSearch: true })
           || await shell.match(OFFLINE_FALLBACK)
           || new Response('BOOKNERD сейчас без сети. Подключитесь к интернету и обновите страницу.', {
             status: 503,

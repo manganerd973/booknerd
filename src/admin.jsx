@@ -71,6 +71,9 @@ const blankBook = {
   dedication: '',
   triggerWarnings: [],
   triggerWarningsText: '',
+  suitabilityProfile: { romance: '', angst: '', pace: '', spice: '', triggers: '' },
+  ageRating: '',
+  ageReason: '',
   hasHotScenes: false,
   hotSceneChapters: '',
   synopsis: '',
@@ -1011,8 +1014,20 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                   <label className="admin-full-field"><span>Аннотация</span><textarea value={bookForm.synopsis} onChange={(event) => setBookForm({ ...bookForm, synopsis: event.target.value })} placeholder="Расскажите читателю, о чём эта история…" rows={7} /><small>{bookForm.synopsis.length} / 12 000</small></label>
                   <label className="admin-full-field"><span>Кому посвящена книга</span><textarea value={bookForm.dedication || ''} onChange={(event) => setBookForm({ ...bookForm, dedication: event.target.value })} placeholder="Например: Всем девушкам, которые однажды выбрали себя…" rows={3} /><small>Посвящение появится на главной странице книги.</small></label>
                   <label className="admin-full-field"><span>Предупреждения о триггерах</span><textarea value={bookForm.triggerWarningsText || ''} onChange={(event) => setBookForm({ ...bookForm, triggerWarningsText: event.target.value, triggerWarnings: splitBookTags(event.target.value, 40) })} placeholder="Например: насилие, утрата близкого, панические атаки" rows={3} /><small>Разделяйте предупреждения запятыми. Они появятся только на странице книги.</small></label>
+                  <div className="admin-suitability-editor">
+                    <div><span>ПОДОЙДЁТ ЛИ МНЕ ЭТА КНИГА?</span><h3>Описание для читателя</h3><p>Заполните поля своими словами. Если поле оставить пустым, сайт аккуратно подберёт значение по жанрам, тропам и триггерам.</p></div>
+                    <div className="admin-fields two-columns">
+                      <label><span>Уровень романтики</span><input value={bookForm.suitabilityProfile?.romance || ''} onChange={(event) => setBookForm({ ...bookForm, suitabilityProfile: { ...(bookForm.suitabilityProfile || {}), romance: event.target.value } })} placeholder="Например: высокий" /></label>
+                      <label><span>Эмоциональная тяжесть</span><input value={bookForm.suitabilityProfile?.angst || ''} onChange={(event) => setBookForm({ ...bookForm, suitabilityProfile: { ...(bookForm.suitabilityProfile || {}), angst: event.target.value } })} placeholder="Например: умеренная" /></label>
+                      <label><span>Темп повествования</span><input value={bookForm.suitabilityProfile?.pace || ''} onChange={(event) => setBookForm({ ...bookForm, suitabilityProfile: { ...(bookForm.suitabilityProfile || {}), pace: event.target.value } })} placeholder="Например: быстрый" /></label>
+                      <label><span>Степень откровенности</span><input value={bookForm.suitabilityProfile?.spice || ''} onChange={(event) => setBookForm({ ...bookForm, suitabilityProfile: { ...(bookForm.suitabilityProfile || {}), spice: event.target.value } })} placeholder="Например: низкая" /></label>
+                      <label><span>Тяжесть триггеров</span><input value={bookForm.suitabilityProfile?.triggers || ''} onChange={(event) => setBookForm({ ...bookForm, suitabilityProfile: { ...(bookForm.suitabilityProfile || {}), triggers: event.target.value } })} placeholder="Например: заметная" /></label>
+                      <label><span>Возрастное ограничение</span><input value={bookForm.ageRating || ''} onChange={(event) => setBookForm({ ...bookForm, ageRating: event.target.value })} placeholder="Например: 16+" /></label>
+                    </div>
+                    <label className="admin-full-field"><span>Причина возрастного ограничения</span><textarea value={bookForm.ageReason || ''} onChange={(event) => setBookForm({ ...bookForm, ageReason: event.target.value })} placeholder="Например: сцены насилия, тяжёлые темы и откровенные эпизоды." rows={3} /><small>Напишите законченное и грамматически правильное объяснение — оно будет показано читателям без изменений.</small></label>
+                  </div>
                   <div className="admin-glossary-shortcut"><BookOpen size={20} /><div><strong>Слова и их значения</strong><small>{bookForm.id ? 'Добавляйте слова в простом словаре ниже на этой странице.' : 'Сначала сохраните книгу — после этого появится простой словарь «слово — значение».'}</small></div>{bookForm.id ? <a href="#admin-book-glossary">Открыть словарь</a> : null}</div>
-                  <label className="admin-full-field"><span>Любимая цитата дня</span><textarea value={bookForm.quoteOfDay || ''} onChange={(event) => setBookForm({ ...bookForm, quoteOfDay: event.target.value })} placeholder="Цитата из книги для главной страницы" rows={2} /></label>
+                  <label className="admin-full-field"><span>Цитаты дня</span><textarea value={bookForm.quoteOfDay || ''} onChange={(event) => setBookForm({ ...bookForm, quoteOfDay: event.target.value })} placeholder="Добавляйте каждую цитату с новой строки — они будут меняться по дням" rows={4} /></label>
                   <div className="admin-fields three-columns">
                     <label><span>Переводчик</span><input value={bookForm.translator || ''} onChange={(event) => setBookForm({ ...bookForm, translator: event.target.value })} /></label>
                     <label><span>Редактор</span><input value={bookForm.editor || ''} onChange={(event) => setBookForm({ ...bookForm, editor: event.target.value })} /></label>

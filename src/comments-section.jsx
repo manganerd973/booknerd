@@ -58,7 +58,7 @@ function CommentBody({ comment }) {
   );
 }
 
-export default function CommentsSection({ bookId, chapterId = null, scope = 'comments' }) {
+export default function CommentsSection({ bookId, chapterId = null, scope = 'comments', includeChapterComments = false }) {
   const [comments, setComments] = useState([]);
   const [authorName, setAuthorName] = useState('');
   const [savedAuthorName, setSavedAuthorName] = useState('');
@@ -82,6 +82,7 @@ export default function CommentsSection({ bookId, chapterId = null, scope = 'com
       const query = new URLSearchParams({ bookId });
       if (chapterId) query.set('chapterId', chapterId);
       query.set('context', context);
+      if (includeChapterComments && !chapterId && context === 'comments') query.set('includeChapters', '1');
       const data = await commentsApi(`/api/comments?${query.toString()}`);
       setComments(data.comments || []);
       setError('');
@@ -90,7 +91,7 @@ export default function CommentsSection({ bookId, chapterId = null, scope = 'com
     } finally {
       setLoading(false);
     }
-  }, [bookId, chapterId, context]);
+  }, [bookId, chapterId, context, includeChapterComments]);
 
   useEffect(() => {
     try {
@@ -141,7 +142,7 @@ export default function CommentsSection({ bookId, chapterId = null, scope = 'com
       await commentsApi('/api/comments', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ bookId, chapterId, context, parentId: replyingTo?.id || null, visitorKey: getVisitorKey(), authorName, body, isSpoiler, website }),
+        body: JSON.stringify({ bookId, chapterId: replyingTo?.chapterId || chapterId, context, parentId: replyingTo?.id || null, visitorKey: getVisitorKey(), authorName, body, isSpoiler, website }),
       });
       rememberAuthor(authorName);
       setBody('');
@@ -173,6 +174,7 @@ export default function CommentsSection({ bookId, chapterId = null, scope = 'com
         <article id={`${anchorPrefix}-${comment.id}`} className={`reader-comment ${depth ? 'is-reply' : ''}`}>
           <header className="reader-comment-header">
             <strong>{comment.authorName}</strong>
+            {includeChapterComments && comment.chapterId ? <span>Глава {comment.chapterNumber}{comment.chapterTitle ? ` · ${comment.chapterTitle}` : ''}</span> : null}
           </header>
           <CommentBody comment={comment} />
           <div className="reader-comment-actions">
@@ -190,9 +192,9 @@ export default function CommentsSection({ bookId, chapterId = null, scope = 'com
   return (
     <section className="reader-comments" aria-labelledby={sectionId}>
       <div className="reader-comments-heading">
-        <span className="editorial-section-number">{chapterId ? 'КОММЕНТАРИИ К ГЛАВЕ' : context === 'discussion' ? 'ОБСУЖДЕНИЕ ЧИТАТЕЛЕЙ' : 'КОММЕНТАРИИ К КНИГЕ'}</span>
+        <span className="editorial-section-number">{chapterId ? 'КОММЕНТАРИИ К ГЛАВЕ' : context === 'discussion' ? 'ОБСУЖДЕНИЕ ЧИТАТЕЛЕЙ' : includeChapterComments ? 'ВСЕ КОММЕНТАРИИ К КНИГЕ И ГЛАВАМ' : 'КОММЕНТАРИИ К КНИГЕ'}</span>
         <h2 id={sectionId}>{context === 'discussion' ? 'Поговорим об истории' : 'Обсуждение'}</h2>
-        <p>{context === 'discussion' ? 'Отвечайте друг другу, ставьте плюс или минус и отправляйте жалобу, если комментарий нарушает правила.' : 'Комментарии публикуются сразу. Если в тексте есть важная деталь сюжета, отметьте её как спойлер.'}</p>
+        <p>{context === 'discussion' ? 'Отвечайте друг другу, ставьте плюс или минус и отправляйте жалобу, если комментарий нарушает правила.' : includeChapterComments ? 'Здесь собраны комментарии со страницы книги и из всех опубликованных глав. Спойлеры остаются скрытыми.' : 'Комментарии публикуются сразу. Если в тексте есть важная деталь сюжета, отметьте её как спойлер.'}</p>
       </div>
 
       <div className="reader-comments-layout">

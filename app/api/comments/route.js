@@ -15,6 +15,9 @@ function mapComment(row) {
   return {
     id: row.id,
     parentId: row.parent_id || null,
+    chapterId: row.chapter_id || null,
+    chapterTitle: row.chapter_title || '',
+    chapterNumber: row.chapter_number == null ? null : Number(row.chapter_number),
     authorName: row.author_name,
     body: row.body,
     isSpoiler: Boolean(row.is_spoiler),
@@ -43,20 +46,31 @@ export async function GET(request) {
     const bookId = String(url.searchParams.get('bookId') || '').trim();
     const chapterId = String(url.searchParams.get('chapterId') || '').trim();
     const context = normalizeContext(url.searchParams.get('context'), chapterId);
+    const includeChapters = !chapterId && context === 'comments' && url.searchParams.get('includeChapters') === '1';
     if (!bookId) return Response.json({ error: 'Книга не указана.' }, { status: 400 });
 
     const db = await ensureDb();
     const statement = chapterId
-      ? db.prepare(`SELECT c.id, c.parent_id, c.author_name, c.body, c.is_spoiler, c.created_at,
+      ? db.prepare(`SELECT c.id, c.parent_id, c.chapter_id, ch.title AS chapter_title, ch.chapter_number,
+          c.author_name, c.body, c.is_spoiler, c.created_at,
           SUM(CASE WHEN v.value = 1 THEN 1 ELSE 0 END) AS up_votes,
           SUM(CASE WHEN v.value = -1 THEN 1 ELSE 0 END) AS down_votes
-          FROM comments c LEFT JOIN comment_votes v ON v.comment_id = c.id
+          FROM comments c LEFT JOIN chapters ch ON ch.id = c.chapter_id LEFT JOIN comment_votes v ON v.comment_id = c.id
           WHERE c.book_id = ? AND c.chapter_id = ? AND c.context = ? AND c.status = 'approved'
           GROUP BY c.id ORDER BY c.created_at ASC LIMIT 100`).bind(bookId, chapterId, context)
-      : db.prepare(`SELECT c.id, c.parent_id, c.author_name, c.body, c.is_spoiler, c.created_at,
+      : includeChapters
+        ? db.prepare(`SELECT c.id, c.parent_id, c.chapter_id, ch.title AS chapter_title, ch.chapter_number,
+          c.author_name, c.body, c.is_spoiler, c.created_at,
           SUM(CASE WHEN v.value = 1 THEN 1 ELSE 0 END) AS up_votes,
           SUM(CASE WHEN v.value = -1 THEN 1 ELSE 0 END) AS down_votes
-          FROM comments c LEFT JOIN comment_votes v ON v.comment_id = c.id
+          FROM comments c LEFT JOIN chapters ch ON ch.id = c.chapter_id LEFT JOIN comment_votes v ON v.comment_id = c.id
+          WHERE c.book_id = ? AND c.context = 'comments' AND c.status = 'approved'
+          GROUP BY c.id ORDER BY c.created_at ASC LIMIT 300`).bind(bookId)
+        : db.prepare(`SELECT c.id, c.parent_id, c.chapter_id, ch.title AS chapter_title, ch.chapter_number,
+          c.author_name, c.body, c.is_spoiler, c.created_at,
+          SUM(CASE WHEN v.value = 1 THEN 1 ELSE 0 END) AS up_votes,
+          SUM(CASE WHEN v.value = -1 THEN 1 ELSE 0 END) AS down_votes
+          FROM comments c LEFT JOIN chapters ch ON ch.id = c.chapter_id LEFT JOIN comment_votes v ON v.comment_id = c.id
           WHERE c.book_id = ? AND c.chapter_id IS NULL AND c.context = ? AND c.status = 'approved'
           GROUP BY c.id ORDER BY c.created_at ASC LIMIT 100`).bind(bookId, context);
     const result = await statement.all();

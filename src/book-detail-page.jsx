@@ -195,7 +195,7 @@ export default function BookDetailPage({ book, chapters = [], artworks = [], ser
         {activeTab === 'about' ? <AboutPanel book={book} chapters={chapters} seriesBooks={seriesBooks} /> : null}
         {activeTab === 'chapters' ? <ChaptersPanel book={book} chapters={chapters} /> : null}
         {activeTab === 'fanarts' ? <BookArtGallery artworks={artworks} bookTitle={book.title} /> : null}
-        {activeTab === 'comments' ? <CommentsSection bookId={book.id} /> : null}
+        {activeTab === 'comments' ? <CommentsSection bookId={book.id} includeChapterComments /> : null}
         {activeTab === 'discussion' ? <><BookReviews bookId={book.id} /><CommentsSection bookId={book.id} scope="discussion" /></> : null}
       </section>
       <MobileBottomNavigation active="translations" />

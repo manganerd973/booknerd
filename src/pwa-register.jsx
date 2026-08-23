@@ -23,7 +23,11 @@ export default function PwaRegister() {
       });
     }
     const installed = () => trackSiteInstall('appinstalled');
-    const offline = () => setConnection('offline');
+    const offline = () => {
+      setConnection('offline');
+      const pathname = window.location.pathname;
+      if (pathname === '/' || pathname === '/offline.html') window.location.replace('/library?tab=offline');
+    };
     const online = () => {
       setConnection('restored');
       window.setTimeout(() => setConnection('online'), 3200);
@@ -41,7 +45,11 @@ export default function PwaRegister() {
     window.addEventListener('offline', offline);
     window.addEventListener('online', online);
     window.addEventListener('click', offlineBookNavigation, true);
-    if (!window.navigator.onLine) setConnection('offline');
+    if (!window.navigator.onLine) {
+      setConnection('offline');
+      const pathname = window.location.pathname;
+      if (!pathname.startsWith('/books/') && pathname !== '/library') window.location.replace('/library?tab=offline');
+    }
     if (window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true) {
       trackSiteInstall('standalone');
     }
@@ -57,7 +65,7 @@ export default function PwaRegister() {
   return (
     <div className={`network-status-banner is-${connection}`} role="status" aria-live="polite">
       <strong>{connection === 'offline' ? 'Сеть пропала' : 'Соединение восстановлено'}</strong>
-      <span>{connection === 'offline' ? 'Сохранённые книги остаются доступны офлайн.' : 'Можно продолжать чтение.'}</span>
+      <span>{connection === 'offline' ? <><a href="/library?tab=offline">Открыть сохранённые книги</a></> : 'Можно продолжать чтение.'}</span>
     </div>
   );
 }

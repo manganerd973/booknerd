@@ -28,8 +28,10 @@ export const HIGHLIGHT_COLORS = [
 
 // The supplied sticker sheet is an exact 5 × 8 grid. Keeping the sheet as a
 // sprite makes the reader fast and avoids loading dozens of separate files.
+export const CUSTOM_STICKER_COUNT = 57;
+
 export const READER_STICKERS = [
-  ...Array.from({ length: 25 }, (_, index) => ({ id: `custom-${String(index + 1).padStart(2, '0')}`, name: `Стикер ${index + 1}`, sheet: 'custom', src: `/reaction-stickers/sticker-${String(index + 1).padStart(2, '0')}.jpg` })),
+  ...Array.from({ length: CUSTOM_STICKER_COUNT }, (_, index) => ({ id: `custom-${String(index + 1).padStart(2, '0')}`, name: `Стикер ${index + 1}`, sheet: 'custom', src: `/reaction-stickers/sticker-${String(index + 1).padStart(2, '0')}.jpg` })),
   { id: 'love', name: 'Влюблённость', column: 0, row: 0 },
   { id: 'delight', name: 'Восторг', column: 1, row: 0 },
   { id: 'happy', name: 'Радость', column: 2, row: 0 },
@@ -141,7 +143,7 @@ export function StickerPicker({ value = '', onSelect }) {
   return (
     <div className="reader-sticker-browser">
       <div className="reader-sticker-tabs" role="tablist" aria-label="Наборы стикеров">
-        <button type="button" className={group === 'custom' ? 'is-active' : ''} onClick={() => setGroup('custom')} role="tab" aria-selected={group === 'custom'}>Ваши стикеры<small>25</small></button>
+        <button type="button" className={group === 'custom' ? 'is-active' : ''} onClick={() => setGroup('custom')} role="tab" aria-selected={group === 'custom'}>Ваши стикеры<small>{CUSTOM_STICKER_COUNT}</small></button>
         <button
           type="button"
           className={group === 'roundies' ? 'is-active' : ''}

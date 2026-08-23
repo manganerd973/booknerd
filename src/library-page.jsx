@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, ArrowUpDown, Bookmark, BookOpen, Check, Clock3, Grid3X3, Heart, Library, List, LoaderCircle, Search, XCircle } from 'lucide-react';
+import { ArrowRight, ArrowUpDown, Bookmark, BookOpen, Check, Clock3, Download, Grid3X3, Heart, Library, List, LoaderCircle, Search, WifiOff, XCircle } from 'lucide-react';
 import { ReaderStatistics } from './home-reader-features.jsx';
 import { LIBRARY_STATUS, loadReaderLibrary, updateReaderLibrary } from './reader-library.jsx';
 import { SiteFooter, SiteHeader } from './page-chrome.jsx';
@@ -13,6 +13,7 @@ const LIBRARY_TABS = [
   ['dropped', 'Брошено'],
   ['finished', 'Прочитано'],
   ['favorite', 'Любимые'],
+  ['offline', 'Офлайн'],
   ['history', 'История'],
 ];
 
@@ -61,25 +62,26 @@ function LibraryCover({ book }) {
   );
 }
 
-function LibraryBookCard({ book, item, onStatusChange }) {
-  const Icon = STATUS_ICON[item.status] || Bookmark;
+function LibraryBookCard({ book, item, onStatusChange, offline = false }) {
+  const Icon = offline ? Download : STATUS_ICON[item.status] || Bookmark;
+  const openHref = item.offlineHref || `/books/${book.slug}`;
   return (
     <article className="library-page-card">
-      <a href={`/books/${book.slug}`} className="library-page-cover-link"><LibraryCover book={book} /></a>
+      <a href={openHref} className="library-page-cover-link"><LibraryCover book={book} /></a>
       <div className="library-page-card-copy">
-        <span><Icon size={14} /> {LIBRARY_STATUS[item.status]?.label || 'В планах'}</span>
-        <h2><a href={`/books/${book.slug}`}>{book.title}</a></h2>
+        <span><Icon size={14} /> {offline ? 'Сохранено офлайн' : LIBRARY_STATUS[item.status]?.label || 'В планах'}</span>
+        <h2><a href={openHref}>{book.title}</a></h2>
         <p>{book.author}</p>
         {item.chapterNumber != null ? (
           <div className="library-reading-history"><Clock3 size={13} /><span>Остановились: глава {item.chapterNumber}{item.lastPage > 0 ? ` · страница ${item.lastPage + 1}` : ''}</span>{item.lastOpenedAt ? <time>{formatLastOpened(item.lastOpenedAt)}</time> : null}</div>
         ) : null}
-        <label>
+        {!offline ? <label>
           <span>Раздел библиотеки</span>
           <select value={item.status} onChange={(event) => onStatusChange(item, event.target.value)}>
             {Object.entries(LIBRARY_STATUS).map(([value, option]) => <option value={value} key={value}>{option.short}</option>)}
           </select>
-        </label>
-        <a className="library-page-open" href={`/books/${book.slug}`}>Открыть книгу <ArrowRight size={17} /></a>
+        </label> : <div className="library-offline-note"><WifiOff size={14} /> Книга и опубликованные главы доступны без интернета.</div>}
+        <a className="library-page-open" href={openHref}>Открыть книгу <ArrowRight size={17} /></a>
       </div>
     </article>
   );
@@ -87,20 +89,28 @@ function LibraryBookCard({ book, item, onStatusChange }) {
 
 export default function LibraryPage({ initialBooks = [] }) {
   const [items, setItems] = useState([]);
+  const [offlineItems, setOfflineItems] = useState([]);
   const [activeTab, setActiveTab] = useState('all');
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState('');
   const [viewMode, setViewMode] = useState('list');
   const [query, setQuery] = useState('');
   const [sortMode, setSortMode] = useState('updated');
-  const booksById = useMemo(() => new Map(initialBooks.map((book) => [book.id, book])), [initialBooks]);
+  const booksById = useMemo(() => {
+    const result = new Map(initialBooks.map((book) => [book.id, book]));
+    offlineItems.forEach((item) => {
+      if (!result.has(item.bookId)) result.set(item.bookId, item.book);
+    });
+    return result;
+  }, [initialBooks, offlineItems]);
   const visibleItems = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase('ru-RU');
-    return items
+    const sourceItems = activeTab === 'offline' ? offlineItems : items;
+    return sourceItems
       .filter((item) => {
         const book = booksById.get(item.bookId);
         if (!book) return false;
-        const inTab = activeTab === 'all' || (activeTab === 'history' ? Boolean(item.lastChapterId) : item.status === activeTab);
+        const inTab = activeTab === 'offline' || activeTab === 'all' || (activeTab === 'history' ? Boolean(item.lastChapterId) : item.status === activeTab);
         const inSearch = !normalized || `${book.title} ${book.author} ${book.seriesTitle || ''}`.toLocaleLowerCase('ru-RU').includes(normalized);
         return inTab && inSearch;
       })
@@ -112,10 +122,11 @@ export default function LibraryPage({ initialBooks = [] }) {
         if (sortMode === 'added') return new Date(right.createdAt || 0) - new Date(left.createdAt || 0);
         return new Date(rightBook?.updatedAt || right.updatedAt || 0) - new Date(leftBook?.updatedAt || left.updatedAt || 0);
       });
-  }, [activeTab, booksById, items, query, sortMode]);
+  }, [activeTab, booksById, items, offlineItems, query, sortMode]);
 
   const tabCount = (value) => {
     const available = items.filter((item) => booksById.has(item.bookId));
+    if (value === 'offline') return offlineItems.length;
     if (value === 'all') return available.length;
     if (value === 'history') return available.filter((item) => item.lastChapterId).length;
     return available.filter((item) => item.status === value).length;
@@ -124,6 +135,39 @@ export default function LibraryPage({ initialBooks = [] }) {
   useEffect(() => {
     const requestedTab = new URLSearchParams(window.location.search).get('tab');
     if (LIBRARY_TABS.some(([value]) => value === requestedTab)) setActiveTab(requestedTab);
+  }, []);
+
+  useEffect(() => {
+    const loadOfflineItems = () => {
+      try {
+        const saved = JSON.parse(localStorage.getItem('booknerd-offline-books-v1') || '{}');
+        const next = Object.entries(saved).map(([bookId, entry]) => {
+          const firstChapter = Array.isArray(entry.chapterItems) ? entry.chapterItems[0] : null;
+          return {
+            bookId,
+            status: 'offline',
+            savedAt: entry.savedAt || '',
+            updatedAt: entry.savedAt || '',
+            offlineHref: firstChapter?.id ? `/books/${entry.slug}/chapters/${firstChapter.id}` : `/books/${entry.slug}`,
+            book: {
+              id: bookId,
+              slug: entry.slug,
+              title: entry.title || 'Сохранённая книга',
+              author: entry.author || 'BOOKNERD',
+              coverUrl: entry.coverUrl || '',
+              status: entry.status || '',
+              chapterCount: Number(entry.chapters || 0),
+              publishedChapterCount: Number(entry.chapters || 0),
+              updatedAt: entry.savedAt || '',
+            },
+          };
+        });
+        setOfflineItems(next);
+      } catch { setOfflineItems([]); }
+    };
+    loadOfflineItems();
+    window.addEventListener('storage', loadOfflineItems);
+    return () => window.removeEventListener('storage', loadOfflineItems);
   }, []);
 
   useEffect(() => {
@@ -218,12 +262,12 @@ export default function LibraryPage({ initialBooks = [] }) {
 
           {loading ? <div className="library-page-loading"><LoaderCircle className="spin" size={25} /> Открываем ваши полки…</div> : visibleItems.length ? (
             <div className={`library-page-grid is-${viewMode}`}>
-              {visibleItems.map((item) => <LibraryBookCard book={booksById.get(item.bookId)} item={item} onStatusChange={changeStatus} key={item.bookId} />)}
+              {visibleItems.map((item) => <LibraryBookCard book={booksById.get(item.bookId)} item={item} onStatusChange={changeStatus} offline={activeTab === 'offline'} key={item.bookId} />)}
             </div>
           ) : (
             <div className="library-page-empty">
               <Library size={38} />
-              <div><strong>{query ? 'По вашему запросу ничего не найдено' : items.length ? 'В этом разделе пока пусто' : 'Ваши закладки ждут первую книгу'}</strong><p>{query ? 'Попробуйте другое название или имя автора.' : 'Откройте каталог и добавьте историю на нужную полку.'}</p></div>
+              <div><strong>{query ? 'По вашему запросу ничего не найдено' : activeTab === 'offline' ? 'Офлайн-книг пока нет' : items.length ? 'В этом разделе пока пусто' : 'Ваши закладки ждут первую книгу'}</strong><p>{query ? 'Попробуйте другое название или имя автора.' : activeTab === 'offline' ? 'Откройте страницу книги при подключённом интернете и нажмите «Скачать для офлайн-чтения».' : 'Откройте каталог и добавьте историю на нужную полку.'}</p></div>
               <a href="/translations">Выбрать книгу <ArrowRight size={17} /></a>
             </div>
           )}
