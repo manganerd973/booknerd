@@ -7,7 +7,7 @@ export async function GET(request) {
   try {
     const db = await ensureDb();
     const result = await db.prepare(
-      `SELECT c.id, c.book_id, c.chapter_id, c.context, c.author_name, c.body, c.is_spoiler, c.status, c.created_at,
+      `SELECT c.id, c.book_id, c.chapter_id, c.context, c.author_role, c.author_name, c.body, c.is_spoiler, c.status, c.created_at,
               b.title AS book_title, b.slug AS book_slug, ch.title AS chapter_title, ch.chapter_number
        FROM comments c
        JOIN books b ON b.id = c.book_id
@@ -38,6 +38,7 @@ export async function GET(request) {
       bookId: row.book_id,
       chapterId: row.chapter_id || null,
       context: row.context || 'comments',
+      authorRole: row.author_role === 'admin' ? 'admin' : 'reader',
       authorName: row.author_name,
       body: row.body,
       isSpoiler: Boolean(row.is_spoiler),

@@ -15,6 +15,7 @@ import {
   MessageCircle,
   Quote,
   Search,
+  ShieldCheck,
   Sparkles,
   Star,
   X,
@@ -184,7 +185,7 @@ function PopularComments({ comments }) {
             <article className="popular-comment-card" key={comment.id}>
               <MessageCircle size={23} />
               <PopularCommentBody comment={comment} />
-              <div className="popular-comment-author"><strong>{comment.authorName}</strong><span>о книге «{comment.bookTitle}»</span></div>
+              <div className="popular-comment-author"><strong>{comment.authorName}{comment.authorRole === 'admin' ? <span className="popular-comment-admin-badge"><ShieldCheck size={11} /> Администратор</span> : null}</strong><span>о книге «{comment.bookTitle}»</span></div>
               <div className="popular-comment-footer">
                 <div className="popular-comment-feedback"><CommentVotes commentId={comment.id} initialUpVotes={comment.upVotes} initialDownVotes={comment.downVotes} compact /><CommentReport commentId={comment.id} compact /></div>
                 <a href={comment.chapterId ? `/books/${comment.bookSlug}/chapters/${comment.chapterId}#comment-${comment.id}` : comment.context === 'discussion' ? `/books/${comment.bookSlug}#discussion-comment-${comment.id}` : `/books/${comment.bookSlug}#comment-${comment.id}`}>
@@ -202,21 +203,63 @@ function PopularComments({ comments }) {
 }
 
 function QuoteOfDay({ quote }) {
-  const sourceHref = quote?.chapterId
-    ? `/books/${quote.bookSlug}/chapters/${quote.chapterId}?page=${Number(quote.page || 0) + 1}`
-    : quote?.bookSlug ? `/books/${quote.bookSlug}` : '/translations';
+  const [activeQuote, setActiveQuote] = useState(quote);
+
+  useEffect(() => {
+    setActiveQuote(quote);
+  }, [quote]);
+
+  useEffect(() => {
+    let active = true;
+    let timeoutId;
+
+    const refresh = async () => {
+      try {
+        const response = await fetch('/api/quote-of-day', { cache: 'no-store' });
+        const data = await response.json().catch(() => ({}));
+        if (active && response.ok && data.quote) setActiveQuote(data.quote);
+      } catch {
+        // Keep the current quote when the reader is temporarily offline.
+      }
+    };
+
+    const scheduleNext = () => {
+      const interval = 2 * 60 * 1000;
+      const delay = interval - (Date.now() % interval) + 250;
+      timeoutId = window.setTimeout(async () => {
+        await refresh();
+        if (active) scheduleNext();
+      }, delay);
+    };
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+
+    scheduleNext();
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      active = false;
+      window.clearTimeout(timeoutId);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
+  }, []);
+
+  const sourceHref = activeQuote?.chapterId
+    ? `/books/${activeQuote.bookSlug}/chapters/${activeQuote.chapterId}?page=${Number(activeQuote.page || 0) + 1}`
+    : activeQuote?.bookSlug ? `/books/${activeQuote.bookSlug}` : '/translations';
   return (
-    <section className="quote-of-day section" aria-labelledby="quote-of-day-title">
+    <section className="quote-of-day section" aria-labelledby="quote-of-day-title" aria-live="polite">
       <div className="quote-of-day-card">
         <div className="quote-of-day-topline"><span>01 / ЦИТАТА ДНЯ</span><Quote size={28} /></div>
-        {quote ? (
+        {activeQuote ? (
           <>
-            <blockquote id="quote-of-day-title">«{quote.quote}»</blockquote>
-            {quote.note ? <p>{quote.note}</p> : null}
+            <blockquote id="quote-of-day-title">«{activeQuote.quote}»</blockquote>
+            {activeQuote.note ? <p>{activeQuote.note}</p> : null}
             <div className="quote-of-day-source">
-              <div><strong>{quote.authorName}</strong><span>читатель BOOKNERD</span></div>
+              <div><strong>{activeQuote.authorName}</strong><span>{activeQuote.source === 'editorial' ? 'команда проекта' : 'читатель BOOKNERD'}</span></div>
               <a href={sourceHref}>
-                <span>{quote.bookTitle}</span>{quote.chapterTitle ? <small>{quote.chapterTitle}</small> : null}<ArrowRight size={18} />
+                <span>{activeQuote.bookTitle}</span>{activeQuote.chapterTitle ? <small>{activeQuote.chapterTitle}</small> : null}<ArrowRight size={18} />
               </a>
             </div>
           </>

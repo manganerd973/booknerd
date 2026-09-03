@@ -119,6 +119,7 @@ export const comments = sqliteTable('comments', {
   context: text('context').notNull().default('comments'),
   parentId: text('parent_id'),
   visitorKey: text('visitor_key').notNull().default(''),
+  authorRole: text('author_role').notNull().default('reader'),
   authorName: text('author_name').notNull(),
   body: text('body').notNull(),
   isSpoiler: integer('is_spoiler', { mode: 'boolean' }).notNull().default(false),

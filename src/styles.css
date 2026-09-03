@@ -690,6 +690,7 @@ a { color: inherit; text-decoration: none; }
 .popular-comment-spoiler-open > button { display: inline-flex; align-items: center; gap: 5px; padding: 5px 7px; border: 1px solid var(--line); color: var(--muted); background: transparent; font: inherit; font-size: 8px; font-weight: 900; cursor: pointer; }
 .popular-comment-author { display: grid; gap: 4px; margin-top: auto; }
 .popular-comment-author strong { font-family: var(--serif); font-size: 15px; }
+.popular-comment-admin-badge { display: inline-flex; min-height: 22px; align-items: center; gap: 4px; margin-left: 8px; padding: 0 7px; border-radius: 999px; color: var(--cream); background: var(--navy); font-family: var(--sans); font-size: 7px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; vertical-align: middle; }
 .popular-comment-author span { color: var(--muted); font-size: 9px; font-weight: 800; }
 .popular-comment-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; padding-top: 15px; border-top: 1px solid var(--line); }
 .popular-comment-feedback { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
@@ -885,6 +886,8 @@ footer > span { grid-column: 1 / -1; padding-top: 18px; border-top: 1px solid va
   .mobile-bottom-navigation a { display: grid; min-width: 0; min-height: 50px; place-items: center; align-content: center; gap: 4px; border-radius: 11px; color: color-mix(in srgb,var(--cream) 65%,transparent); font-size: 7.5px; font-weight: 850; letter-spacing: .02em; }
   .mobile-bottom-navigation a.is-active { color: var(--cream); background: color-mix(in srgb,var(--cream) 10%,transparent); }
   .mobile-bottom-navigation a.is-active svg { color: var(--yellow); }
+  .mobile-nav-icon { position: relative; display: grid; place-items: center; }
+  .mobile-nav-icon > em { position: absolute; top: -8px; left: 13px; display: grid; min-width: 18px; height: 18px; place-items: center; padding: 0 4px; border: 2px solid var(--navy); border-radius: 999px; color: #fff; background: #de4964; font-size: 7px; font-style: normal; font-weight: 900; line-height: 1; }
   .mobile-read-trigger { min-width: 0; min-height: 50px; display: grid; place-items: center; align-content: end; gap: 4px; margin: 0; padding: 0 2px; border: 0; color: var(--cream); background: transparent; font: inherit; cursor: pointer; }
   .mobile-read-trigger > span { width: 64px; height: 55px; display: grid; place-items: center; margin-top: -25px; border: 4px solid var(--navy); border-radius: 17px 17px 9px 9px; color: var(--navy); background: var(--cream); box-shadow: 0 -9px 25px rgba(5,17,14,.25); transition: transform .2s ease,background .2s ease; }
   .mobile-read-trigger > strong { font-size: 7.5px; line-height: 1; letter-spacing: .04em; }

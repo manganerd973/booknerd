@@ -303,7 +303,10 @@ html[data-app-theme='black'] .reader-page { --ed-paper:#080a09; --ed-card:#12171
 .reader-comment-thread { display: grid; gap: 7px; min-width: 0; }
 .reader-comment { padding: 14px 16px 12px; border: 1px solid var(--ed-line); border-radius: 12px; background: var(--ed-card); }
 .reader-comment-header { display: grid; gap: 2px; }
+.reader-comment-author-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .reader-comment-header strong { font-family: Georgia, serif; font-size: 14px; line-height: 1.15; }
+.reader-comment.is-admin { border-color: #1f6b58; box-shadow: inset 4px 0 0 #1f6b58; background: color-mix(in srgb, var(--ed-card) 91%, #d7eee6); }
+.reader-comment-admin-badge { display: inline-flex; min-height: 24px; align-items: center; gap: 5px; padding: 0 8px; border-radius: 999px; color: #fff; background: #1f6b58; font-size: 8px; font-weight: 900; letter-spacing: .07em; text-transform: uppercase; }
 .reader-comment-actions time { margin-right: auto; color: color-mix(in srgb, var(--ed-ink) 53%, transparent); font-size: 8px; font-weight: 750; letter-spacing: .02em; }
 .reader-comment p { margin: 8px 0 0; color: var(--ed-ink); font-family: Georgia, serif; font-size: 13px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
 .reader-comment-spoiler-cover { display: grid; width: 100%; min-height: 116px; grid-template-columns: auto minmax(0,1fr); align-items: center; gap: 14px; margin: 14px 0 0; padding: 20px; border: 1px dashed color-mix(in srgb, var(--ed-blue) 58%, var(--ed-line)); color: var(--ed-ink); background: color-mix(in srgb, var(--ed-blue) 10%, var(--ed-card)); font: inherit; text-align: left; cursor: pointer; }
@@ -326,6 +329,12 @@ html[data-app-theme='black'] .reader-page { --ed-paper:#080a09; --ed-card:#12171
 .reader-comment-identity span { font-size: 11px; }
 .reader-comment-identity strong { font-family: Georgia, serif; font-size: 16px; }
 .reader-comment-identity button { min-height: 30px; padding: 0 10px; border: 1px solid rgba(18,60,53,.32); color: #123c35; background: transparent; font-size: 9px; }
+.reader-comment-identity.is-admin { justify-content: flex-start; color: #fff; background: #1f6b58; }
+.reader-comment-identity.is-admin strong { color: #fff; }
+.reader-comment-role-picker { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; margin: 0; padding: 0; border: 0; }
+.reader-comment-role-picker legend { grid-column: 1 / -1; margin-bottom: 1px; padding: 0; color: rgba(18,60,53,.72); font-size: 9px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.reader-comment-form .reader-comment-role-picker button { min-height: 42px; border: 1px solid rgba(18,60,53,.28); color: #123c35; background: rgba(255,255,255,.48); }
+.reader-comment-form .reader-comment-role-picker button.is-active { color: #fffdf1; background: #123c35; }
 .reader-comment-name-help { margin: -7px 0 1px; color: rgba(18,60,53,.63); font-size: 9px; line-height: 1.45; }
 .reader-comment-spoiler-toggle { display: grid !important; min-height: 64px; grid-template-columns: 22px 22px minmax(0,1fr); align-items: center; gap: 10px !important; padding: 11px 12px; border: 1px solid rgba(18,60,53,.24); color: #123c35; background: rgba(255,255,255,.5); cursor: pointer; }
 .reader-comment-form .reader-comment-spoiler-toggle input { width: 20px; height: 20px; padding: 0; accent-color: #123c35; }
@@ -1166,6 +1175,7 @@ html[data-app-theme='black'] .reader-page { --ed-paper:#080a09; --ed-card:#12171
 }
 
 .reader-comment.is-reply { border-color: color-mix(in srgb, var(--ed-mint) 42%, var(--ed-line)); background: color-mix(in srgb, var(--ed-card) 92%, var(--ed-mint)); }
+.reader-comment.is-reply.is-admin { border-color: #1f6b58; box-shadow: inset 4px 0 0 #1f6b58; background: color-mix(in srgb, var(--ed-card) 91%, #d7eee6); }
 .reader-comment-replying { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 11px; color: #5d6963; background: #edf1ed; font-size: 11px; }
 .reader-comment-replying button { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 50%; background: #fff; cursor: pointer; }
 

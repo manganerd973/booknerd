@@ -1,10 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ArrowRight,
   Bell,
-  BookOpen,
   Bookmark,
   CalendarDays,
   Home,
@@ -15,7 +14,7 @@ import {
   UserRound,
   X,
 } from 'lucide-react';
-import ReadingNextSheet from './reading-next-sheet.jsx';
+import { getVisitorKey } from './site-analytics.js';
 
 export function SiteLogo() {
   return (
@@ -59,35 +58,31 @@ export function MobileQuickNavigation({ active = '' }) {
 }
 
 export function MobileBottomNavigation({ active = '' }) {
-  const [readingOpen, setReadingOpen] = useState(false);
+  const [notificationCount, setNotificationCount] = useState(0);
   const bottomLinks = [
     { href: '/', label: 'Главная', key: 'home', icon: Home },
     { href: '/translations', label: 'Каталог', key: 'translations', icon: Search },
     { href: '/library', label: 'Закладки', key: 'library', icon: Bookmark },
+    { href: '/notifications', label: 'Уведомления', key: 'notifications', icon: Bell },
     { href: '/profile', label: 'Профиль', key: 'profile', icon: UserRound },
   ];
+  useEffect(() => {
+    let activeRequest = true;
+    fetch(`/api/notifications?visitorKey=${encodeURIComponent(getVisitorKey())}`, { cache: 'no-store' })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => { if (activeRequest) setNotificationCount(Number(data?.unreadCount || 0)); })
+      .catch(() => {});
+    return () => { activeRequest = false; };
+  }, []);
   return (
-    <>
       <nav className="mobile-bottom-navigation" aria-label="Основные разделы">
-        {bottomLinks.slice(0, 2).map(({ href, label, key, icon: Icon }) => (
+        {bottomLinks.map(({ href, label, key, icon: Icon }) => (
           <a className={active === key ? 'is-active' : ''} href={href} aria-current={active === key ? 'page' : undefined} key={key}>
-            <Icon size={21} />
-            <span>{label}</span>
-          </a>
-        ))}
-        <button type="button" className={`mobile-read-trigger ${readingOpen ? 'is-active' : ''}`} onClick={() => setReadingOpen(true)} aria-expanded={readingOpen} aria-controls="reading-next-sheet">
-          <span><BookOpen size={27} /></span>
-          <strong>Читать</strong>
-        </button>
-        {bottomLinks.slice(2).map(({ href, label, key, icon: Icon }) => (
-          <a className={active === key ? 'is-active' : ''} href={href} aria-current={active === key ? 'page' : undefined} key={key}>
-            <Icon size={21} />
+            <span className="mobile-nav-icon"><Icon size={21} />{key === 'notifications' && notificationCount > 0 ? <em>{notificationCount > 99 ? '99+' : notificationCount}</em> : null}</span>
             <span>{label}</span>
           </a>
         ))}
       </nav>
-      <ReadingNextSheet open={readingOpen} onClose={() => setReadingOpen(false)} />
-    </>
   );
 }
 

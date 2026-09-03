@@ -260,6 +260,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [publishingAllChapters, setPublishingAllChapters] = useState(false);
   const [calendarDisconnecting, setCalendarDisconnecting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [artworkUploading, setArtworkUploading] = useState(false);
@@ -706,6 +707,45 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
     }
   };
 
+  const publishAllChapters = async () => {
+    if (!bookForm.id) return;
+    const unpublishedCount = chapters.filter((chapter) => chapter.status !== 'published').length;
+    if (!unpublishedCount) {
+      flash('Все главы этой книги уже опубликованы.');
+      return;
+    }
+    const confirmed = window.confirm(
+      `Опубликовать все неопубликованные главы (${unpublishedCount}) книги «${bookForm.title}»? Будут опубликованы сохранённые версии глав, а читатели получат одно общее push-уведомление.`,
+    );
+    if (!confirmed) return;
+
+    setPublishingAllChapters(true);
+    try {
+      const data = await api(`/api/admin/books/${bookForm.id}/chapters/publish-all`, { method: 'POST' });
+      const publishedIds = new Set(data.chapterIds || []);
+      setChapters((current) => current.map((chapter) => publishedIds.has(chapter.id)
+        ? { ...chapter, status: 'published', workflowStatus: 'published', scheduledAt: null }
+        : chapter));
+      setChapterForm((current) => publishedIds.has(current.id)
+        ? { ...current, status: 'published', workflowStatus: 'published', scheduledAt: '' }
+        : current);
+      setBookForm((current) => ({
+        ...current,
+        progress: Number(data.progress ?? current.progress ?? 0),
+        publishedChapterCount: Number(data.publishedChapterCount ?? current.publishedChapterCount ?? 0),
+        plannedChapterCount: Number(data.plannedChapterCount ?? current.plannedChapterCount ?? 0),
+      }));
+      await loadBooks();
+      flash(data.publishedCount
+        ? `Все главы опубликованы. Опубликовано глав: ${data.publishedCount}.`
+        : 'Все главы этой книги уже были опубликованы.');
+    } catch (error) {
+      flash(error.message, 'error');
+    } finally {
+      setPublishingAllChapters(false);
+    }
+  };
+
   async function loadTeam() {
     if (currentUser.role !== 'owner') return;
     try {
@@ -1102,7 +1142,13 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
             <section className={`admin-chapter-section ${!bookForm.id ? 'is-disabled' : ''}`}>
               <div className="admin-list-head">
                 <div><span>05 / ГЛАВЫ</span><h2>Текст перевода</h2><p>Добавляйте главы, храните черновики и публикуйте готовый текст.</p></div>
-                <button className="admin-secondary" onClick={startNewChapter} disabled={!bookForm.id}><Plus size={18} /> Новая глава</button>
+                <div className="admin-list-actions">
+                  <button className="admin-primary" type="button" onClick={publishAllChapters} disabled={!bookForm.id || publishingAllChapters || !chapters.some((chapter) => chapter.status !== 'published')}>
+                    {publishingAllChapters ? <LoaderCircle className="spin" size={18} /> : <Send size={18} />}
+                    {publishingAllChapters ? 'Публикуем…' : 'Опубликовать все главы'}
+                  </button>
+                  <button className="admin-secondary" type="button" onClick={startNewChapter} disabled={!bookForm.id}><Plus size={18} /> Новая глава</button>
+                </div>
               </div>
               {!bookForm.id ? (
                 <EmptyState title="Сначала сохраните книгу" text="После сохранения здесь появится редактор глав." />
@@ -1204,7 +1250,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                       {(comment.reports || []).length ? <b>Жалоб: {comment.reports.length}</b> : null}
                       <time dateTime={comment.createdAt}>{formatAdminDate(comment.createdAt)}</time>
                     </div>
-                    <h3>{comment.authorName}</h3>
+                    <h3>{comment.authorName}{comment.authorRole === 'admin' ? ' · Администратор' : ''}</h3>
                     <p>{comment.body}</p>
                     {(comment.reports || []).length ? (
                       <div className="admin-comment-reports">

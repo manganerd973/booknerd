@@ -286,7 +286,7 @@ export default function NotificationsPage() {
                     {renderMenu(item)}
                   </header>
                   <div className="notification-chapter-update">
-                    <strong>{item.chapters?.length > 1 ? 'Вышли новые главы' : 'Вышла новая глава'}</strong>
+                    <strong>{item.chapters?.length > 1 ? 'На сайт загружены новые главы' : 'На сайт загружена новая глава'}</strong>
                     <div className="notification-chapter-list">
                       {(item.chapters || []).slice(0, 3).map((chapter) => (
                         <button type="button" onClick={() => openNotification(item, chapter.url)} disabled={saving === item.id} key={chapter.id}>
@@ -304,12 +304,12 @@ export default function NotificationsPage() {
                       {item.lastChapterNumber != null && item.lastPage > 0 ? <em>Страница {item.lastPage + 1}</em> : null}
                     </span>
                     <div>
-                      <button type="button" className="is-primary" onClick={() => openNotification(item, item.chapters?.[0]?.url || item.url)} disabled={saving === item.id}>
+                      <button type="button" className="is-primary" onClick={() => openNotification(item, item.resumeUrl || item.chapters?.[0]?.url || item.url)} disabled={saving === item.id}>
                         {saving === item.id ? <LoaderCircle className="spin" size={17} /> : <BookOpen size={17} />}
-                        К новой главе {item.chapters?.[0]?.chapterNumber ?? ''}
+                        {item.resumeUrl ? `Продолжить с главы ${item.lastChapterNumber}` : `Читать главу ${item.chapters?.[0]?.chapterNumber ?? ''}`}
                       </button>
                       {item.resumeUrl && item.lastChapterId !== item.chapters?.[0]?.chapterId ? (
-                        <button type="button" onClick={() => openNotification(item, item.resumeUrl)} disabled={saving === item.id}>Продолжить с главы {item.lastChapterNumber}</button>
+                        <button type="button" onClick={() => openNotification(item, item.chapters?.[0]?.url || item.url)} disabled={saving === item.id}>К новой главе {item.chapters?.[0]?.chapterNumber ?? ''}</button>
                       ) : null}
                     </div>
                   </div>

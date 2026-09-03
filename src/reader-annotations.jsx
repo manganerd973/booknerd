@@ -28,7 +28,7 @@ export const HIGHLIGHT_COLORS = [
 
 // The supplied sticker sheet is an exact 5 × 8 grid. Keeping the sheet as a
 // sprite makes the reader fast and avoids loading dozens of separate files.
-export const CUSTOM_STICKER_COUNT = 57;
+export const CUSTOM_STICKER_COUNT = 67;
 
 export const READER_STICKERS = [
   ...Array.from({ length: CUSTOM_STICKER_COUNT }, (_, index) => ({ id: `custom-${String(index + 1).padStart(2, '0')}`, name: `Стикер ${index + 1}`, sheet: 'custom', src: `/reaction-stickers/sticker-${String(index + 1).padStart(2, '0')}.jpg` })),

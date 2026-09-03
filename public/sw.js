@@ -1,4 +1,4 @@
-const SHELL_CACHE = 'booknerd-shell-v34';
+const SHELL_CACHE = 'booknerd-shell-v36';
 const OFFLINE_CACHE = 'booknerd-offline-library-v2';
 const OFFLINE_FALLBACK = '/offline.html';
 const OFFLINE_LIBRARY = '/library?tab=offline';
@@ -6,7 +6,7 @@ const NAVIGATION_TIMEOUT = 45000;
 const ASSET_TIMEOUT = 30000;
 const BOOK_DOWNLOAD_TIMEOUT = 45000;
 const BOOK_DOWNLOAD_CONCURRENCY = 3;
-const REACTION_STICKER_URLS = Array.from({ length: 57 }, (_, index) => `/reaction-stickers/sticker-${String(index + 1).padStart(2, '0')}.jpg`);
+const REACTION_STICKER_URLS = Array.from({ length: 67 }, (_, index) => `/reaction-stickers/sticker-${String(index + 1).padStart(2, '0')}.jpg`);
 const PRELOAD_URLS = ['/', OFFLINE_LIBRARY, OFFLINE_FALLBACK, '/manifest.webmanifest', '/booknerd-icon-v2-192.png', ...REACTION_STICKER_URLS];
 const STATIC_DESTINATIONS = new Set(['style', 'script', 'font', 'image']);
 

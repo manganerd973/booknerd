@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Eye, EyeOff, LoaderCircle, MessageCircle, Reply, Send, X } from 'lucide-react';
+import { BookOpen, Eye, EyeOff, LoaderCircle, MessageCircle, Reply, Send, ShieldCheck, X } from 'lucide-react';
 import CommentVotes from './comment-votes.jsx';
 import CommentReport from './comment-report.jsx';
 import { getVisitorKey } from './site-analytics.js';
@@ -70,6 +70,8 @@ export default function CommentsSection({ bookId, chapterId = null, scope = 'com
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [replyingTo, setReplyingTo] = useState(null);
+  const [canReplyAsAdmin, setCanReplyAsAdmin] = useState(false);
+  const [commentRole, setCommentRole] = useState('reader');
   const threads = buildThreads(comments);
   const context = chapterId ? 'comments' : scope === 'discussion' ? 'discussion' : 'comments';
   const anchorPrefix = context === 'discussion' ? 'discussion-comment' : 'comment';
@@ -85,6 +87,8 @@ export default function CommentsSection({ bookId, chapterId = null, scope = 'com
       if (includeChapterComments && !chapterId && context === 'comments') query.set('includeChapters', '1');
       const data = await commentsApi(`/api/comments?${query.toString()}`);
       setComments(data.comments || []);
+      setCanReplyAsAdmin(Boolean(data.canReplyAsAdmin));
+      if (!data.canReplyAsAdmin) setCommentRole('reader');
       setError('');
     } catch (loadError) {
       setError(loadError.message);
@@ -142,13 +146,15 @@ export default function CommentsSection({ bookId, chapterId = null, scope = 'com
       await commentsApi('/api/comments', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ bookId, chapterId: replyingTo?.chapterId || chapterId, context, parentId: replyingTo?.id || null, visitorKey: getVisitorKey(), authorName, body, isSpoiler, website }),
+        body: JSON.stringify({ bookId, chapterId: replyingTo?.chapterId || chapterId, context, parentId: replyingTo?.id || null, visitorKey: getVisitorKey(), authorRole: commentRole, authorName, body, isSpoiler, website }),
       });
-      rememberAuthor(authorName);
+      if (commentRole === 'reader') rememberAuthor(authorName);
       setBody('');
       setIsSpoiler(false);
       setWebsite('');
-      setNotice(replyingTo ? 'Ответ опубликован. Читатель получит уведомление, если включил его.' : 'Комментарий опубликован. Он уже виден другим читателям.');
+      setNotice(replyingTo
+        ? `${commentRole === 'admin' ? 'Официальный ответ' : 'Ответ'} опубликован. Читатель получит уведомление, если включил его.`
+        : `${commentRole === 'admin' ? 'Официальный комментарий' : 'Комментарий'} опубликован. Он уже виден другим читателям.`);
       setReplyingTo(null);
       await loadComments();
     } catch (submitError) {
@@ -171,9 +177,12 @@ export default function CommentsSection({ bookId, chapterId = null, scope = 'com
     const replies = threads.get(comment.id) || [];
     return (
       <div className={`reader-comment-thread ${depth ? 'is-reply-thread' : ''}`} key={comment.id}>
-        <article id={`${anchorPrefix}-${comment.id}`} className={`reader-comment ${depth ? 'is-reply' : ''}`}>
+        <article id={`${anchorPrefix}-${comment.id}`} className={`reader-comment ${depth ? 'is-reply' : ''} ${comment.authorRole === 'admin' ? 'is-admin' : ''}`}>
           <header className="reader-comment-header">
-            <strong>{comment.authorName}</strong>
+            <div className="reader-comment-author-line">
+              <strong>{comment.authorName}</strong>
+              {comment.authorRole === 'admin' ? <span className="reader-comment-admin-badge"><ShieldCheck size={12} /> Администратор</span> : null}
+            </div>
             {includeChapterComments && comment.chapterId ? <span>Глава {comment.chapterNumber}{comment.chapterTitle ? ` · ${comment.chapterTitle}` : ''}</span> : null}
           </header>
           <CommentBody comment={comment} />
@@ -209,14 +218,23 @@ export default function CommentsSection({ bookId, chapterId = null, scope = 'com
         <form className="reader-comment-form" id={formId} onSubmit={submit}>
           <h3>{replyingTo ? `Ответ для ${replyingTo.authorName}` : 'Оставить комментарий'}</h3>
           {replyingTo ? <div className="reader-comment-replying"><Reply size={15} /><span>“{replyingTo.body.slice(0, 120)}{replyingTo.body.length > 120 ? '…' : ''}”</span><button type="button" onClick={() => setReplyingTo(null)} aria-label="Отменить ответ"><X size={15} /></button></div> : null}
-          {savedAuthorName ? (
+          {canReplyAsAdmin ? (
+            <fieldset className="reader-comment-role-picker">
+              <legend>Ответить как</legend>
+              <button type="button" className={commentRole === 'reader' ? 'is-active' : ''} aria-pressed={commentRole === 'reader'} onClick={() => setCommentRole('reader')}><BookOpen size={16} /> Читатель</button>
+              <button type="button" className={commentRole === 'admin' ? 'is-active' : ''} aria-pressed={commentRole === 'admin'} onClick={() => setCommentRole('admin')}><ShieldCheck size={16} /> Администратор</button>
+            </fieldset>
+          ) : null}
+          {commentRole === 'admin' && canReplyAsAdmin ? (
+            <div className="reader-comment-identity is-admin"><ShieldCheck size={19} /><span>Вы отвечаете как <strong>Администратор BOOKNERD</strong></span></div>
+          ) : savedAuthorName ? (
             <div className="reader-comment-identity">
               <span>Вы комментируете как <strong>{savedAuthorName}</strong></span>
               <button type="button" onClick={changeAuthor}>Сменить</button>
             </div>
           ) : (
             <>
-              <label><span>Имя или псевдоним</span><input value={authorName} onChange={(event) => setAuthorName(event.target.value)} onBlur={() => rememberAuthor(authorName)} maxLength={60} minLength={2} required /></label>
+              <label><span>Имя или псевдоним</span><input value={authorName} onChange={(event) => setAuthorName(event.target.value)} onBlur={() => rememberAuthor(authorName)} maxLength={60} minLength={2} required={commentRole === 'reader'} /></label>
               <p className="reader-comment-name-help">Введите один раз — сайт запомнит псевдоним на этом устройстве.</p>
             </>
           )}
