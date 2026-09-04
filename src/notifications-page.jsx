@@ -313,7 +313,7 @@ export default function NotificationsPage() {
                       ) : null}
                     </div>
                   </div>
-                  <footer><time>{formatDate(item.createdAt)}</time>{item.readAt ? <span>Прочитано</span> : <span>Новое</span>}</footer>
+                  <div className="notification-card-footer"><time>{formatDate(item.createdAt)}</time>{item.readAt ? <span>Прочитано</span> : <span>Новое</span>}</div>
                 </article>
               ) : (
                 <article className={`notification-social-card ${item.readAt ? 'is-read' : 'is-unread'} ${item.hiddenAt ? 'is-hidden' : ''}`} key={item.id}>

@@ -222,8 +222,8 @@ html[data-app-theme='black'] .library-hero p { color: var(--muted); }
 .notifications-filters::-webkit-scrollbar { display: none; }
 .notifications-filters button { flex: 0 0 auto; min-height: 38px; padding: 0 15px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); background: var(--paper); font: 800 9px/1 var(--sans); cursor: pointer; }
 .notifications-filters button.is-active { border-color: var(--navy); color: var(--cream); background: var(--navy); }
-.notifications-list { display: grid; gap: 14px; }
-.notification-book-card,.notification-social-card { position: relative; overflow: visible; border: 1px solid rgba(255,255,255,.13); border-radius: 22px; color: #f7f2df; background: linear-gradient(145deg,#102d28,#173b35); box-shadow: 0 18px 42px rgba(18,60,53,.14); }
+.notifications-list { display: grid; align-items: start; gap: 14px; }
+.notification-book-card,.notification-social-card { position: relative; width: 100%; min-height: 0; align-self: start; overflow: visible; border: 1px solid rgba(255,255,255,.13); border-radius: 22px; color: #f7f2df; background: linear-gradient(145deg,#102d28,#173b35); box-shadow: 0 18px 42px rgba(18,60,53,.14); }
 .notification-book-card.is-read,.notification-social-card.is-read { opacity: .8; }
 .notification-book-card.is-hidden,.notification-social-card.is-hidden { filter: saturate(.6); }
 .notification-book-card.is-unread::after,.notification-social-card.is-unread::after { position: absolute; top: 18px; right: 58px; width: 8px; height: 8px; border: 2px solid #173b35; border-radius: 50%; background: var(--yellow); content: ''; }
@@ -253,8 +253,8 @@ html[data-app-theme='black'] .library-hero p { color: var(--muted); }
 .notification-reading-position button,.notification-social-card > div > button { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; gap: 7px; padding: 0 13px; border: 1px solid rgba(255,255,255,.28); border-radius: 11px; color: #fffdf4; background: transparent; font: 800 9px/1.2 var(--sans); cursor: pointer; }
 .notification-reading-position button.is-primary,.notification-social-card > div > button { border-color: var(--yellow); color: var(--navy); background: var(--yellow); }
 .notification-reading-position button:disabled,.notification-social-card button:disabled { cursor: wait; opacity: .62; }
-.notification-book-card > footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px 15px; color: rgba(255,255,255,.55); font-size: 8px; }
-.notification-book-card > footer span { color: #93cab9; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.notification-card-footer { display: flex; min-height: 0; align-items: center; justify-content: space-between; gap: 12px; margin: 0; padding: 12px 18px 15px; color: rgba(255,255,255,.55); font-size: 8px; }
+.notification-card-footer span { padding: 0; border: 0; color: #93cab9; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
 .notification-social-card { display: grid; grid-template-columns: auto minmax(0,1fr) auto; gap: 15px; align-items: start; padding: 18px; }
 .notification-social-card > div:not(.notification-card-menu-wrap) { display: grid; min-width: 0; gap: 7px; }
 .notification-social-card p { margin: 0; color: rgba(255,255,255,.72); font-size: 10px; line-height: 1.5; }
@@ -291,7 +291,7 @@ html[data-app-theme='black'] .library-hero p { color: var(--muted); }
   .notification-reading-position { grid-template-columns: 1fr; align-items: stretch; gap: 12px; margin: 0 14px; padding: 12px; }
   .notification-reading-position > div { justify-content: stretch; }
   .notification-reading-position button { flex: 1 1 150px; min-height: 44px; }
-  .notification-book-card > footer { padding: 11px 14px 14px; }
+  .notification-card-footer { flex-direction: row; align-items: center; padding: 11px 14px 14px; }
   .notification-social-card { grid-template-columns: auto minmax(0,1fr) auto; gap: 10px; padding: 14px; }
   .notification-social-card > div > button { width: 100%; min-height: 43px; }
   .notification-card-menu-button { width: 38px; height: 38px; }

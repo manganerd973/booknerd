@@ -71,6 +71,7 @@ export const chapters = sqliteTable('chapters', {
   updatedAt: text('updated_at').notNull(),
 }, (table) => [
   uniqueIndex('chapters_book_number_unique').on(table.bookId, table.chapterNumber),
+  index('chapters_workflow_scheduled_idx').on(table.workflowStatus, table.scheduledAt),
 ]);
 
 export const chapterMusic = sqliteTable('chapter_music', {
@@ -214,6 +215,7 @@ export const readerLibrary = sqliteTable('reader_library', {
 }, (table) => [
   primaryKey({ columns: [table.visitorKey, table.bookId] }),
   index('reader_library_visitor_updated_idx').on(table.visitorKey, table.updatedAt),
+  index('reader_library_book_status_idx').on(table.bookId, table.status, table.visitorKey),
 ]);
 
 export const pushSubscriptions = sqliteTable('push_subscriptions', {
@@ -273,6 +275,7 @@ export const readerNotifications = sqliteTable('reader_notifications', {
   uniqueIndex('reader_notifications_visitor_event_unique').on(table.visitorKey, table.eventKey),
   index('reader_notifications_visitor_created_idx').on(table.visitorKey, table.createdAt),
   index('reader_notifications_visitor_read_idx').on(table.visitorKey, table.readAt, table.createdAt),
+  index('reader_notifications_visitor_unread_idx').on(table.visitorKey, table.readAt, table.hiddenAt),
 ]);
 
 export const readerErrorReports = sqliteTable('reader_error_reports', {
@@ -346,6 +349,7 @@ export const readerPublicNotes = sqliteTable('reader_public_notes', {
   index('reader_public_notes_status_created_idx').on(table.status, table.createdAt),
   index('reader_public_notes_pinned_updated_idx').on(table.isPinned, table.updatedAt),
   index('reader_public_notes_book_chapter_idx').on(table.bookId, table.chapterId),
+  index('reader_public_notes_rotation_idx').on(table.status, table.isSpoiler, table.isPinned, table.approvedAt, table.id),
 ]);
 
 export const chapterVersions = sqliteTable('chapter_versions', {

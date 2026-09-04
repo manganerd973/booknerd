@@ -236,6 +236,7 @@ function QuoteOfDay({ quote }) {
       if (document.visibilityState === 'visible') refresh();
     };
 
+    refresh();
     scheduleNext();
     document.addEventListener('visibilitychange', refreshWhenVisible);
     return () => {

@@ -1,4 +1,4 @@
-const SHELL_CACHE = 'booknerd-shell-v36';
+const SHELL_CACHE = 'booknerd-shell-v38';
 const OFFLINE_CACHE = 'booknerd-offline-library-v2';
 const OFFLINE_FALLBACK = '/offline.html';
 const OFFLINE_LIBRARY = '/library?tab=offline';
@@ -148,8 +148,18 @@ self.addEventListener('fetch', (event) => {
         if (!response) response = await fetchWithTimeout(request);
         if (response.ok && !response.redirected) {
           event.waitUntil(caches.open(SHELL_CACHE).then((cache) => cacheDocument(cache, request, response.clone())));
+          return response;
         }
-        return response;
+        if (response.status < 500) return response;
+        const offline = await caches.open(OFFLINE_CACHE);
+        const savedPage = await offline.match(request, { ignoreSearch: true });
+        if (savedPage) return savedPage;
+        const offlineLibrary = await offline.match(OFFLINE_LIBRARY, { ignoreSearch: true });
+        if (offlineLibrary) return offlineLibrary;
+        const shell = await caches.open(SHELL_CACHE);
+        return await shell.match(request, { ignoreSearch: true })
+          || await shell.match(OFFLINE_LIBRARY, { ignoreSearch: true })
+          || response;
       } catch {
         const offline = await caches.open(OFFLINE_CACHE);
         const savedPage = await offline.match(request, { ignoreSearch: true });

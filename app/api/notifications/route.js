@@ -1,5 +1,6 @@
 import { hasReaderAccess } from '../../../lib/reader-access.js';
-import { mapReaderNotification, syncReaderNotifications } from '../../../lib/reader-notifications.js';
+import { ensureDb } from '../../../lib/runtime.js';
+import { mapReaderNotification } from '../../../lib/reader-notifications.js';
 
 function normalizeVisitorKey(value) {
   const key = String(value || '').trim().slice(0, 120);
@@ -22,7 +23,16 @@ export async function GET(request) {
   try {
     const visitorKey = normalizeVisitorKey(new URL(request.url).searchParams.get('visitorKey'));
     if (!visitorKey) return Response.json({ notifications: [], unreadCount: 0 });
-    const db = await syncReaderNotifications(visitorKey);
+    const url = new URL(request.url);
+    const db = await ensureDb();
+    if (url.searchParams.get('summary') === '1') {
+      const unread = await db.prepare(
+        `SELECT COUNT(*) AS count
+         FROM reader_notifications
+         WHERE visitor_key = ? AND read_at IS NULL AND hidden_at IS NULL`
+      ).bind(visitorKey).first();
+      return Response.json({ notifications: [], unreadCount: Number(unread?.count || 0) });
+    }
     const [items, unread] = await db.batch([
       db.prepare(
         `SELECT rn.id, rn.type, rn.book_id, rn.chapter_id, rn.comment_id, rn.actor_name,
@@ -61,7 +71,7 @@ export async function POST(request) {
     const payload = await request.json();
     const visitorKey = normalizeVisitorKey(payload.visitorKey);
     if (!visitorKey) return Response.json({ error: 'Не удалось определить читателя.' }, { status: 400 });
-    const db = await syncReaderNotifications(visitorKey);
+    const db = await ensureDb();
     const now = new Date().toISOString();
     if (payload.action === 'mark-all-read') {
       await db.prepare(`UPDATE reader_notifications SET read_at = ? WHERE visitor_key = ? AND read_at IS NULL AND hidden_at IS NULL`)

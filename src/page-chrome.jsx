@@ -68,7 +68,7 @@ export function MobileBottomNavigation({ active = '' }) {
   ];
   useEffect(() => {
     let activeRequest = true;
-    fetch(`/api/notifications?visitorKey=${encodeURIComponent(getVisitorKey())}`, { cache: 'no-store' })
+    fetch(`/api/notifications?visitorKey=${encodeURIComponent(getVisitorKey())}&summary=1`, { cache: 'no-store' })
       .then((response) => response.ok ? response.json() : null)
       .then((data) => { if (activeRequest) setNotificationCount(Number(data?.unreadCount || 0)); })
       .catch(() => {});
