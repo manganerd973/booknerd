@@ -4,6 +4,7 @@ import { ensureDb } from '../../../lib/runtime.js';
 const EMOTIONS = new Set(['😂', '😭', '😍', '😡', '😱', '🤍']);
 const THEMES = new Set(['original', 'white', 'black', 'system']);
 const ATMOSPHERES = new Set(['auto', 'none', 'spring', 'summer', 'autumn', 'winter']);
+const MASCOT_MODES = new Set(['normal', 'more', 'tips', 'hidden']);
 
 function normalizeVisitorKey(value) {
   const key = String(value || '').trim().slice(0, 120);
@@ -17,6 +18,27 @@ function parseList(value) {
   } catch {
     return [];
   }
+}
+
+function parseObject(value) {
+  try {
+    const parsed = JSON.parse(value || '{}');
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function cleanMascotPreferences(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  return {
+    mode: MASCOT_MODES.has(source.mode) ? source.mode : 'normal',
+    quietReading: source.quietReading !== false,
+    reducedMotion: source.reducedMotion === true,
+    showGreeting: source.showGreeting !== false,
+    showChapterEnding: source.showChapterEnding !== false,
+    showRecommendations: source.showRecommendations !== false,
+  };
 }
 
 function cleanList(value, limit = 30, itemLimit = 500) {
@@ -64,6 +86,7 @@ export async function GET(request) {
         favoriteQuotes: parseList(profile.favorite_quotes),
         appTheme: THEMES.has(profile.app_theme) ? profile.app_theme : 'original',
         atmosphere: ATMOSPHERES.has(profile.atmosphere) ? profile.atmosphere : 'auto',
+        mascotPreferences: cleanMascotPreferences(parseObject(profile.mascot_preferences)),
       } : null,
       dictionary: dictionary.results || [],
       reactions: reactions.results || [],
@@ -94,14 +117,16 @@ export async function POST(request) {
       const atmosphere = ATMOSPHERES.has(payload.atmosphere) ? payload.atmosphere : 'auto';
       const favoriteCharacters = cleanList(payload.favoriteCharacters, 30, 120);
       const favoriteQuotes = cleanList(payload.favoriteQuotes, 50, 1000);
+      const mascotPreferences = cleanMascotPreferences(payload.mascotPreferences);
       await db.prepare(`INSERT INTO reader_profiles
-        (visitor_key, display_name, banner, favorite_characters, favorite_quotes, app_theme, atmosphere, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (visitor_key, display_name, banner, favorite_characters, favorite_quotes, app_theme, atmosphere, mascot_preferences, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(visitor_key) DO UPDATE SET display_name = excluded.display_name, banner = excluded.banner,
           favorite_characters = excluded.favorite_characters, favorite_quotes = excluded.favorite_quotes,
-          app_theme = excluded.app_theme, atmosphere = excluded.atmosphere, updated_at = excluded.updated_at`)
-        .bind(visitorKey, displayName, banner, JSON.stringify(favoriteCharacters), JSON.stringify(favoriteQuotes), appTheme, atmosphere, now, now).run();
-      return Response.json({ ok: true, profile: { displayName, banner, favoriteCharacters, favoriteQuotes, appTheme, atmosphere } });
+          app_theme = excluded.app_theme, atmosphere = excluded.atmosphere,
+          mascot_preferences = excluded.mascot_preferences, updated_at = excluded.updated_at`)
+        .bind(visitorKey, displayName, banner, JSON.stringify(favoriteCharacters), JSON.stringify(favoriteQuotes), appTheme, atmosphere, JSON.stringify(mascotPreferences), now, now).run();
+      return Response.json({ ok: true, profile: { displayName, banner, favoriteCharacters, favoriteQuotes, appTheme, atmosphere, mascotPreferences } });
     }
 
     if (action === 'reaction') {

@@ -428,9 +428,35 @@ export const readerProfiles = sqliteTable('reader_profiles', {
   favoriteQuotes: text('favorite_quotes').notNull().default('[]'),
   appTheme: text('app_theme').notNull().default('original'),
   atmosphere: text('atmosphere').notNull().default('auto'),
+  mascotPreferences: text('mascot_preferences').notNull().default('{}'),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 });
+
+export const mascotSettings = sqliteTable('mascot_settings', {
+  id: text('id').primaryKey(),
+  enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
+  aiEnabled: integer('ai_enabled', { mode: 'boolean' }).notNull().default(false),
+  disabledPages: text('disabled_pages').notNull().default('[]'),
+  blockedTopics: text('blocked_topics').notNull().default('[]'),
+  updatedAt: text('updated_at').notNull(),
+  updatedBy: text('updated_by').notNull().default(''),
+});
+
+export const mascotDialogues = sqliteTable('mascot_dialogues', {
+  id: text('id').primaryKey(),
+  category: text('category').notNull().default('tip'),
+  pages: text('pages').notNull().default('[]'),
+  lines: text('lines').notNull().default('[]'),
+  active: integer('active', { mode: 'boolean' }).notNull().default(true),
+  startsAt: text('starts_at'),
+  endsAt: text('ends_at'),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+  updatedBy: text('updated_by').notNull().default(''),
+}, (table) => [
+  index('mascot_dialogues_active_dates_idx').on(table.active, table.startsAt, table.endsAt),
+]);
 
 export const paragraphReactions = sqliteTable('paragraph_reactions', {
   id: text('id').primaryKey(),

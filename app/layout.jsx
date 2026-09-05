@@ -3,8 +3,10 @@ import '../src/styles.css';
 import '../src/admin.css';
 import '../src/editorial.css';
 import '../src/pages.css';
+import '../src/mascots/mascots.css';
 import PwaRegister from '../src/pwa-register.jsx';
 import AppPreferences from '../src/app-preferences.jsx';
+import MascotSystem from '../src/mascots/mascot-system.jsx';
 
 export const metadata = {
   title: 'BOOKNERD — переводы, в которые влюбляются',
@@ -77,7 +79,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="ru">
       <head><script dangerouslySetInnerHTML={{ __html: themeScript }} /><script dangerouslySetInnerHTML={{ __html: recoveryScript }} /></head>
-      <body><PwaRegister /><AppPreferences />{children}</body>
+      <body><PwaRegister /><AppPreferences />{children}<MascotSystem /></body>
     </html>
   );
 }

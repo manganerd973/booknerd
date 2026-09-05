@@ -7,8 +7,10 @@ import { loadReaderLibrary } from './reader-library.jsx';
 import { APP_THEME_OPTIONS, setStoredAppTheme, setStoredAtmosphere } from './app-preferences.jsx';
 import ProfileNotificationSettings from './profile-notification-settings.jsx';
 import { SiteFooter, SiteHeader } from './page-chrome.jsx';
+import MascotSettings from './mascots/mascot-settings.jsx';
+import { DEFAULT_MASCOT_SETTINGS, saveMascotSettings } from './mascots/mascot-config.js';
 
-const DEFAULT_PROFILE = { displayName: 'Читатель BOOKNERD', banner: 'books', favoriteCharacters: [], favoriteQuotes: [], appTheme: 'original', atmosphere: 'auto' };
+const DEFAULT_PROFILE = { displayName: 'Читатель BOOKNERD', banner: 'books', favoriteCharacters: [], favoriteQuotes: [], appTheme: 'original', atmosphere: 'auto', mascotPreferences: DEFAULT_MASCOT_SETTINGS };
 
 function formatDuration(seconds) {
   const minutes = Math.round(Number(seconds || 0) / 60);
@@ -53,7 +55,11 @@ export default function ProfilePage({ books = [] }) {
       fetch(`/api/reader-stats?visitorKey=${encodeURIComponent(visitorKey)}`, { cache: 'no-store' }).then((response) => response.json()),
       loadReaderLibrary(),
     ]).then(([hub, statData, libraryData]) => {
-      if (hub.profile) setProfile({ ...DEFAULT_PROFILE, ...hub.profile });
+      if (hub.profile) {
+        const loadedProfile = { ...DEFAULT_PROFILE, ...hub.profile, mascotPreferences: { ...DEFAULT_MASCOT_SETTINGS, ...(hub.profile.mascotPreferences || {}) } };
+        setProfile(loadedProfile);
+        saveMascotSettings(loadedProfile.mascotPreferences);
+      }
       setStats(statData.stats || null);
       setLibrary(libraryData || []);
       const annotations = [];
@@ -111,6 +117,8 @@ export default function ProfilePage({ books = [] }) {
           </section>
 
           <ProfileNotificationSettings />
+
+          <MascotSettings value={profile.mascotPreferences} onChange={(mascotPreferences) => setProfile((current) => ({ ...current, mascotPreferences }))} />
 
           <section className="profile-achievements">
             <div className="profile-section-title"><Award size={25} /><div><small>ДОСТИЖЕНИЯ</small><h2>Ваши книжные награды</h2></div></div>
