@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 const QUOTE_INTERVAL_MS = 2 * 60 * 1000;
 const POOL_CACHE_MS = 30 * 60 * 1000;
-const CACHE_VERSION = 'v41';
+const CACHE_VERSION = 'v42';
 let pendingSlot = null;
 let pendingPayload = null;
 

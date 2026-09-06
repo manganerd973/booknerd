@@ -3,7 +3,7 @@ import { cachedRead } from '../../../lib/read-cache.js';
 import { ensureDb } from '../../../lib/runtime.js';
 
 const DISCOVERY_CACHE_MS = 60 * 60 * 1000;
-const CACHE_VERSION = 'v41';
+const CACHE_VERSION = 'v42';
 
 async function requireReader(request) {
   if (await hasReaderAccess(request)) return null;

@@ -4,6 +4,7 @@ export const MASCOT_RECENT_KEY = 'booknerd-mascot-recent-v1';
 
 export const DEFAULT_MASCOT_SETTINGS = {
   mode: 'normal',
+  firstSpeaker: 'site',
   quietReading: true,
   reducedMotion: false,
   showGreeting: true,
@@ -12,6 +13,14 @@ export const DEFAULT_MASCOT_SETTINGS = {
 };
 
 export const MASCOT_MODE_IDS = new Set(['normal', 'more', 'tips', 'hidden']);
+export const MASCOT_FIRST_SPEAKER_IDS = new Set(['site', 'ivan', 'till', 'alternate']);
+
+export const MASCOT_FIRST_SPEAKER_OPTIONS = [
+  { id: 'site', label: 'Порядок BOOKNERD', description: 'Сохранять порядок, который редакция задала для каждой сценки.' },
+  { id: 'ivan', label: 'Сначала Иван', description: 'В новых ответах и подходящих сценках первым говорит Иван.' },
+  { id: 'till', label: 'Сначала Тилл', description: 'В новых ответах и подходящих сценках первым говорит Тилл.' },
+  { id: 'alternate', label: 'Менять автоматически', description: 'Иван и Тилл по очереди начинают новые разговоры.' },
+];
 
 export const MASCOT_MODE_PREVIEWS = {
   normal: {
@@ -123,11 +132,29 @@ export const BUILTIN_DIALOGUES = [
     ],
   },
   {
+    id: 'library-till-tip',
+    category: 'tip',
+    pages: ['library'],
+    lines: [
+      { character: 'till', text: 'Офлайн-книги уже ждут на отдельной полке.' },
+      { character: 'ivan', text: 'Он проверил. На этот раз действительно отдельной.' },
+    ],
+  },
+  {
     id: 'profile-tip',
     category: 'tip',
     pages: ['profile'],
     lines: [
       { character: 'ivan', text: 'Здесь можно в любой момент изменить режим помощников или полностью скрыть нас.' },
+    ],
+  },
+  {
+    id: 'profile-till-tip',
+    category: 'tip',
+    pages: ['profile'],
+    lines: [
+      { character: 'till', text: 'Здесь можно решить, кто из нас будет говорить первым.' },
+      { character: 'ivan', text: 'Тилл уже подготовил аргументы в свою пользу.' },
     ],
   },
   {
@@ -139,13 +166,31 @@ export const BUILTIN_DIALOGUES = [
       { character: 'ivan', text: 'Интернет. Сохранённые книги всё ещё доступны.' },
     ],
   },
+  {
+    id: 'offline-ivan',
+    category: 'offline',
+    pages: ['offline'],
+    lines: [
+      { character: 'ivan', text: 'Связи нет, но сохранённые книги доступны.' },
+      { character: 'till', text: 'Я всё равно выясню, кто выключил библиотеку.' },
+    ],
+  },
 ];
 
-export const CHAPTER_ENDING_DIALOGUE = [
-  { character: 'till', text: 'Я требую следующую главу.' },
-  { character: 'ivan', text: 'Эта закончилась три секунды назад.' },
-  { character: 'till', text: 'И что?' },
-];
+export const CHAPTER_ENDING_DIALOGUES = {
+  till: [
+    { character: 'till', text: 'Я требую следующую главу.' },
+    { character: 'ivan', text: 'Эта закончилась три секунды назад.' },
+    { character: 'till', text: 'И что?' },
+  ],
+  ivan: [
+    { character: 'ivan', text: 'Глава закончилась. Можно спокойно выдохнуть.' },
+    { character: 'till', text: 'Спокойно? После такого финала?' },
+    { character: 'ivan', text: 'Хорошо. Выдохнуть драматично.' },
+  ],
+};
+
+export const CHAPTER_ENDING_DIALOGUE = CHAPTER_ENDING_DIALOGUES.till;
 
 export const OFFLINE_DIALOGUE = [
   { character: 'till', text: 'Кажется, связь пропала.' },
@@ -156,6 +201,7 @@ export function normalizeMascotSettings(value) {
   const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
   return {
     mode: MASCOT_MODE_IDS.has(source.mode) ? source.mode : DEFAULT_MASCOT_SETTINGS.mode,
+    firstSpeaker: MASCOT_FIRST_SPEAKER_IDS.has(source.firstSpeaker) ? source.firstSpeaker : DEFAULT_MASCOT_SETTINGS.firstSpeaker,
     quietReading: source.quietReading !== false,
     reducedMotion: source.reducedMotion === true,
     showGreeting: source.showGreeting !== false,

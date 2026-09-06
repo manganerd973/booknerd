@@ -2,17 +2,21 @@
 
 import React from 'react';
 import { MessageCircle } from 'lucide-react';
-import { CHAPTER_ENDING_DIALOGUE, loadMascotSettings, normalizeMascotSettings } from './mascot-config.js';
+import { CHAPTER_ENDING_DIALOGUES, loadMascotSettings, normalizeMascotSettings } from './mascot-config.js';
+import { resolveFirstSpeaker } from './mascot-dialogue-engine.js';
 
 export default function MascotChapterEnding({ bookSlug = '', currentChapter = 0 }) {
   const [visible, setVisible] = React.useState(false);
-  const [dialogue, setDialogue] = React.useState(CHAPTER_ENDING_DIALOGUE);
+  const [dialogue, setDialogue] = React.useState(CHAPTER_ENDING_DIALOGUES.till);
+  const customDialogueRef = React.useRef(null);
 
   React.useEffect(() => {
     let active = true;
     const applySettings = (value) => {
       const settings = normalizeMascotSettings(value || loadMascotSettings());
       setVisible(settings.mode !== 'hidden' && settings.mode !== 'tips' && settings.showChapterEnding !== false);
+      const firstSpeaker = settings.firstSpeaker === 'site' ? 'till' : resolveFirstSpeaker(settings.firstSpeaker);
+      setDialogue(customDialogueRef.current || CHAPTER_ENDING_DIALOGUES[firstSpeaker] || CHAPTER_ENDING_DIALOGUES.till);
     };
     applySettings();
     const onSettings = (event) => applySettings(event.detail);
@@ -26,7 +30,10 @@ export default function MascotChapterEnding({ bookSlug = '', currentChapter = 0 
             return;
           }
           const custom = data?.config?.dialogues?.find((item) => item.category === 'chapter-ending' && Array.isArray(item.lines) && item.lines.length);
-          if (custom) setDialogue(custom.lines);
+          if (custom) {
+            customDialogueRef.current = custom.lines;
+            setDialogue(custom.lines);
+          }
         })
         .catch(() => {});
     }

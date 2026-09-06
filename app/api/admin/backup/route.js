@@ -13,6 +13,6 @@ export async function GET(request) {
       const result = await db.prepare(`SELECT * FROM ${table}`).all();
       data[table] = result.results || [];
     }
-    return new Response(JSON.stringify({ format: 'BOOKNERD_BACKUP_V41', createdAt: new Date().toISOString(), createdBy: auth.email || '', data }), { headers: { 'content-type': 'application/json; charset=utf-8', 'content-disposition': `attachment; filename="booknerd-backup-${new Date().toISOString().slice(0, 10)}.json"`, 'cache-control': 'no-store' } });
+    return new Response(JSON.stringify({ format: 'BOOKNERD_BACKUP_V42', createdAt: new Date().toISOString(), createdBy: auth.email || '', data }), { headers: { 'content-type': 'application/json; charset=utf-8', 'content-disposition': `attachment; filename="booknerd-backup-${new Date().toISOString().slice(0, 10)}.json"`, 'cache-control': 'no-store' } });
   } catch (error) { return Response.json({ error: error.message || 'Не удалось создать резервную копию.' }, { status: 500 }); }
 }

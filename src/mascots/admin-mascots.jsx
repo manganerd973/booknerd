@@ -14,7 +14,16 @@ const CATEGORY_OPTIONS = [
   ['seasonal', 'Сезонная'], ['banter', 'Ссора'], ['flirt', 'Флирт'], ['tip', 'Полезная подсказка'],
 ];
 
-const blankDialogue = { id: '', category: 'tip', pages: ['home'], ivanText: '', tillText: '', active: true, startsAt: '', endsAt: '' };
+const blankDialogue = { id: '', category: 'tip', pages: ['home'], firstSpeaker: 'till', ivanText: '', tillText: '', active: true, startsAt: '', endsAt: '' };
+
+function orderedDraftLines(draft) {
+  const byCharacter = {
+    ivan: draft.ivanText.trim() ? { character: 'ivan', text: draft.ivanText.trim() } : null,
+    till: draft.tillText.trim() ? { character: 'till', text: draft.tillText.trim() } : null,
+  };
+  const order = draft.firstSpeaker === 'ivan' ? ['ivan', 'till'] : ['till', 'ivan'];
+  return order.map((character) => byCharacter[character]).filter(Boolean);
+}
 
 async function adminApi(url, options) {
   const response = await fetch(url, options);
@@ -68,10 +77,7 @@ export default function AdminMascots({ onNotice }) {
 
   const saveDialogue = async (event) => {
     event.preventDefault();
-    const lines = [
-      draft.ivanText.trim() ? { character: 'ivan', text: draft.ivanText.trim() } : null,
-      draft.tillText.trim() ? { character: 'till', text: draft.tillText.trim() } : null,
-    ].filter(Boolean);
+    const lines = orderedDraftLines(draft);
     setSaving(true);
     try {
       const data = await adminApi('/api/admin/mascots', {
@@ -91,6 +97,7 @@ export default function AdminMascots({ onNotice }) {
       id: dialogue.id,
       category: dialogue.category,
       pages: dialogue.pages || ['home'],
+      firstSpeaker: dialogue.lines?.find((line) => line.character === 'ivan' || line.character === 'till')?.character || 'till',
       ivanText: dialogue.lines?.find((line) => line.character === 'ivan')?.text || '',
       tillText: dialogue.lines?.find((line) => line.character === 'till')?.text || '',
       active: dialogue.active !== false,
@@ -134,8 +141,9 @@ export default function AdminMascots({ onNotice }) {
         <header><div><span>{draft.id ? 'РЕДАКТИРОВАНИЕ' : 'НОВАЯ РЕПЛИКА'}</span><h2>{draft.id ? 'Изменить сценку' : 'Добавить сценку'}</h2></div>{draft.id ? <button type="button" onClick={() => setDraft(blankDialogue)}><X size={17} /> Отмена</button> : null}</header>
         <div className="admin-fields two-columns">
           <label><span>Категория</span><select value={draft.category} onChange={(event) => setDraft({ ...draft, category: event.target.value })}>{CATEGORY_OPTIONS.map(([id, label]) => <option value={id} key={id}>{label}</option>)}</select></label>
-          <label className="admin-switch-row"><span><strong>Реплика активна</strong><small>Неактивную можно сохранить как черновик.</small></span><input type="checkbox" checked={draft.active} onChange={(event) => setDraft({ ...draft, active: event.target.checked })} /></label>
+          <label><span>Кто говорит первым</span><select value={draft.firstSpeaker} onChange={(event) => setDraft({ ...draft, firstSpeaker: event.target.value === 'ivan' ? 'ivan' : 'till' })}><option value="till">Тилл</option><option value="ivan">Иван</option></select><small>Текст останется у своего персонажа; изменится только порядок показа.</small></label>
         </div>
+        <label className="admin-switch-row"><span><strong>Реплика активна</strong><small>Неактивную можно сохранить как черновик.</small></span><input type="checkbox" checked={draft.active} onChange={(event) => setDraft({ ...draft, active: event.target.checked })} /></label>
         <fieldset><legend>Где может появляться</legend><div>{PAGE_OPTIONS.map(([id, label]) => <label key={id}><input type="checkbox" checked={draft.pages.includes(id)} onChange={(event) => setDraft({ ...draft, pages: event.target.checked ? [...draft.pages, id] : draft.pages.filter((item) => item !== id) })} /> {label}</label>)}</div></fieldset>
         <div className="admin-mascot-line-fields">
           <label className="is-ivan"><span><img src="/mascots/ivan.webp" alt="" /> Реплика Ивана</span><textarea rows="3" value={draft.ivanText} onChange={(event) => setDraft({ ...draft, ivanText: event.target.value })} maxLength={800} /></label>
@@ -143,8 +151,9 @@ export default function AdminMascots({ onNotice }) {
         </div>
         {previewOpen && (draft.ivanText.trim() || draft.tillText.trim()) ? (
           <div className="admin-mascot-preview" aria-label="Предпросмотр реплики">
-            {draft.ivanText.trim() ? <div className="is-ivan"><img src="/mascots/ivan.webp" alt="Иван" /><p><strong>Иван</strong>{draft.ivanText.trim()}</p></div> : null}
-            {draft.tillText.trim() ? <div className="is-till"><p><strong>Тилл</strong>{draft.tillText.trim()}</p><img src="/mascots/till.webp" alt="Тилл" /></div> : null}
+            {orderedDraftLines(draft).map((line) => line.character === 'ivan'
+              ? <div className="is-ivan" key={line.character}><img src="/mascots/ivan.webp" alt="Иван" /><p><strong>Иван</strong>{line.text}</p></div>
+              : <div className="is-till" key={line.character}><p><strong>Тилл</strong>{line.text}</p><img src="/mascots/till.webp" alt="Тилл" /></div>)}
           </div>
         ) : null}
         <div className="admin-fields two-columns">
@@ -162,7 +171,7 @@ export default function AdminMascots({ onNotice }) {
         {dialogues.length ? dialogues.map((dialogue) => (
           <article className={dialogue.active ? '' : 'is-inactive'} key={dialogue.id}>
             <button type="button" className="admin-mascot-edit" onClick={() => editDialogue(dialogue)}>
-              <small>{CATEGORY_OPTIONS.find(([id]) => id === dialogue.category)?.[1] || dialogue.category} · {(dialogue.pages || []).map((id) => PAGE_OPTIONS.find(([key]) => key === id)?.[1] || id).join(', ')}</small>
+              <small>{CATEGORY_OPTIONS.find(([id]) => id === dialogue.category)?.[1] || dialogue.category} · Первым: {dialogue.lines?.[0]?.character === 'ivan' ? 'Иван' : dialogue.lines?.[0]?.character === 'till' ? 'Тилл' : 'вместе'} · {(dialogue.pages || []).map((id) => PAGE_OPTIONS.find(([key]) => key === id)?.[1] || id).join(', ')}</small>
               {dialogue.lines.map((line, index) => <p key={index}><strong>{line.character === 'ivan' ? 'Иван' : line.character === 'till' ? 'Тилл' : 'Вместе'}:</strong> {line.text}</p>)}
               {!dialogue.active ? <em>Черновик</em> : <span><Check size={14} /> Активна</span>}
             </button>

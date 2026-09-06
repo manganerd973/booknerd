@@ -2,10 +2,11 @@ import { hasReaderAccess } from '../../../lib/reader-access.js';
 import { cachedRead } from '../../../lib/read-cache.js';
 import { ensureDb, getDb } from '../../../lib/runtime.js';
 import { answerMascotQuestion, parseMascotDialogues } from '../../../lib/mascot-knowledge.js';
+import { answerWithOptionalMascotAi } from '../../../lib/mascot-ai-provider.js';
 
 const DEFAULT_CONFIG = { enabled: true, aiEnabled: false, disabledPages: [], blockedTopics: [], dialogues: [] };
 const CONFIG_CACHE_MS = 30 * 60 * 1000;
-const CONFIG_CACHE_VERSION = 'v41';
+const CONFIG_CACHE_VERSION = 'v42';
 const requestWindows = new Map();
 
 function parseList(value) {
@@ -100,15 +101,26 @@ export async function POST(request) {
     const payload = await request.json();
     const question = String(payload.question || '').trim();
     if (!question) return Response.json({ error: 'Введите вопрос.' }, { status: 400 });
-    const messages = await answerMascotQuestion({
+    const deterministic = await answerMascotQuestion({
       question,
       askMode: payload.askMode,
       bookSlug: String(payload.bookSlug || '').slice(0, 120),
       visitorKey: payload.visitorKey,
       currentChapter: Math.max(0, Number(payload.currentChapter || 0)),
       blockedTopics: config.blockedTopics,
+      firstSpeaker: payload.firstSpeaker === 'till' ? 'till' : 'ivan',
+      allowSpoilers: payload.allowSpoilers === true,
     });
-    return Response.json({ messages, aiUsed: false }, { headers: { 'cache-control': 'no-store' } });
+    const aiMessages = deterministic.requiresSpoilerConfirmation ? null : await answerWithOptionalMascotAi({
+      enabled: config.aiEnabled,
+      question,
+      deterministicMessages: deterministic.messages,
+    });
+    return Response.json({
+      messages: aiMessages || deterministic.messages,
+      requiresSpoilerConfirmation: deterministic.requiresSpoilerConfirmation === true,
+      aiUsed: Boolean(aiMessages),
+    }, { headers: { 'cache-control': 'no-store' } });
   } catch (error) {
     return Response.json({ error: error.message || 'Ответ временно недоступен.' }, { status: 503 });
   }

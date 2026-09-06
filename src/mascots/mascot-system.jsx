@@ -14,9 +14,10 @@ import {
   mascotPageContext,
   normalizeMascotSettings,
 } from './mascot-config.js';
+import { openingDialogue, resolveFirstSpeaker, selectDialogueByFirstSpeaker } from './mascot-dialogue-engine.js';
 import { getVisitorKey } from '../site-analytics.js';
 
-const CONFIG_SESSION_KEY = 'booknerd-mascot-config-v2';
+const CONFIG_SESSION_KEY = 'booknerd-mascot-config-v42';
 const LAST_AUTO_KEY = 'booknerd-mascot-last-auto-v1';
 const MAX_HISTORY = 24;
 const AUTO_PAGE_CONTEXTS = new Set(['home', 'book', 'notifications', 'library', 'profile', 'offline', 'other']);
@@ -30,6 +31,7 @@ function normalizeSystemConfig(value) {
     disabledPages: Array.isArray(source.disabledPages) ? source.disabledPages : [],
     blockedTopics: Array.isArray(source.blockedTopics) ? source.blockedTopics : [],
     dialogues: Array.isArray(source.dialogues) ? source.dialogues : [],
+    defaultFirstSpeaker: ['ivan', 'till', 'alternate'].includes(source.defaultFirstSpeaker) ? source.defaultFirstSpeaker : 'ivan',
   };
 }
 
@@ -78,13 +80,15 @@ export default function MascotSystem() {
   const [ready, setReady] = useState(false);
   const [pathname, setPathname] = useState('');
   const [settings, setSettings] = useState(DEFAULT_MASCOT_SETTINGS);
-  const [systemConfig, setSystemConfig] = useState({ enabled: true, aiEnabled: false, disabledPages: [], dialogues: [] });
+  const [systemConfig, setSystemConfig] = useState({ enabled: true, aiEnabled: false, disabledPages: [], dialogues: [], defaultFirstSpeaker: 'ivan' });
   const [open, setOpen] = useState(false);
   const [edgeDialogue, setEdgeDialogue] = useState(null);
+  const [edgeLineIndex, setEdgeLineIndex] = useState(0);
   const [history, setHistory] = useState([]);
   const [input, setInput] = useState('');
   const [askMode, setAskMode] = useState('both');
   const [sending, setSending] = useState(false);
+  const [pendingSpoilerQuestion, setPendingSpoilerQuestion] = useState('');
   const [manualContext, setManualContext] = useState(null);
   const launcherRef = useRef(null);
   const inputRef = useRef(null);
@@ -99,6 +103,10 @@ export default function MascotSystem() {
   const readerHidden = pageContext === 'reader' && settings.quietReading;
   const bookSlug = manualContext?.bookSlug || mascotBookSlug(pathname);
   const currentChapter = Number(manualContext?.currentChapter || 0);
+  const effectiveFirstSpeaker = useMemo(
+    () => resolveFirstSpeaker(settings.firstSpeaker, systemConfig.defaultFirstSpeaker),
+    [settings.firstSpeaker, systemConfig.defaultFirstSpeaker],
+  );
 
   useEffect(() => {
     const initialSettings = loadMascotSettings();
@@ -177,6 +185,7 @@ export default function MascotSystem() {
       previousPathRef.current = pathname;
       setManualContext(null);
       setEdgeDialogue(null);
+      setPendingSpoilerQuestion('');
       setOpen(false);
     }
   }, [pathname]);
@@ -224,7 +233,7 @@ export default function MascotSystem() {
     const customCandidates = (systemConfig.dialogues || []).filter(isAllowed);
     const builtinCandidates = BUILTIN_DIALOGUES.filter(isAllowed);
     const candidates = customCandidates.length ? customCandidates : builtinCandidates;
-    const chosen = candidates[Math.floor(Date.now() / 60000) % Math.max(1, candidates.length)];
+    const chosen = selectDialogueByFirstSpeaker(candidates, settings.firstSpeaker === 'site' ? '' : effectiveFirstSpeaker);
     if (!chosen) return undefined;
     const timer = window.setTimeout(() => {
       const maxLines = settings.mode === 'tips' ? 2 : settings.mode === 'more' ? 5 : 3;
@@ -235,7 +244,23 @@ export default function MascotSystem() {
       } catch { /* frequency protection remains best effort */ }
     }, settings.mode === 'more' ? 650 : settings.mode === 'tips' ? 1200 : 2400);
     return () => window.clearTimeout(timer);
-  }, [globallyHidden, hiddenByPage, pageContext, pathname, readerHidden, ready, settings.mode, settings.showGreeting, settings.showRecommendations, systemConfig.dialogues]);
+  }, [effectiveFirstSpeaker, globallyHidden, hiddenByPage, pageContext, pathname, readerHidden, ready, settings.mode, settings.showGreeting, settings.showRecommendations, systemConfig.dialogues]);
+
+  useEffect(() => {
+    setEdgeLineIndex(0);
+    const lineCount = edgeDialogue?.lines?.length || 0;
+    if (lineCount < 2) return undefined;
+    const timer = window.setInterval(() => {
+      setEdgeLineIndex((index) => {
+        if (index >= lineCount - 1) {
+          window.clearInterval(timer);
+          return index;
+        }
+        return index + 1;
+      });
+    }, settings.reducedMotion ? 3600 : 2600);
+    return () => window.clearInterval(timer);
+  }, [edgeDialogue, settings.reducedMotion]);
 
   useEffect(() => {
     if (!edgeDialogue) return undefined;
@@ -267,23 +292,27 @@ export default function MascotSystem() {
 
   useEffect(() => saveHistory(history), [history]);
 
-  const displayedHistory = useMemo(() => history.length ? history : normalizeMessages([
-    { character: 'till', text: 'Вы открыли нас. Значит, вопрос действительно важный.' },
-    { character: 'ivan', text: 'Или Вам просто понравилась кнопка. Оба варианта разумны.' },
-  ]), [history]);
+  const displayedHistory = useMemo(
+    () => history.length ? history : normalizeMessages(openingDialogue(effectiveFirstSpeaker)),
+    [effectiveFirstSpeaker, history],
+  );
 
   const closePanel = () => setOpen(false);
   const clearHistory = () => {
     setHistory([]);
+    setPendingSpoilerQuestion('');
     try { localStorage.removeItem(MASCOT_HISTORY_KEY); } catch { /* optional local history */ }
   };
 
-  const ask = async (questionValue) => {
+  const ask = async (questionValue, options = {}) => {
     const question = String(questionValue || input).trim().slice(0, 1000);
     if (!question || sending) return;
-    const readerMessage = normalizeMessages([{ character: 'reader', text: question }]);
-    setHistory((current) => [...current, ...readerMessage].slice(-MAX_HISTORY));
+    if (options.recordReader !== false) {
+      const readerMessage = normalizeMessages([{ character: 'reader', text: question }]);
+      setHistory((current) => [...current, ...readerMessage].slice(-MAX_HISTORY));
+    }
     setInput('');
+    setPendingSpoilerQuestion('');
     setSending(true);
     if (!navigator.onLine) {
       setHistory((current) => [...current, ...normalizeMessages(OFFLINE_DIALOGUE)].slice(-MAX_HISTORY));
@@ -294,11 +323,12 @@ export default function MascotSystem() {
       const response = await fetch('/api/mascots', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ question, askMode, bookSlug, currentChapter, visitorKey: getVisitorKey() }),
+        body: JSON.stringify({ question, askMode, bookSlug, currentChapter, visitorKey: getVisitorKey(), firstSpeaker: effectiveFirstSpeaker, allowSpoilers: options.allowSpoilers === true }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'Ответ временно недоступен.');
       setHistory((current) => [...current, ...normalizeMessages(data.messages || [])].slice(-MAX_HISTORY));
+      if (data.requiresSpoilerConfirmation) setPendingSpoilerQuestion(question);
     } catch {
       setHistory((current) => [...current, ...normalizeMessages([
         { character: 'till', text: 'Кажется, ответ потерялся по дороге.' },
@@ -311,13 +341,16 @@ export default function MascotSystem() {
 
   if (!ready || hiddenByPage || globallyHidden) return null;
 
+  const edgeLine = edgeDialogue?.lines?.[edgeLineIndex] || edgeDialogue?.lines?.[0] || null;
+  const edgeSpeaker = edgeLine?.character === 'till' ? 'till' : 'ivan';
+
   return (
     <div className={`mascot-system${settings.reducedMotion ? ' is-reduced-motion' : ''}`} data-page={pageContext}>
       {edgeDialogue && !open ? (
         <aside className="mascot-edge-banter" aria-live="polite">
           <button type="button" className="mascot-edge-close" onClick={() => setEdgeDialogue(null)} aria-label="Скрыть реплики Ивана и Тилла"><X size={16} /></button>
-          <div className="mascot-edge-side is-ivan"><CharacterPortrait character="ivan" /><div>{edgeDialogue.lines.filter((line) => line.character === 'ivan').map((line, index) => <p key={index}>{line.text}</p>)}</div></div>
-          <div className="mascot-edge-side is-till"><div>{edgeDialogue.lines.filter((line) => line.character === 'till').map((line, index) => <p key={index}>{line.text}</p>)}</div><CharacterPortrait character="till" /></div>
+          <div className={`mascot-edge-side is-ivan${edgeSpeaker === 'ivan' ? ' is-active' : ''}`}><CharacterPortrait character="ivan" /><div>{edgeSpeaker === 'ivan' && edgeLine ? <p key={edgeLineIndex}>{edgeLine.text}</p> : <span aria-hidden="true">•••</span>}</div></div>
+          <div className={`mascot-edge-side is-till${edgeSpeaker === 'till' ? ' is-active' : ''}`}><div>{edgeSpeaker === 'till' && edgeLine ? <p key={edgeLineIndex}>{edgeLine.text}</p> : <span aria-hidden="true">•••</span>}</div><CharacterPortrait character="till" /></div>
           <button type="button" className="mascot-edge-open" onClick={() => { setEdgeDialogue(null); setOpen(true); }}>Открыть помощников</button>
         </aside>
       ) : null}
@@ -360,6 +393,16 @@ export default function MascotSystem() {
 
             <DialogueMessages messages={displayedHistory} />
 
+            {pendingSpoilerQuestion ? (
+              <div className="mascot-spoiler-actions" role="group" aria-label="Разрешить ответ со спойлерами">
+                <button type="button" onClick={() => {
+                  setPendingSpoilerQuestion('');
+                  setHistory((current) => [...current, ...normalizeMessages([{ character: 'ivan', text: 'Хорошо. Оставляем только то, что уже прочитано.' }])].slice(-MAX_HISTORY));
+                }}>Нет, без спойлеров</button>
+                <button type="button" onClick={() => ask(pendingSpoilerQuestion, { allowSpoilers: true, recordReader: false })}>Показать</button>
+              </div>
+            ) : null}
+
             <div className="mascot-quick-questions" aria-label="Быстрые вопросы">
               {MASCOT_QUICK_QUESTIONS.map((question) => <button type="button" onClick={() => ask(question)} disabled={sending} key={question}>{question}</button>)}
             </div>
@@ -368,7 +411,7 @@ export default function MascotSystem() {
               <label><span className="sr-only">Спросить о книге</span><input ref={inputRef} value={input} onChange={(event) => setInput(event.target.value)} placeholder="Спросить о книге…" maxLength={1000} /></label>
               <button type="submit" disabled={!input.trim() || sending} aria-label="Отправить вопрос">{sending ? <span className="mascot-sending" /> : <Send size={19} />}</button>
             </form>
-            <footer className="mascot-chat-footer"><span>{settings.mode === 'more' ? 'Режим: больше сценок' : settings.mode === 'tips' ? 'Режим: только подсказки' : 'Режим: обычный'}</span><button type="button" onClick={clearHistory}><Eraser size={15} /> Очистить</button></footer>
+            <footer className="mascot-chat-footer"><span>{settings.mode === 'more' ? 'Режим: больше сценок' : settings.mode === 'tips' ? 'Режим: только подсказки' : 'Режим: обычный'} · первым отвечает {effectiveFirstSpeaker === 'ivan' ? 'Иван' : 'Тилл'}</span><button type="button" onClick={clearHistory}><Eraser size={15} /> Очистить</button></footer>
           </aside>
         </div>
       ) : null}

@@ -6,7 +6,7 @@ export async function GET(request) {
   const auth = await authorizeAdminRequest(request, { ownerOnly: true });
   if (auth.response) return auth.response;
   try {
-    const payload = await cachedRead('admin-analytics:v41', 10 * 60 * 1000, async () => {
+    const payload = await cachedRead('admin-analytics:v42', 10 * 60 * 1000, async () => {
     const db = await ensureDb();
     const activeSince = new Date(Date.now() - 5 * 60 * 1000).toISOString();
     const [online, installs, notificationSubscribers, telegram, libraryTotals, libraryByBook, retentionByChapter, notificationReturns, waitingByBook] = await Promise.all([
