@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Check, EyeOff, MessageCircleHeart, Play, Sparkles } from 'lucide-react';
-import { DEFAULT_MASCOT_SETTINGS, MASCOT_FIRST_SPEAKER_OPTIONS, MASCOT_MODES, saveMascotSettings } from './mascot-config.js';
+import { DEFAULT_MASCOT_SETTINGS, MASCOT_MODES, saveMascotSettings } from './mascot-config.js';
 
 export default function MascotSettings({ value = DEFAULT_MASCOT_SETTINGS, onChange }) {
   const settings = { ...DEFAULT_MASCOT_SETTINGS, ...(value || {}) };
@@ -40,26 +40,6 @@ export default function MascotSettings({ value = DEFAULT_MASCOT_SETTINGS, onChan
         <span><Check size={17} /> Сейчас включён: <strong>{MASCOT_MODES.find((mode) => mode.id === settings.mode)?.label}</strong></span>
         {settings.mode !== 'hidden' ? <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('booknerd:preview-mascot-mode', { detail: { mode: settings.mode } }))}><Play size={16} /> Проверить режим</button> : <small>Кнопка помощников и автоматические реплики скрыты. Вы сможете включить их здесь снова.</small>}
       </div>
-
-      <fieldset className="mascot-first-speaker">
-        <legend>Кто говорит первым</legend>
-        <p>Этот выбор применяется к новым ответам и подходящим сценкам. Порядок авторских сценок редакции сохраняется.</p>
-        <div role="radiogroup" aria-label="Кто из помощников говорит первым">
-          {MASCOT_FIRST_SPEAKER_OPTIONS.map((option) => (
-            <button
-              type="button"
-              role="radio"
-              aria-checked={settings.firstSpeaker === option.id}
-              className={settings.firstSpeaker === option.id ? 'is-active' : ''}
-              onClick={() => update({ firstSpeaker: option.id })}
-              key={option.id}
-            >
-              <span><strong>{option.label}</strong><small>{option.description}</small></span>
-              {settings.firstSpeaker === option.id ? <Check size={17} /> : null}
-            </button>
-          ))}
-        </div>
-      </fieldset>
 
       <div className="mascot-toggle-list">
         {[

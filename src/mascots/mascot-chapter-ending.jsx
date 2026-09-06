@@ -15,8 +15,6 @@ export default function MascotChapterEnding({ bookSlug = '', currentChapter = 0 
     const applySettings = (value) => {
       const settings = normalizeMascotSettings(value || loadMascotSettings());
       setVisible(settings.mode !== 'hidden' && settings.mode !== 'tips' && settings.showChapterEnding !== false);
-      const firstSpeaker = settings.firstSpeaker === 'site' ? 'till' : resolveFirstSpeaker(settings.firstSpeaker);
-      setDialogue(customDialogueRef.current || CHAPTER_ENDING_DIALOGUES[firstSpeaker] || CHAPTER_ENDING_DIALOGUES.till);
     };
     applySettings();
     const onSettings = (event) => applySettings(event.detail);
@@ -33,6 +31,9 @@ export default function MascotChapterEnding({ bookSlug = '', currentChapter = 0 
           if (custom) {
             customDialogueRef.current = custom.lines;
             setDialogue(custom.lines);
+          } else {
+            const firstSpeaker = resolveFirstSpeaker(data?.config?.defaultFirstSpeaker || 'alternate');
+            setDialogue(CHAPTER_ENDING_DIALOGUES[firstSpeaker] || CHAPTER_ENDING_DIALOGUES.till);
           }
         })
         .catch(() => {});

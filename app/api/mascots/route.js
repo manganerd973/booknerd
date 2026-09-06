@@ -4,9 +4,10 @@ import { ensureDb, getDb } from '../../../lib/runtime.js';
 import { answerMascotQuestion, parseMascotDialogues } from '../../../lib/mascot-knowledge.js';
 import { answerWithOptionalMascotAi } from '../../../lib/mascot-ai-provider.js';
 
-const DEFAULT_CONFIG = { enabled: true, aiEnabled: false, disabledPages: [], blockedTopics: [], dialogues: [] };
+const DEFAULT_CONFIG = { enabled: true, aiEnabled: false, disabledPages: [], blockedTopics: [], dialogues: [], defaultFirstSpeaker: 'alternate' };
 const CONFIG_CACHE_MS = 30 * 60 * 1000;
-const CONFIG_CACHE_VERSION = 'v42';
+const CONFIG_CACHE_VERSION = 'v43';
+const FIRST_SPEAKER_PREFIX = '__first-speaker:';
 const requestWindows = new Map();
 
 function parseList(value) {
@@ -16,6 +17,17 @@ function parseList(value) {
   } catch {
     return [];
   }
+}
+
+function firstSpeakerFromSettings(value) {
+  const item = parseList(value).find((entry) => typeof entry === 'string' && entry.startsWith(FIRST_SPEAKER_PREFIX));
+  const speaker = item?.slice(FIRST_SPEAKER_PREFIX.length);
+  return ['ivan', 'till', 'alternate'].includes(speaker) ? speaker : 'alternate';
+}
+
+function resolveFirstSpeaker(value, now = Date.now()) {
+  if (value === 'ivan' || value === 'till') return value;
+  return Math.floor(Number(now || 0) / (2 * 60 * 1000)) % 2 === 0 ? 'ivan' : 'till';
 }
 
 async function publicConfig() {
@@ -39,9 +51,10 @@ async function publicConfig() {
       return {
         enabled: settings ? Boolean(settings.enabled) : true,
         aiEnabled: false,
-        disabledPages: parseList(settings?.disabled_pages),
+        disabledPages: parseList(settings?.disabled_pages).filter((item) => !String(item).startsWith(FIRST_SPEAKER_PREFIX)),
         blockedTopics: parseList(settings?.blocked_topics),
         dialogues: parseMascotDialogues(dialogues.results || []),
+        defaultFirstSpeaker: firstSpeakerFromSettings(settings?.disabled_pages),
       };
     } catch {
       return DEFAULT_CONFIG;
@@ -108,7 +121,7 @@ export async function POST(request) {
       visitorKey: payload.visitorKey,
       currentChapter: Math.max(0, Number(payload.currentChapter || 0)),
       blockedTopics: config.blockedTopics,
-      firstSpeaker: payload.firstSpeaker === 'till' ? 'till' : 'ivan',
+      firstSpeaker: resolveFirstSpeaker(config.defaultFirstSpeaker),
       allowSpoilers: payload.allowSpoilers === true,
     });
     const aiMessages = deterministic.requiresSpoilerConfirmation ? null : await answerWithOptionalMascotAi({

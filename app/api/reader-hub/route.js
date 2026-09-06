@@ -5,7 +5,6 @@ const EMOTIONS = new Set(['😂', '😭', '😍', '😡', '😱', '🤍']);
 const THEMES = new Set(['original', 'white', 'black', 'system']);
 const ATMOSPHERES = new Set(['auto', 'none', 'spring', 'summer', 'autumn', 'winter']);
 const MASCOT_MODES = new Set(['normal', 'more', 'tips', 'hidden']);
-const MASCOT_FIRST_SPEAKERS = new Set(['site', 'ivan', 'till', 'alternate']);
 
 function normalizeVisitorKey(value) {
   const key = String(value || '').trim().slice(0, 120);
@@ -34,7 +33,6 @@ function cleanMascotPreferences(value) {
   const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
   return {
     mode: MASCOT_MODES.has(source.mode) ? source.mode : 'normal',
-    firstSpeaker: MASCOT_FIRST_SPEAKERS.has(source.firstSpeaker) ? source.firstSpeaker : 'site',
     quietReading: source.quietReading !== false,
     reducedMotion: source.reducedMotion === true,
     showGreeting: source.showGreeting !== false,

@@ -17,7 +17,7 @@ import {
 import { openingDialogue, resolveFirstSpeaker, selectDialogueByFirstSpeaker } from './mascot-dialogue-engine.js';
 import { getVisitorKey } from '../site-analytics.js';
 
-const CONFIG_SESSION_KEY = 'booknerd-mascot-config-v42';
+const CONFIG_SESSION_KEY = 'booknerd-mascot-config-v43';
 const LAST_AUTO_KEY = 'booknerd-mascot-last-auto-v1';
 const MAX_HISTORY = 24;
 const AUTO_PAGE_CONTEXTS = new Set(['home', 'book', 'notifications', 'library', 'profile', 'offline', 'other']);
@@ -31,7 +31,7 @@ function normalizeSystemConfig(value) {
     disabledPages: Array.isArray(source.disabledPages) ? source.disabledPages : [],
     blockedTopics: Array.isArray(source.blockedTopics) ? source.blockedTopics : [],
     dialogues: Array.isArray(source.dialogues) ? source.dialogues : [],
-    defaultFirstSpeaker: ['ivan', 'till', 'alternate'].includes(source.defaultFirstSpeaker) ? source.defaultFirstSpeaker : 'ivan',
+    defaultFirstSpeaker: ['ivan', 'till', 'alternate'].includes(source.defaultFirstSpeaker) ? source.defaultFirstSpeaker : 'alternate',
   };
 }
 
@@ -80,7 +80,7 @@ export default function MascotSystem() {
   const [ready, setReady] = useState(false);
   const [pathname, setPathname] = useState('');
   const [settings, setSettings] = useState(DEFAULT_MASCOT_SETTINGS);
-  const [systemConfig, setSystemConfig] = useState({ enabled: true, aiEnabled: false, disabledPages: [], dialogues: [], defaultFirstSpeaker: 'ivan' });
+  const [systemConfig, setSystemConfig] = useState({ enabled: true, aiEnabled: false, disabledPages: [], dialogues: [], defaultFirstSpeaker: 'alternate' });
   const [open, setOpen] = useState(false);
   const [edgeDialogue, setEdgeDialogue] = useState(null);
   const [edgeLineIndex, setEdgeLineIndex] = useState(0);
@@ -104,8 +104,8 @@ export default function MascotSystem() {
   const bookSlug = manualContext?.bookSlug || mascotBookSlug(pathname);
   const currentChapter = Number(manualContext?.currentChapter || 0);
   const effectiveFirstSpeaker = useMemo(
-    () => resolveFirstSpeaker(settings.firstSpeaker, systemConfig.defaultFirstSpeaker),
-    [settings.firstSpeaker, systemConfig.defaultFirstSpeaker],
+    () => resolveFirstSpeaker(systemConfig.defaultFirstSpeaker),
+    [systemConfig.defaultFirstSpeaker],
   );
 
   useEffect(() => {
@@ -233,7 +233,7 @@ export default function MascotSystem() {
     const customCandidates = (systemConfig.dialogues || []).filter(isAllowed);
     const builtinCandidates = BUILTIN_DIALOGUES.filter(isAllowed);
     const candidates = customCandidates.length ? customCandidates : builtinCandidates;
-    const chosen = selectDialogueByFirstSpeaker(candidates, settings.firstSpeaker === 'site' ? '' : effectiveFirstSpeaker);
+    const chosen = selectDialogueByFirstSpeaker(candidates, effectiveFirstSpeaker);
     if (!chosen) return undefined;
     const timer = window.setTimeout(() => {
       const maxLines = settings.mode === 'tips' ? 2 : settings.mode === 'more' ? 5 : 3;
@@ -323,7 +323,7 @@ export default function MascotSystem() {
       const response = await fetch('/api/mascots', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ question, askMode, bookSlug, currentChapter, visitorKey: getVisitorKey(), firstSpeaker: effectiveFirstSpeaker, allowSpoilers: options.allowSpoilers === true }),
+        body: JSON.stringify({ question, askMode, bookSlug, currentChapter, visitorKey: getVisitorKey(), allowSpoilers: options.allowSpoilers === true }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'Ответ временно недоступен.');

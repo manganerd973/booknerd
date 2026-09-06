@@ -13,6 +13,11 @@ const CATEGORY_OPTIONS = [
   ['empty', 'Пустой раздел'], ['offline', 'Офлайн'], ['error', 'Ошибка'], ['achievement', 'Достижение'],
   ['seasonal', 'Сезонная'], ['banter', 'Ссора'], ['flirt', 'Флирт'], ['tip', 'Полезная подсказка'],
 ];
+const FIRST_SPEAKER_OPTIONS = [
+  ['ivan', 'Иван', 'Иван первым отвечает на новые вопросы и начинает встроенные сценки.'],
+  ['till', 'Тилл', 'Тилл первым отвечает на новые вопросы и начинает встроенные сценки.'],
+  ['alternate', 'Менять автоматически', 'Первый говорящий чередуется автоматически.'],
+];
 
 const blankDialogue = { id: '', category: 'tip', pages: ['home'], firstSpeaker: 'till', ivanText: '', tillText: '', active: true, startsAt: '', endsAt: '' };
 
@@ -44,7 +49,7 @@ export default function AdminMascots({ onNotice }) {
   const [reloadKey, setReloadKey] = useState(0);
   const [saving, setSaving] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [config, setConfig] = useState({ enabled: true, aiEnabled: false, disabledPages: [], blockedTopics: [] });
+  const [config, setConfig] = useState({ enabled: true, aiEnabled: false, disabledPages: [], blockedTopics: [], defaultFirstSpeaker: 'alternate' });
   const [dialogues, setDialogues] = useState([]);
   const [draft, setDraft] = useState(blankDialogue);
 
@@ -132,6 +137,18 @@ export default function AdminMascots({ onNotice }) {
         <div><Sparkles size={24} /><span><small>ОБЩИЕ НАСТРОЙКИ</small><h2>Когда помощники доступны</h2></span></div>
         <label className="admin-switch-row"><span><strong>Иван и Тилл включены</strong><small>Можно мгновенно скрыть модуль у всех читателей.</small></span><input type="checkbox" checked={config.enabled} onChange={(event) => setConfig({ ...config, enabled: event.target.checked })} /></label>
         <label className="admin-switch-row is-disabled"><span><strong>AI-ответы</strong><small>Сейчас выключены: сайт использует только данные BOOKNERD и готовые безопасные ответы.</small></span><input type="checkbox" checked={false} disabled /></label>
+        <fieldset className="admin-mascot-first-speaker">
+          <legend>Кто говорит первым</legend>
+          <p>Это общая настройка сайта. Читатели не могут её изменять; порядок отдельно созданной сценки сохраняется.</p>
+          <div role="radiogroup" aria-label="Кто из помощников говорит первым">
+            {FIRST_SPEAKER_OPTIONS.map(([id, label, description]) => (
+              <label className={config.defaultFirstSpeaker === id ? 'is-active' : ''} key={id}>
+                <input type="radio" name="defaultFirstSpeaker" value={id} checked={config.defaultFirstSpeaker === id} onChange={() => setConfig({ ...config, defaultFirstSpeaker: id })} />
+                <span><strong>{label}</strong><small>{description}</small></span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
         <fieldset><legend>Не показывать помощников автоматически</legend><div>{PAGE_OPTIONS.map(([id, label]) => <label key={id}><input type="checkbox" checked={config.disabledPages.includes(id)} onChange={(event) => setConfig({ ...config, disabledPages: event.target.checked ? [...config.disabledPages, id] : config.disabledPages.filter((item) => item !== id) })} /> {label}</label>)}</div></fieldset>
         <label><span>Темы, о которых нельзя шутить — каждая с новой строки</span><textarea rows="4" value={(config.blockedTopics || []).join('\n')} onChange={(event) => setConfig({ ...config, blockedTopics: event.target.value.split('\n').map((item) => item.trim()).filter(Boolean) })} placeholder="Селфхарм&#10;Утрата&#10;Насилие" /></label>
         <button className="admin-primary" type="button" onClick={saveConfig} disabled={saving}>{saving ? <LoaderCircle className="spin" size={17} /> : <Save size={17} />} Сохранить настройки</button>
@@ -141,7 +158,7 @@ export default function AdminMascots({ onNotice }) {
         <header><div><span>{draft.id ? 'РЕДАКТИРОВАНИЕ' : 'НОВАЯ РЕПЛИКА'}</span><h2>{draft.id ? 'Изменить сценку' : 'Добавить сценку'}</h2></div>{draft.id ? <button type="button" onClick={() => setDraft(blankDialogue)}><X size={17} /> Отмена</button> : null}</header>
         <div className="admin-fields two-columns">
           <label><span>Категория</span><select value={draft.category} onChange={(event) => setDraft({ ...draft, category: event.target.value })}>{CATEGORY_OPTIONS.map(([id, label]) => <option value={id} key={id}>{label}</option>)}</select></label>
-          <label><span>Кто говорит первым</span><select value={draft.firstSpeaker} onChange={(event) => setDraft({ ...draft, firstSpeaker: event.target.value === 'ivan' ? 'ivan' : 'till' })}><option value="till">Тилл</option><option value="ivan">Иван</option></select><small>Текст останется у своего персонажа; изменится только порядок показа.</small></label>
+          <label><span>Первый в этой сценке</span><select value={draft.firstSpeaker} onChange={(event) => setDraft({ ...draft, firstSpeaker: event.target.value === 'ivan' ? 'ivan' : 'till' })}><option value="till">Тилл</option><option value="ivan">Иван</option></select><small>Текст останется у своего персонажа; изменится только порядок показа этой сценки.</small></label>
         </div>
         <label className="admin-switch-row"><span><strong>Реплика активна</strong><small>Неактивную можно сохранить как черновик.</small></span><input type="checkbox" checked={draft.active} onChange={(event) => setDraft({ ...draft, active: event.target.checked })} /></label>
         <fieldset><legend>Где может появляться</legend><div>{PAGE_OPTIONS.map(([id, label]) => <label key={id}><input type="checkbox" checked={draft.pages.includes(id)} onChange={(event) => setDraft({ ...draft, pages: event.target.checked ? [...draft.pages, id] : draft.pages.filter((item) => item !== id) })} /> {label}</label>)}</div></fieldset>

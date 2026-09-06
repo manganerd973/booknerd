@@ -79,15 +79,6 @@
 .mascot-mode-status > button { flex: 0 0 auto; padding: 8px 11px; border: 1px solid var(--navy); border-radius: 11px; color: var(--paper); background: var(--navy); font-size: 11px; font-weight: 800; cursor: pointer; }
 .mascot-mode-status > small { color: var(--muted); font-size: 11px; line-height: 1.45; }
 .mascot-mode-status.is-hidden { display: grid; background: color-mix(in srgb,var(--paper) 94%,var(--muted) 6%); }
-.mascot-first-speaker { display: grid; gap: 9px; margin: 13px 0 0; padding: 15px; border: 1px solid var(--line); border-radius: 20px; }
-.mascot-first-speaker legend { padding: 0 7px; font-size: 12px; font-weight: 850; }
-.mascot-first-speaker > p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
-.mascot-first-speaker > div { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
-.mascot-first-speaker button { display: grid; min-height: 62px; grid-template-columns: minmax(0,1fr) 18px; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 14px; color: var(--ink); background: color-mix(in srgb,var(--paper) 94%,white 6%); text-align: left; cursor: pointer; }
-.mascot-first-speaker button.is-active { border-color: var(--navy); box-shadow: inset 3px 0 0 var(--yellow); }
-.mascot-first-speaker button span { display: grid; gap: 3px; }
-.mascot-first-speaker button strong { font-size: 11px; }
-.mascot-first-speaker button small { color: var(--muted); font-size: 9px; line-height: 1.35; }
 .mascot-toggle-list { display: grid; margin-top: 13px; border: 1px solid var(--line); border-radius: 20px; overflow: hidden; }
 .mascot-toggle-list > button { display: grid; min-height: 69px; grid-template-columns: minmax(0,1fr) 47px; align-items: center; gap: 14px; padding: 11px 16px; border: 0; border-bottom: 1px solid var(--line); color: var(--ink); background: color-mix(in srgb,var(--paper) 94%,white 6%); text-align: left; cursor: pointer; }
 .mascot-toggle-list > button:last-child { border-bottom: 0; }
@@ -125,6 +116,12 @@
 .admin-mascot-config legend,.admin-mascot-dialogue-editor legend { padding: 0 7px; font-size: 11px; font-weight: 850; }
 .admin-mascot-config fieldset > div,.admin-mascot-dialogue-editor fieldset > div { display: flex; flex-wrap: wrap; gap: 9px 16px; }
 .admin-mascot-config fieldset label,.admin-mascot-dialogue-editor fieldset label { font-size: 11px; }
+.admin-mascot-first-speaker > p { margin: 0 0 12px; color: var(--admin-ink-soft); font-size: 11px; line-height: 1.5; }
+.admin-mascot-first-speaker > div { display: grid !important; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 9px !important; }
+.admin-mascot-first-speaker > div > label { display: grid; min-height: 82px; grid-template-columns: 18px minmax(0,1fr); align-items: start; gap: 8px; padding: 12px; border: 1px solid var(--admin-line); border-radius: 14px; cursor: pointer; }
+.admin-mascot-first-speaker > div > label.is-active { border-color: var(--admin-mint); box-shadow: inset 3px 0 0 var(--admin-yellow); }
+.admin-mascot-first-speaker label span { display: grid; gap: 4px; }
+.admin-mascot-first-speaker label small { color: var(--admin-ink-soft); font-size: 9px; line-height: 1.4; }
 .admin-mascot-config > label:not(.admin-switch-row) { display: grid; gap: 7px; }
 .admin-mascot-config textarea,.admin-mascot-line-fields textarea { width: 100%; padding: 12px; border: 1px solid var(--admin-line); border-radius: 14px; color: var(--admin-ink); background: var(--admin-paper); resize: vertical; }
 .admin-switch-row.is-disabled { opacity: .62; }
@@ -185,7 +182,6 @@
   .mascot-edge-side .mascot-character-image { width: 80px; height: 92px; }
   .mascot-profile-settings { padding: 46px 0; }
   .mascot-mode-grid { grid-template-columns: 1fr; }
-  .mascot-first-speaker > div { grid-template-columns: 1fr; }
   .mascot-mode-status { align-items: stretch; flex-direction: column; }
   .mascot-mode-status > button { justify-content: center; }
   .mascot-settings-title { grid-template-columns: 92px minmax(0,1fr); gap: 15px; }
@@ -199,6 +195,7 @@
   .mascot-chapter-ending > .mascot-chapter-hide { right: auto; left: 16px; }
   .admin-mascot-portraits { display: none; }
   .admin-mascot-config,.admin-mascot-dialogue-editor,.admin-mascot-dialogue-list { padding: 17px; border-radius: 19px; }
+  .admin-mascot-first-speaker > div { grid-template-columns: 1fr; }
   .admin-mascot-line-fields { grid-template-columns: 1fr; }
 }
 
