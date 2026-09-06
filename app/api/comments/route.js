@@ -21,6 +21,7 @@ function mapComment(row) {
     chapterNumber: row.chapter_number == null ? null : Number(row.chapter_number),
     authorRole: row.author_role === 'admin' ? 'admin' : 'reader',
     authorName: row.author_name,
+    avatarUrl: row.author_role !== 'admin' && row.avatar_key ? `/api/covers/${String(row.avatar_key).split('/').map(encodeURIComponent).join('/')}` : '',
     body: row.body,
     isSpoiler: Boolean(row.is_spoiler),
     createdAt: row.created_at,
@@ -54,25 +55,28 @@ export async function GET(request) {
     const db = await ensureDb();
     const statement = chapterId
       ? db.prepare(`SELECT c.id, c.parent_id, c.chapter_id, ch.title AS chapter_title, ch.chapter_number,
-          c.author_role, c.author_name, c.body, c.is_spoiler, c.created_at,
+          c.author_role, c.author_name, p.photo_key AS avatar_key, c.body, c.is_spoiler, c.created_at,
           SUM(CASE WHEN v.value = 1 THEN 1 ELSE 0 END) AS up_votes,
           SUM(CASE WHEN v.value = -1 THEN 1 ELSE 0 END) AS down_votes
           FROM comments c LEFT JOIN chapters ch ON ch.id = c.chapter_id LEFT JOIN comment_votes v ON v.comment_id = c.id
+          LEFT JOIN reader_profiles p ON p.visitor_key = c.visitor_key
           WHERE c.book_id = ? AND c.chapter_id = ? AND c.context = ? AND c.status = 'approved'
           GROUP BY c.id ORDER BY c.created_at ASC LIMIT 100`).bind(bookId, chapterId, context)
       : includeChapters
         ? db.prepare(`SELECT c.id, c.parent_id, c.chapter_id, ch.title AS chapter_title, ch.chapter_number,
-          c.author_role, c.author_name, c.body, c.is_spoiler, c.created_at,
+          c.author_role, c.author_name, p.photo_key AS avatar_key, c.body, c.is_spoiler, c.created_at,
           SUM(CASE WHEN v.value = 1 THEN 1 ELSE 0 END) AS up_votes,
           SUM(CASE WHEN v.value = -1 THEN 1 ELSE 0 END) AS down_votes
           FROM comments c LEFT JOIN chapters ch ON ch.id = c.chapter_id LEFT JOIN comment_votes v ON v.comment_id = c.id
+          LEFT JOIN reader_profiles p ON p.visitor_key = c.visitor_key
           WHERE c.book_id = ? AND c.context = 'comments' AND c.status = 'approved'
           GROUP BY c.id ORDER BY c.created_at ASC LIMIT 300`).bind(bookId)
         : db.prepare(`SELECT c.id, c.parent_id, c.chapter_id, ch.title AS chapter_title, ch.chapter_number,
-          c.author_role, c.author_name, c.body, c.is_spoiler, c.created_at,
+          c.author_role, c.author_name, p.photo_key AS avatar_key, c.body, c.is_spoiler, c.created_at,
           SUM(CASE WHEN v.value = 1 THEN 1 ELSE 0 END) AS up_votes,
           SUM(CASE WHEN v.value = -1 THEN 1 ELSE 0 END) AS down_votes
           FROM comments c LEFT JOIN chapters ch ON ch.id = c.chapter_id LEFT JOIN comment_votes v ON v.comment_id = c.id
+          LEFT JOIN reader_profiles p ON p.visitor_key = c.visitor_key
           WHERE c.book_id = ? AND c.chapter_id IS NULL AND c.context = ? AND c.status = 'approved'
           GROUP BY c.id ORDER BY c.created_at ASC LIMIT 100`).bind(bookId, context);
     const result = await statement.all();

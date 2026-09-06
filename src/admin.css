@@ -166,6 +166,9 @@
 .admin-audience > div:first-child > span { color: var(--admin-mint); font-size: 8px; font-weight: 900; letter-spacing: .15em; }
 .admin-audience h2 { margin: 6px 0 5px; font-family: Georgia, serif; font-size: 27px; font-weight: 500; }
 .admin-audience > div:first-child > p { margin: 0; color: var(--admin-ink-soft); font-size: 10px; line-height: 1.5; }
+.admin-audience-refresh { display: inline-flex; align-items: center; justify-content: center; gap: 7px; margin-top: 14px; min-height: 38px; padding: 0 14px; border: 1px solid var(--admin-line-strong); background: var(--admin-card); color: var(--admin-ink); font: inherit; font-size: 9px; font-weight: 900; letter-spacing: .04em; text-transform: uppercase; cursor: pointer; }
+.admin-audience-refresh:hover { border-color: var(--admin-mint); color: var(--admin-mint); }
+.admin-audience-refresh:disabled { cursor: wait; opacity: .65; }
 .admin-audience-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); border: 1px solid var(--admin-line); background: var(--admin-card); }
 .admin-audience-grid article { position: relative; min-height: 112px; padding: 17px; border-right: 1px solid var(--admin-line); }
 .admin-audience-grid article:last-child { border-right: 0; }

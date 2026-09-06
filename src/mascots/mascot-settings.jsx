@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Check, EyeOff, MessageCircleHeart, Sparkles } from 'lucide-react';
+import { Check, EyeOff, MessageCircleHeart, Play, Sparkles } from 'lucide-react';
 import { DEFAULT_MASCOT_SETTINGS, MASCOT_MODES, saveMascotSettings } from './mascot-config.js';
 
 export default function MascotSettings({ value = DEFAULT_MASCOT_SETTINGS, onChange }) {
@@ -36,6 +36,11 @@ export default function MascotSettings({ value = DEFAULT_MASCOT_SETTINGS, onChan
         ))}
       </div>
 
+      <div className={`mascot-mode-status is-${settings.mode}`} role="status">
+        <span><Check size={17} /> Сейчас включён: <strong>{MASCOT_MODES.find((mode) => mode.id === settings.mode)?.label}</strong></span>
+        {settings.mode !== 'hidden' ? <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('booknerd:preview-mascot-mode', { detail: { mode: settings.mode } }))}><Play size={16} /> Проверить режим</button> : <small>Кнопка помощников и автоматические реплики скрыты. Вы сможете включить их здесь снова.</small>}
+      </div>
+
       <div className="mascot-toggle-list">
         {[
           ['quietReading', 'Тишина во время чтения', 'Автоматически скрывать помощников внутри главы.'],
@@ -61,4 +66,3 @@ export default function MascotSettings({ value = DEFAULT_MASCOT_SETTINGS, onChan
     </section>
   );
 }
-

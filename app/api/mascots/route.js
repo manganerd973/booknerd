@@ -4,6 +4,8 @@ import { ensureDb, getDb } from '../../../lib/runtime.js';
 import { answerMascotQuestion, parseMascotDialogues } from '../../../lib/mascot-knowledge.js';
 
 const DEFAULT_CONFIG = { enabled: true, aiEnabled: false, disabledPages: [], blockedTopics: [], dialogues: [] };
+const CONFIG_CACHE_MS = 30 * 60 * 1000;
+const CONFIG_CACHE_VERSION = 'v41';
 const requestWindows = new Map();
 
 function parseList(value) {
@@ -17,7 +19,7 @@ function parseList(value) {
 
 async function publicConfig() {
   if (!getDb()) return DEFAULT_CONFIG;
-  return cachedRead('mascot-public-config', 5 * 60 * 1000, async () => {
+  return cachedRead('mascot-public-config', CONFIG_CACHE_MS, async () => {
     try {
       const db = await ensureDb();
       const now = new Date().toISOString();
@@ -46,6 +48,13 @@ async function publicConfig() {
   });
 }
 
+function configCacheKey(request, slot) {
+  const url = new URL(request.url);
+  url.pathname = '/__booknerd-cache/mascot-config';
+  url.search = `version=${CONFIG_CACHE_VERSION}&slot=${slot}`;
+  return new Request(url.toString(), { method: 'GET' });
+}
+
 function allowRequest(request) {
   const key = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for') || 'local';
   const now = Date.now();
@@ -63,13 +72,31 @@ export async function GET(request) {
   if (!(await hasReaderAccess(request))) return Response.json({ error: 'Сначала введите пароль читателя.' }, { status: 401 });
   const view = new URL(request.url).searchParams.get('view');
   if (view !== 'config') return Response.json({ error: 'Неизвестный запрос.' }, { status: 400 });
-  return Response.json({ config: await publicConfig() }, { headers: { 'cache-control': 'public, max-age=120, s-maxage=300' } });
+  const slot = Math.floor(Date.now() / CONFIG_CACHE_MS);
+  const edgeCache = globalThis.caches?.default || null;
+  const key = configCacheKey(request, slot);
+  if (edgeCache) {
+    const cached = await edgeCache.match(key).catch(() => null);
+    if (cached) {
+      const payload = await cached.json().catch(() => null);
+      if (payload?.config) return Response.json(payload, { headers: { 'cache-control': 'private, no-store', 'x-booknerd-cache': 'HIT' } });
+    }
+  }
+  const payload = { config: await publicConfig() };
+  if (edgeCache) {
+    const nextSlot = (slot + 1) * CONFIG_CACHE_MS;
+    const seconds = Math.max(1, Math.ceil((nextSlot - Date.now()) / 1000));
+    await edgeCache.put(key, Response.json(payload, { headers: { 'cache-control': `public, max-age=${seconds}` } })).catch(() => {});
+  }
+  return Response.json(payload, { headers: { 'cache-control': 'private, no-store', 'x-booknerd-cache': 'MISS' } });
 }
 
 export async function POST(request) {
   if (!(await hasReaderAccess(request))) return Response.json({ error: 'Сначала введите пароль читателя.' }, { status: 401 });
   if (!allowRequest(request)) return Response.json({ error: 'Слишком много вопросов подряд. Подождите несколько минут.' }, { status: 429 });
   try {
+    const config = await publicConfig();
+    if (!config.enabled) return Response.json({ error: 'Иван и Тилл временно выключены редакцией.' }, { status: 503 });
     const payload = await request.json();
     const question = String(payload.question || '').trim();
     if (!question) return Response.json({ error: 'Введите вопрос.' }, { status: 400 });
@@ -79,10 +106,10 @@ export async function POST(request) {
       bookSlug: String(payload.bookSlug || '').slice(0, 120),
       visitorKey: payload.visitorKey,
       currentChapter: Math.max(0, Number(payload.currentChapter || 0)),
+      blockedTopics: config.blockedTopics,
     });
     return Response.json({ messages, aiUsed: false }, { headers: { 'cache-control': 'no-store' } });
   } catch (error) {
     return Response.json({ error: error.message || 'Ответ временно недоступен.' }, { status: 503 });
   }
 }
-

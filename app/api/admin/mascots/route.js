@@ -3,7 +3,7 @@ import { invalidateCachedRead } from '../../../../lib/read-cache.js';
 import { ensureDb } from '../../../../lib/runtime.js';
 
 const CATEGORIES = new Set(['greeting', 'returning', 'recommendation', 'new-chapter', 'chapter-ending', 'search', 'empty', 'offline', 'error', 'achievement', 'seasonal', 'banter', 'flirt', 'tip']);
-const PAGES = new Set(['home', 'book', 'notifications', 'library', 'profile', 'other']);
+const PAGES = new Set(['home', 'book', 'notifications', 'library', 'offline', 'profile', 'other']);
 
 function parseList(value) {
   try {
@@ -138,4 +138,3 @@ export async function DELETE(request) {
     return Response.json({ error: error.message || 'Не удалось удалить реплику.' }, { status: 500 });
   }
 }
-

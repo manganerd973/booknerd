@@ -1,22 +1,37 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, Eraser, MessageCircle, Minus, Send, Settings, X } from 'lucide-react';
+import { ChevronDown, Eraser, Minus, Send, Settings, X } from 'lucide-react';
 import {
   BUILTIN_DIALOGUES,
   DEFAULT_MASCOT_SETTINGS,
   MASCOT_HISTORY_KEY,
+  MASCOT_MODE_PREVIEWS,
   MASCOT_QUICK_QUESTIONS,
   OFFLINE_DIALOGUE,
   loadMascotSettings,
   mascotBookSlug,
   mascotPageContext,
+  normalizeMascotSettings,
 } from './mascot-config.js';
 import { getVisitorKey } from '../site-analytics.js';
 
-const CONFIG_SESSION_KEY = 'booknerd-mascot-config-v1';
+const CONFIG_SESSION_KEY = 'booknerd-mascot-config-v2';
 const LAST_AUTO_KEY = 'booknerd-mascot-last-auto-v1';
 const MAX_HISTORY = 24;
+const AUTO_PAGE_CONTEXTS = new Set(['home', 'book', 'notifications', 'library', 'profile', 'offline', 'other']);
+const TIP_CATEGORIES = new Set(['tip', 'recommendation', 'new-chapter', 'offline', 'error']);
+
+function normalizeSystemConfig(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  return {
+    enabled: source.enabled !== false,
+    aiEnabled: source.aiEnabled === true,
+    disabledPages: Array.isArray(source.disabledPages) ? source.disabledPages : [],
+    blockedTopics: Array.isArray(source.blockedTopics) ? source.blockedTopics : [],
+    dialogues: Array.isArray(source.dialogues) ? source.dialogues : [],
+  };
+}
 
 function readHistory() {
   try {
@@ -75,6 +90,8 @@ export default function MascotSystem() {
   const inputRef = useRef(null);
   const panelRef = useRef(null);
   const swipeStart = useRef(null);
+  const settingsRef = useRef(DEFAULT_MASCOT_SETTINGS);
+  const previousPathRef = useRef('');
 
   const pageContext = mascotPageContext(pathname);
   const hiddenByPage = pageContext === 'hidden' || systemConfig.disabledPages.includes(pageContext);
@@ -84,35 +101,93 @@ export default function MascotSystem() {
   const currentChapter = Number(manualContext?.currentChapter || 0);
 
   useEffect(() => {
-    setPathname(window.location.pathname);
-    setSettings(loadMascotSettings());
+    const initialSettings = loadMascotSettings();
+    settingsRef.current = initialSettings;
+    setPathname(`${window.location.pathname}${window.location.search}`);
+    setSettings(initialSettings);
     setHistory(readHistory());
     setReady(true);
 
-    const onSettings = (event) => setSettings({ ...DEFAULT_MASCOT_SETTINGS, ...(event.detail || loadMascotSettings()) });
+    const showModePreview = (mode) => {
+      if (mode === 'hidden') {
+        setOpen(false);
+        setEdgeDialogue(null);
+        return;
+      }
+      const preview = MASCOT_MODE_PREVIEWS[mode] || MASCOT_MODE_PREVIEWS.normal;
+      setEdgeDialogue(preview);
+      try {
+        const locationKey = `${window.location.pathname}${window.location.search}`;
+        const context = mascotPageContext(locationKey);
+        sessionStorage.setItem(`booknerd-mascot-shown:v2:${mode}:${context}:${locationKey}`, '1');
+        localStorage.setItem(LAST_AUTO_KEY, String(Date.now()));
+      } catch { /* preview remains visible without storage */ }
+    };
+    const onSettings = (event) => {
+      const next = normalizeMascotSettings(event.detail || loadMascotSettings());
+      const modeChanged = next.mode !== settingsRef.current.mode;
+      settingsRef.current = next;
+      setSettings(next);
+      if (modeChanged) showModePreview(next.mode);
+    };
+    const onModePreview = (event) => showModePreview(normalizeMascotSettings({ ...settingsRef.current, mode: event.detail?.mode }).mode);
     const onOpen = (event) => {
       if (event.detail) setManualContext(event.detail);
       setEdgeDialogue(null);
       setOpen(true);
     };
     const onClear = () => setHistory([]);
+    let routeTimer = null;
+    const updatePath = () => setPathname(`${window.location.pathname}${window.location.search}`);
+    const onLinkClick = (event) => {
+      const link = event.target instanceof Element ? event.target.closest('a[href]') : null;
+      if (!link || link.target === '_blank' || link.origin !== window.location.origin) return;
+      window.clearTimeout(routeTimer);
+      routeTimer = window.setTimeout(updatePath, 0);
+    };
     window.addEventListener('booknerd:mascot-settings', onSettings);
+    window.addEventListener('booknerd:preview-mascot-mode', onModePreview);
     window.addEventListener('booknerd:open-mascots', onOpen);
     window.addEventListener('booknerd:mascot-history-cleared', onClear);
+    window.addEventListener('popstate', updatePath);
+    window.addEventListener('hashchange', updatePath);
+    document.addEventListener('click', onLinkClick, true);
     return () => {
+      window.clearTimeout(routeTimer);
       window.removeEventListener('booknerd:mascot-settings', onSettings);
+      window.removeEventListener('booknerd:preview-mascot-mode', onModePreview);
       window.removeEventListener('booknerd:open-mascots', onOpen);
       window.removeEventListener('booknerd:mascot-history-cleared', onClear);
+      window.removeEventListener('popstate', updatePath);
+      window.removeEventListener('hashchange', updatePath);
+      document.removeEventListener('click', onLinkClick, true);
     };
   }, []);
+
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
+
+  useEffect(() => {
+    if (!previousPathRef.current) {
+      previousPathRef.current = pathname;
+      return;
+    }
+    if (previousPathRef.current !== pathname) {
+      previousPathRef.current = pathname;
+      setManualContext(null);
+      setEdgeDialogue(null);
+      setOpen(false);
+    }
+  }, [pathname]);
 
   useEffect(() => {
     if (!ready || hiddenByPage) return;
     let active = true;
     try {
       const cached = JSON.parse(sessionStorage.getItem(CONFIG_SESSION_KEY) || 'null');
-      if (cached?.savedAt && Date.now() - cached.savedAt < 5 * 60 * 1000) {
-        setSystemConfig(cached.config);
+      if (cached?.savedAt && Date.now() - cached.savedAt < 30 * 60 * 1000) {
+        setSystemConfig(normalizeSystemConfig(cached.config));
         return;
       }
     } catch { /* fetch a fresh lightweight configuration */ }
@@ -120,37 +195,47 @@ export default function MascotSystem() {
       .then((response) => response.ok ? response.json() : null)
       .then((data) => {
         if (!active || !data?.config) return;
-        setSystemConfig(data.config);
-        try { sessionStorage.setItem(CONFIG_SESSION_KEY, JSON.stringify({ savedAt: Date.now(), config: data.config })); } catch { /* optional cache */ }
+        const nextConfig = normalizeSystemConfig(data.config);
+        setSystemConfig(nextConfig);
+        try { sessionStorage.setItem(CONFIG_SESSION_KEY, JSON.stringify({ savedAt: Date.now(), config: nextConfig })); } catch { /* optional cache */ }
       })
       .catch(() => {});
     return () => { active = false; };
   }, [hiddenByPage, ready]);
 
   useEffect(() => {
-    if (!ready || globallyHidden || hiddenByPage || readerHidden || !settings.showGreeting) return undefined;
-    if (!['home', 'book', 'notifications'].includes(pageContext)) return undefined;
-    const pageKey = `booknerd-mascot-shown:${pageContext}:${pathname}`;
+    if (!ready || globallyHidden || hiddenByPage || readerHidden) return undefined;
+    if (!AUTO_PAGE_CONTEXTS.has(pageContext)) return undefined;
+    const pageKey = `booknerd-mascot-shown:v2:${settings.mode}:${pageContext}:${pathname}`;
     try {
       if (sessionStorage.getItem(pageKey) === '1') return undefined;
       const last = Number(localStorage.getItem(LAST_AUTO_KEY) || 0);
-      const interval = settings.mode === 'more' ? 5 * 60 * 1000 : 20 * 60 * 1000;
+      const interval = settings.mode === 'more' ? 2 * 60 * 1000 : settings.mode === 'tips' ? 10 * 60 * 1000 : 20 * 60 * 1000;
       if (Date.now() - last < interval) return undefined;
     } catch { /* show at most once in memory */ }
 
-    const candidates = [...(systemConfig.dialogues || []), ...BUILTIN_DIALOGUES]
-      .filter((dialogue) => (dialogue.pages || []).includes(pageContext));
+    const isAllowed = (dialogue) => {
+      if (!(dialogue.pages || []).includes(pageContext)) return false;
+      if (!settings.showGreeting && ['greeting', 'returning'].includes(dialogue.category)) return false;
+      if (!settings.showRecommendations && dialogue.category === 'recommendation') return false;
+      if (settings.mode === 'tips' && !TIP_CATEGORIES.has(dialogue.category)) return false;
+      return true;
+    };
+    const customCandidates = (systemConfig.dialogues || []).filter(isAllowed);
+    const builtinCandidates = BUILTIN_DIALOGUES.filter(isAllowed);
+    const candidates = customCandidates.length ? customCandidates : builtinCandidates;
     const chosen = candidates[Math.floor(Date.now() / 60000) % Math.max(1, candidates.length)];
     if (!chosen) return undefined;
     const timer = window.setTimeout(() => {
-      setEdgeDialogue({ ...chosen, lines: settings.mode === 'tips' ? chosen.lines.slice(0, 1) : chosen.lines.slice(0, 4) });
+      const maxLines = settings.mode === 'tips' ? 2 : settings.mode === 'more' ? 5 : 3;
+      setEdgeDialogue({ ...chosen, lines: chosen.lines.slice(0, maxLines) });
       try {
         sessionStorage.setItem(pageKey, '1');
         localStorage.setItem(LAST_AUTO_KEY, String(Date.now()));
       } catch { /* frequency protection remains best effort */ }
-    }, 2400);
+    }, settings.mode === 'more' ? 650 : settings.mode === 'tips' ? 1200 : 2400);
     return () => window.clearTimeout(timer);
-  }, [globallyHidden, hiddenByPage, pageContext, pathname, readerHidden, ready, settings.mode, settings.showGreeting, systemConfig.dialogues]);
+  }, [globallyHidden, hiddenByPage, pageContext, pathname, readerHidden, ready, settings.mode, settings.showGreeting, settings.showRecommendations, systemConfig.dialogues]);
 
   useEffect(() => {
     if (!edgeDialogue) return undefined;
@@ -283,7 +368,7 @@ export default function MascotSystem() {
               <label><span className="sr-only">Спросить о книге</span><input ref={inputRef} value={input} onChange={(event) => setInput(event.target.value)} placeholder="Спросить о книге…" maxLength={1000} /></label>
               <button type="submit" disabled={!input.trim() || sending} aria-label="Отправить вопрос">{sending ? <span className="mascot-sending" /> : <Send size={19} />}</button>
             </form>
-            <footer className="mascot-chat-footer"><span>{systemConfig.aiEnabled ? 'AI включён редакцией' : 'Без автоматических AI-запросов'}</span><button type="button" onClick={clearHistory}><Eraser size={15} /> Очистить</button></footer>
+            <footer className="mascot-chat-footer"><span>{settings.mode === 'more' ? 'Режим: больше сценок' : settings.mode === 'tips' ? 'Режим: только подсказки' : 'Режим: обычный'}</span><button type="button" onClick={clearHistory}><Eraser size={15} /> Очистить</button></footer>
           </aside>
         </div>
       ) : null}

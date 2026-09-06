@@ -1,16 +1,71 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Award, BookHeart, BookOpen, Check, Clock3, Flame, Library, Save, Sparkles, Star, UserRound } from 'lucide-react';
+import { Award, BookHeart, BookOpen, Camera, Check, Clock3, Flame, Library, LoaderCircle, Save, Sparkles, Star, Trash2, UserRound } from 'lucide-react';
 import { getVisitorKey } from './site-analytics.js';
 import { loadReaderLibrary } from './reader-library.jsx';
 import { APP_THEME_OPTIONS, setStoredAppTheme, setStoredAtmosphere } from './app-preferences.jsx';
 import ProfileNotificationSettings from './profile-notification-settings.jsx';
 import { SiteFooter, SiteHeader } from './page-chrome.jsx';
 import MascotSettings from './mascots/mascot-settings.jsx';
-import { DEFAULT_MASCOT_SETTINGS, saveMascotSettings } from './mascots/mascot-config.js';
+import { DEFAULT_MASCOT_SETTINGS, hasStoredMascotSettings, loadMascotSettings, saveMascotSettings } from './mascots/mascot-config.js';
 
-const DEFAULT_PROFILE = { displayName: 'Читатель BOOKNERD', banner: 'books', favoriteCharacters: [], favoriteQuotes: [], appTheme: 'original', atmosphere: 'auto', mascotPreferences: DEFAULT_MASCOT_SETTINGS };
+const DEFAULT_PROFILE = { displayName: 'Читатель BOOKNERD', avatarUrl: '', banner: 'books', favoriteCharacters: [], favoriteQuotes: [], appTheme: 'original', atmosphere: 'auto', mascotPreferences: DEFAULT_MASCOT_SETTINGS };
+const MAX_AVATAR_SOURCE_BYTES = 10 * 1024 * 1024;
+const MAX_AVATAR_UPLOAD_BYTES = 180 * 1024;
+
+function canvasToBlob(canvas, type, quality) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Не удалось подготовить аватар.')), type, quality);
+  });
+}
+
+async function prepareAvatar(file) {
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+    throw new Error('Для аватара подходят JPG, PNG и WEBP.');
+  }
+  if (file.size > MAX_AVATAR_SOURCE_BYTES) {
+    throw new Error('Выберите фотографию размером меньше 10 МБ.');
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = new Image();
+    await new Promise((resolve, reject) => {
+      image.onload = resolve;
+      image.onerror = () => reject(new Error('Не удалось прочитать фотографию.'));
+      image.src = objectUrl;
+    });
+    const sourceSize = Math.min(image.naturalWidth, image.naturalHeight);
+    const sourceX = Math.max(0, Math.round((image.naturalWidth - sourceSize) / 2));
+    const sourceY = Math.max(0, Math.round((image.naturalHeight - sourceSize) / 2));
+    const attempts = [
+      { size: 320, quality: 0.82 },
+      { size: 256, quality: 0.74 },
+      { size: 192, quality: 0.66 },
+    ];
+
+    for (const attempt of attempts) {
+      const canvas = document.createElement('canvas');
+      canvas.width = attempt.size;
+      canvas.height = attempt.size;
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Браузер не смог обработать фотографию.');
+      context.imageSmoothingEnabled = true;
+      context.imageSmoothingQuality = 'high';
+      context.drawImage(image, sourceX, sourceY, sourceSize, sourceSize, 0, 0, attempt.size, attempt.size);
+      const blob = await canvasToBlob(canvas, 'image/webp', attempt.quality);
+      if (blob.size <= MAX_AVATAR_UPLOAD_BYTES) {
+        const type = blob.type || 'image/webp';
+        const extension = type === 'image/png' ? 'png' : type === 'image/jpeg' ? 'jpg' : 'webp';
+        return new File([blob], `booknerd-avatar.${extension}`, { type });
+      }
+    }
+    throw new Error('Не удалось уменьшить фотографию. Попробуйте другое изображение.');
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
 
 function formatDuration(seconds) {
   const minutes = Math.round(Number(seconds || 0) / 60);
@@ -41,6 +96,7 @@ export default function ProfilePage({ books = [] }) {
   const [library, setLibrary] = useState([]);
   const [memories, setMemories] = useState({ annotations: [], capsules: [] });
   const [notice, setNotice] = useState('');
+  const [avatarBusy, setAvatarBusy] = useState(false);
   const booksById = useMemo(() => new Map(books.map((book) => [book.id, book])), [books]);
   const enrichedLibrary = useMemo(() => library.map((item) => ({ ...item, book: booksById.get(item.bookId) })).filter((item) => item.book), [booksById, library]);
   const favoriteBooks = enrichedLibrary.filter((item) => item.status === 'favorite');
@@ -50,13 +106,19 @@ export default function ProfilePage({ books = [] }) {
 
   useEffect(() => {
     const visitorKey = getVisitorKey();
-    Promise.all([
+    const localMascotPreferences = loadMascotSettings();
+    const hasLocalMascotPreferences = hasStoredMascotSettings();
+    setProfile((current) => ({ ...current, mascotPreferences: localMascotPreferences }));
+    Promise.allSettled([
       fetch(`/api/reader-hub?visitorKey=${encodeURIComponent(visitorKey)}`, { cache: 'no-store' }).then((response) => response.json()),
       fetch(`/api/reader-stats?visitorKey=${encodeURIComponent(visitorKey)}`, { cache: 'no-store' }).then((response) => response.json()),
       loadReaderLibrary(),
-    ]).then(([hub, statData, libraryData]) => {
+    ]).then(([hubResult, statResult, libraryResult]) => {
+      const hub = hubResult.status === 'fulfilled' ? hubResult.value : {};
+      const statData = statResult.status === 'fulfilled' ? statResult.value : {};
+      const libraryData = libraryResult.status === 'fulfilled' ? libraryResult.value : [];
       if (hub.profile) {
-        const loadedProfile = { ...DEFAULT_PROFILE, ...hub.profile, mascotPreferences: { ...DEFAULT_MASCOT_SETTINGS, ...(hub.profile.mascotPreferences || {}) } };
+        const loadedProfile = { ...DEFAULT_PROFILE, ...hub.profile, mascotPreferences: hasLocalMascotPreferences ? localMascotPreferences : { ...DEFAULT_MASCOT_SETTINGS, ...(hub.profile.mascotPreferences || {}) } };
         setProfile(loadedProfile);
         saveMascotSettings(loadedProfile.mascotPreferences);
       }
@@ -72,8 +134,56 @@ export default function ProfilePage({ books = [] }) {
         }
       } catch { /* memory box still works with server data */ }
       setMemories({ annotations, capsules: hub.capsules || [] });
-    }).catch(() => setNotice('Не удалось загрузить часть статистики.'));
+      if ([hubResult, statResult, libraryResult].some((result) => result.status === 'rejected') || hub.error || statData.error) {
+        setNotice('Не удалось загрузить часть профиля. Попробуйте обновить страницу позже.');
+      }
+    });
   }, []);
+
+  const chooseAvatar = async (event) => {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    setAvatarBusy(true);
+    setNotice('');
+    try {
+      const avatar = await prepareAvatar(file);
+      const formData = new FormData();
+      formData.append('visitorKey', getVisitorKey());
+      formData.append('avatar', avatar);
+      const response = await fetch('/api/reader-avatar', { method: 'POST', body: formData });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Не удалось сохранить аватар.');
+      setProfile((current) => ({ ...current, avatarUrl: data.avatarUrl || '' }));
+      setNotice('Аватар сохранён.');
+    } catch (error) {
+      setNotice(error.message || 'Не удалось сохранить аватар.');
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
+
+  const removeAvatar = async () => {
+    if (!profile.avatarUrl || !window.confirm('Удалить аватар?')) return;
+    setAvatarBusy(true);
+    setNotice('');
+    try {
+      const response = await fetch('/api/reader-avatar', {
+        method: 'DELETE',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ visitorKey: getVisitorKey() }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Не удалось удалить аватар.');
+      setProfile((current) => ({ ...current, avatarUrl: '' }));
+      setNotice('Аватар удалён.');
+    } catch (error) {
+      setNotice(error.message || 'Не удалось удалить аватар.');
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
 
   const save = async () => {
     const response = await fetch('/api/reader-hub', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ visitorKey: getVisitorKey(), action: 'profile', ...profile }) });
@@ -90,7 +200,7 @@ export default function ProfilePage({ books = [] }) {
       <SiteHeader active="profile" />
       <main>
         <section className={`profile-banner is-${profile.banner}`}>
-          <div className="profile-avatar"><UserRound size={38} /></div>
+          <div className="profile-avatar">{profile.avatarUrl ? <img src={profile.avatarUrl} alt="" /> : <UserRound size={38} />}</div>
           <div><small>КАРТОЧКА ЧИТАТЕЛЯ</small><h1>{profile.displayName}</h1><p>Уровень {level.level} · {level.points} очков чтения</p></div>
           <span><Sparkles size={18} /> BOOKNERD READER</span>
         </section>
@@ -106,6 +216,17 @@ export default function ProfilePage({ books = [] }) {
           <section className="profile-editor">
             <div><span className="section-number">МОЙ ПРОФИЛЬ</span><h2>Настройте свою<br /><em>читательскую полку.</em></h2></div>
             <div className="profile-fields">
+              <div className="profile-avatar-field profile-wide">
+                <span>Аватар</span>
+                <div>
+                  <div className="profile-avatar-preview">{profile.avatarUrl ? <img src={profile.avatarUrl} alt="Текущий аватар" /> : <UserRound size={30} />}</div>
+                  <div className="profile-avatar-actions">
+                    <label className="profile-avatar-upload">{avatarBusy ? <LoaderCircle className="spin" size={16} /> : <Camera size={16} />}{avatarBusy ? 'Подготавливаем…' : profile.avatarUrl ? 'Заменить фото' : 'Выбрать фото'}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={chooseAvatar} disabled={avatarBusy} /></label>
+                    {profile.avatarUrl ? <button type="button" onClick={removeAvatar} disabled={avatarBusy}><Trash2 size={15} /> Удалить</button> : null}
+                    <small>Фотография автоматически обрезается и уменьшается, чтобы экономить место.</small>
+                  </div>
+                </div>
+              </div>
               <label><span>Имя или псевдоним</span><input value={profile.displayName} onChange={(event) => setProfile({ ...profile, displayName: event.target.value })} /></label>
               <label><span>Баннер профиля</span><select value={profile.banner} onChange={(event) => setProfile({ ...profile, banner: event.target.value })}><option value="books">Книжные полки</option><option value="stars">Звёздная ночь</option><option value="forest">Лесная библиотека</option><option value="archive">Старинный архив</option><option value="garden">Японский сад</option></select></label>
               <label><span>Цвет приложения</span><select value={profile.appTheme} onChange={(event) => setProfile({ ...profile, appTheme: event.target.value })}>{APP_THEME_OPTIONS.map((item) => <option value={item.id} key={item.id}>{item.label}</option>)}</select></label>

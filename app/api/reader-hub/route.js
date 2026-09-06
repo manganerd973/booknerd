@@ -45,6 +45,10 @@ function cleanList(value, limit = 30, itemLimit = 500) {
   return (Array.isArray(value) ? value : []).map((item) => String(item || '').trim().slice(0, itemLimit)).filter(Boolean).slice(0, limit);
 }
 
+function avatarUrl(key) {
+  return key ? `/api/covers/${String(key).split('/').map(encodeURIComponent).join('/')}` : '';
+}
+
 async function requireReader(request) {
   if (await hasReaderAccess(request)) return null;
   return Response.json({ error: 'Сначала введите пароль читателя.' }, { status: 401 });
@@ -81,6 +85,7 @@ export async function GET(request) {
     return Response.json({
       profile: profile ? {
         displayName: profile.display_name,
+        avatarUrl: avatarUrl(profile.photo_key),
         banner: profile.banner,
         favoriteCharacters: parseList(profile.favorite_characters),
         favoriteQuotes: parseList(profile.favorite_quotes),

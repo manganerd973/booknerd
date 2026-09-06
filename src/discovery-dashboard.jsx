@@ -115,7 +115,7 @@ export default function DiscoveryDashboard({ books = [] }) {
 
       <div className="discovery-ranking-grid">
         <Ranking title="Обсуждают за 24 часа" icon={<Flame size={21} />} items={data?.discussed || []} empty="Как только начнутся новые обсуждения, они появятся здесь." label="Горячее обсуждение" />
-        <Ranking title="Быстро набирают популярность" icon={<TrendingUp size={21} />} items={data?.trending || []} empty="Подборка появится после первых чтений недели." label="Сейчас растёт" />
+        <Ranking title="Недавно обновились" icon={<TrendingUp size={21} />} items={data?.trending || []} empty="Подборка появится после обновления библиотеки." label="Свежая история" />
         <Ranking title="Выбор команды BOOKNERD" icon={<Sparkles size={21} />} items={data?.teamPick?.length ? data.teamPick : books.slice(0, 4)} empty="Команда готовит подборку." label="Советуем" />
       </div>
 

@@ -206,18 +206,24 @@ function QuoteOfDay({ quote }) {
   const [activeQuote, setActiveQuote] = useState(quote);
 
   useEffect(() => {
-    setActiveQuote(quote);
-  }, [quote]);
-
-  useEffect(() => {
     let active = true;
     let timeoutId;
+    let quotePool = quote ? [quote] : [];
 
-    const refresh = async () => {
+    const pickCurrentQuote = () => {
+      if (!active || !quotePool.length) return;
+      const slot = Math.floor(Date.now() / (2 * 60 * 1000));
+      setActiveQuote(quotePool[slot % quotePool.length]);
+    };
+
+    const loadPool = async () => {
       try {
         const response = await fetch('/api/quote-of-day', { cache: 'no-store' });
         const data = await response.json().catch(() => ({}));
-        if (active && response.ok && data.quote) setActiveQuote(data.quote);
+        if (!active || !response.ok) return;
+        if (Array.isArray(data.quotes) && data.quotes.length) quotePool = data.quotes;
+        else if (data.quote) quotePool = [data.quote];
+        pickCurrentQuote();
       } catch {
         // Keep the current quote when the reader is temporarily offline.
       }
@@ -226,25 +232,20 @@ function QuoteOfDay({ quote }) {
     const scheduleNext = () => {
       const interval = 2 * 60 * 1000;
       const delay = interval - (Date.now() % interval) + 250;
-      timeoutId = window.setTimeout(async () => {
-        await refresh();
+      timeoutId = window.setTimeout(() => {
+        pickCurrentQuote();
         if (active) scheduleNext();
       }, delay);
     };
 
-    const refreshWhenVisible = () => {
-      if (document.visibilityState === 'visible') refresh();
-    };
-
-    refresh();
+    pickCurrentQuote();
+    loadPool();
     scheduleNext();
-    document.addEventListener('visibilitychange', refreshWhenVisible);
     return () => {
       active = false;
       window.clearTimeout(timeoutId);
-      document.removeEventListener('visibilitychange', refreshWhenVisible);
     };
-  }, []);
+  }, [quote]);
 
   const sourceHref = activeQuote?.chapterId
     ? `/books/${activeQuote.bookSlug}/chapters/${activeQuote.chapterId}?page=${Number(activeQuote.page || 0) + 1}`

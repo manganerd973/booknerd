@@ -281,7 +281,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       if (document.visibilityState !== 'hidden') trackReaderPresence(book.id, chapter.id);
     };
     ping();
-    const timer = window.setInterval(ping, 30000);
+    const timer = window.setInterval(ping, 120000);
     document.addEventListener('visibilitychange', ping);
     return () => {
       window.clearInterval(timer);
@@ -577,6 +577,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
     })();
     const record = (seconds = 0, completed = false) => {
       if (stopped && !completed) return;
+      if (!completed && document.visibilityState === 'hidden') return;
       const currentReadingState = readingStateRef.current;
       fetch('/api/reading-progress', {
         method: 'POST',
@@ -596,7 +597,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       }).catch(() => {});
     };
     record(0, false);
-    const timer = window.setInterval(() => record(30, false), 30000);
+    const timer = window.setInterval(() => record(120, false), 120000);
     return () => {
       stopped = true;
       window.clearInterval(timer);
@@ -1743,7 +1744,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
                   ? 'Вы дошли до последней страницы. Оставьте оценку и отзыв — он сразу появится на главной странице этой книги.'
                   : 'Вы прочитали всё, что уже опубликовано. Книга автоматически остаётся в разделе «Читаю», а после выхода новой главы можно будет продолжить с этого места.'}</p>
             </div>
-            <MascotChapterEnding />
+            <MascotChapterEnding bookSlug={book.slug} currentChapter={chapter.chapterNumber} />
             <section className="reader-emotion-map">
               <small>Какая эмоция осталась после главы?</small>
               <div>

@@ -68,9 +68,21 @@ export function MobileBottomNavigation({ active = '' }) {
   ];
   useEffect(() => {
     let activeRequest = true;
+    try {
+      const cached = JSON.parse(sessionStorage.getItem('booknerd-notification-summary-v1') || 'null');
+      if (cached?.savedAt && Date.now() - cached.savedAt < 5 * 60 * 1000) {
+        setNotificationCount(Number(cached.unreadCount || 0));
+        return () => { activeRequest = false; };
+      }
+    } catch { /* fetch a fresh compact summary */ }
     fetch(`/api/notifications?visitorKey=${encodeURIComponent(getVisitorKey())}&summary=1`, { cache: 'no-store' })
       .then((response) => response.ok ? response.json() : null)
-      .then((data) => { if (activeRequest) setNotificationCount(Number(data?.unreadCount || 0)); })
+      .then((data) => {
+        if (!activeRequest || !data) return;
+        const unreadCount = Number(data.unreadCount || 0);
+        setNotificationCount(unreadCount);
+        try { sessionStorage.setItem('booknerd-notification-summary-v1', JSON.stringify({ savedAt: Date.now(), unreadCount })); } catch { /* optional cache */ }
+      })
       .catch(() => {});
     return () => { activeRequest = false; };
   }, []);

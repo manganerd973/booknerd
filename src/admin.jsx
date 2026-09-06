@@ -18,6 +18,7 @@ import {
   MessageCircle,
   Plus,
   Quote,
+  RefreshCw,
   Save,
   Search,
   Send,
@@ -268,6 +269,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
   const [artworkUploading, setArtworkUploading] = useState(false);
   const [notice, setNotice] = useState(null);
   const [audience, setAudience] = useState(null);
+  const [audienceLoading, setAudienceLoading] = useState(false);
   const [chapterPreviewOpen, setChapterPreviewOpen] = useState(false);
   const [adminAppInstalled, setAdminAppInstalled] = useState(false);
   const chapterBodyRef = useRef(null);
@@ -345,21 +347,19 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
   }, [flash]);
 
   const loadAudience = useCallback(async () => {
-    if (currentUser.role !== 'owner') return;
+    if (currentUser.role !== 'owner' || audienceLoading) return;
+    setAudienceLoading(true);
     try {
       setAudience(await api('/api/admin/analytics'));
-    } catch {
+    } catch (error) {
       setAudience(null);
+      flash(error.message || 'Не удалось загрузить статистику.', 'error');
+    } finally {
+      setAudienceLoading(false);
     }
-  }, [currentUser.role]);
+  }, [audienceLoading, currentUser.role, flash]);
 
   useEffect(() => { loadBooks(); }, [loadBooks]);
-  useEffect(() => {
-    if (currentUser.role !== 'owner') return undefined;
-    loadAudience();
-    const timer = window.setInterval(loadAudience, 30000);
-    return () => window.clearInterval(timer);
-  }, [currentUser.role, loadAudience]);
 
   const filteredBooks = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -924,10 +924,18 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
             </div>
             {view === 'dashboard' && currentUser.role === 'owner' ? <BackupCenter onNotice={flash} /> : null}
 
-            {currentUser.role === 'owner' ? (
+            {view === 'dashboard' && currentUser.role === 'owner' ? (
               <>
                 <section className="admin-audience">
-                  <div><span>ЖИВАЯ СТАТИСТИКА</span><h2>Читатели BOOKNERD</h2><p>Количество читателей обновляется примерно раз в 30 секунд.</p></div>
+                  <div>
+                    <span>СТАТИСТИКА ПО ЗАПРОСУ</span>
+                    <h2>Читатели BOOKNERD</h2>
+                    <p>Чтобы беречь бесплатный лимит D1, полный отчёт загружается только по вашему нажатию.</p>
+                    <button className="admin-audience-refresh" type="button" onClick={loadAudience} disabled={audienceLoading}>
+                      {audienceLoading ? <LoaderCircle className="spin" size={16} /> : <RefreshCw size={16} />}
+                      {audienceLoading ? 'Загружаем…' : audience ? 'Обновить статистику' : 'Загрузить статистику'}
+                    </button>
+                  </div>
                   <div className="admin-audience-grid">
                     <article><Wifi size={23} /><strong>{audience?.onlineReaders ?? '—'}</strong><p>сейчас читают</p></article>
                     <article><Smartphone size={23} /><strong>{audience?.installs ?? '—'}</strong><p>установили на телефон</p></article>

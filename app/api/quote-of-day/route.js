@@ -1,15 +1,20 @@
 import { hasReaderAccess } from '../../../lib/reader-access.js';
-import { getNextQuoteChangeAt, getQuoteOfDay } from '../../../lib/reader-notes.js';
+import { getNextQuoteChangeAt, getQuotePool } from '../../../lib/reader-notes.js';
 
 export const dynamic = 'force-dynamic';
 
 const QUOTE_INTERVAL_MS = 2 * 60 * 1000;
-const CACHE_VERSION = 'v38';
+const POOL_CACHE_MS = 30 * 60 * 1000;
+const CACHE_VERSION = 'v41';
 let pendingSlot = null;
 let pendingPayload = null;
 
 function quoteSlot(now) {
   return Math.floor(now.getTime() / QUOTE_INTERVAL_MS);
+}
+
+function poolSlot(now) {
+  return Math.floor(now.getTime() / POOL_CACHE_MS);
 }
 
 function cacheRequest(request, slot) {
@@ -31,8 +36,15 @@ function clientResponse(payload, cacheStatus) {
 async function createPayload(now, slot) {
   if (pendingSlot === slot && pendingPayload) return pendingPayload;
   pendingSlot = slot;
-  pendingPayload = getQuoteOfDay(now)
-    .then((quote) => ({ quote, nextChangeAt: getNextQuoteChangeAt(now) }))
+  pendingPayload = getQuotePool()
+    .then((quotes) => {
+      const currentSlot = quoteSlot(now);
+      return {
+        quotes,
+        quote: quotes[currentSlot % quotes.length] || null,
+        nextChangeAt: getNextQuoteChangeAt(now),
+      };
+    })
     .finally(() => {
       if (pendingSlot === slot) {
         pendingSlot = null;
@@ -48,20 +60,21 @@ export async function GET(request) {
   }
   try {
     const now = new Date();
-    const slot = quoteSlot(now);
+    const slot = poolSlot(now);
     const edgeCache = globalThis.caches?.default || null;
     const key = cacheRequest(request, slot);
     if (edgeCache) {
       const cached = await edgeCache.match(key).catch(() => null);
       if (cached) {
         const payload = await cached.json().catch(() => null);
-        if (payload?.quote) return clientResponse(payload, 'HIT');
+        if (payload?.quote && Array.isArray(payload?.quotes)) return clientResponse(payload, 'HIT');
       }
     }
 
     const payload = await createPayload(now, slot);
     if (edgeCache && payload?.quote) {
-      const secondsUntilChange = Math.max(1, Math.ceil((new Date(payload.nextChangeAt).getTime() - Date.now()) / 1000));
+      const nextPoolSlot = (slot + 1) * POOL_CACHE_MS;
+      const secondsUntilChange = Math.max(1, Math.ceil((nextPoolSlot - Date.now()) / 1000));
       const cacheable = Response.json(payload, {
         headers: { 'cache-control': `public, max-age=${secondsUntilChange}` },
       });

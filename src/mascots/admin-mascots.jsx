@@ -5,7 +5,7 @@ import { Check, LoaderCircle, Plus, Save, Sparkles, Trash2, X } from 'lucide-rea
 
 const PAGE_OPTIONS = [
   ['home', 'Главная'], ['book', 'Страница книги'], ['notifications', 'Уведомления'],
-  ['library', 'Закладки'], ['profile', 'Профиль'], ['other', 'Другие страницы'],
+  ['library', 'Закладки'], ['offline', 'Офлайн-книги'], ['profile', 'Профиль'], ['other', 'Другие страницы'],
 ];
 const CATEGORY_OPTIONS = [
   ['greeting', 'Приветствие'], ['returning', 'Возвращение'], ['recommendation', 'Рекомендация'],
@@ -31,7 +31,10 @@ function localDate(value) {
 
 export default function AdminMascots({ onNotice }) {
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [config, setConfig] = useState({ enabled: true, aiEnabled: false, disabledPages: [], blockedTopics: [] });
   const [dialogues, setDialogues] = useState([]);
   const [draft, setDraft] = useState(blankDialogue);
@@ -42,16 +45,24 @@ export default function AdminMascots({ onNotice }) {
   };
 
   useEffect(() => {
-    adminApi('/api/admin/mascots').then(applyData).catch((error) => onNotice(error.message, 'error')).finally(() => setLoading(false));
-  }, [onNotice]);
+    setLoading(true);
+    setLoadError('');
+    adminApi('/api/admin/mascots')
+      .then(applyData)
+      .catch((error) => {
+        setLoadError(error.message);
+        onNotice?.(error.message, 'error');
+      })
+      .finally(() => setLoading(false));
+  }, [onNotice, reloadKey]);
 
   const saveConfig = async () => {
     setSaving(true);
     try {
       const data = await adminApi('/api/admin/mascots', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(config) });
       applyData(data);
-      onNotice('Настройки Ивана и Тилла сохранены.');
-    } catch (error) { onNotice(error.message, 'error'); }
+      onNotice?.('Настройки Ивана и Тилла сохранены.');
+    } catch (error) { onNotice?.(error.message, 'error'); }
     finally { setSaving(false); }
   };
 
@@ -69,8 +80,9 @@ export default function AdminMascots({ onNotice }) {
       });
       applyData(data);
       setDraft(blankDialogue);
-      onNotice('Реплика сохранена.');
-    } catch (error) { onNotice(error.message, 'error'); }
+      setPreviewOpen(false);
+      onNotice?.('Реплика сохранена.');
+    } catch (error) { onNotice?.(error.message, 'error'); }
     finally { setSaving(false); }
   };
 
@@ -94,8 +106,8 @@ export default function AdminMascots({ onNotice }) {
       const data = await adminApi(`/api/admin/mascots?id=${encodeURIComponent(dialogue.id)}`, { method: 'DELETE' });
       applyData(data);
       if (draft.id === dialogue.id) setDraft(blankDialogue);
-      onNotice('Реплика удалена.');
-    } catch (error) { onNotice(error.message, 'error'); }
+      onNotice?.('Реплика удалена.');
+    } catch (error) { onNotice?.(error.message, 'error'); }
   };
 
   if (loading) return <section className="admin-content"><div className="admin-loading"><LoaderCircle className="spin" /> Загружаем помощников…</div></section>;
@@ -106,6 +118,8 @@ export default function AdminMascots({ onNotice }) {
         <div><span className="admin-kicker">КНИЖНЫЕ ПОМОЩНИКИ</span><h1>Иван<br /><em>и Тилл.</em></h1><p>Управляйте появлениями и репликами. Показы диалогов не записываются в D1.</p></div>
         <div className="admin-mascot-portraits" aria-hidden="true"><img src="/mascots/ivan.webp" alt="" /><img src="/mascots/till.webp" alt="" /></div>
       </div>
+
+      {loadError ? <div className="admin-mascot-error" role="alert"><div><strong>Настройки временно не загрузились</strong><span>{loadError}</span></div><button type="button" onClick={() => setReloadKey((value) => value + 1)}>Повторить</button></div> : null}
 
       <section className="admin-mascot-config">
         <div><Sparkles size={24} /><span><small>ОБЩИЕ НАСТРОЙКИ</small><h2>Когда помощники доступны</h2></span></div>
@@ -127,11 +141,20 @@ export default function AdminMascots({ onNotice }) {
           <label className="is-ivan"><span><img src="/mascots/ivan.webp" alt="" /> Реплика Ивана</span><textarea rows="3" value={draft.ivanText} onChange={(event) => setDraft({ ...draft, ivanText: event.target.value })} maxLength={800} /></label>
           <label className="is-till"><span><img src="/mascots/till.webp" alt="" /> Реплика Тилла</span><textarea rows="3" value={draft.tillText} onChange={(event) => setDraft({ ...draft, tillText: event.target.value })} maxLength={800} /></label>
         </div>
+        {previewOpen && (draft.ivanText.trim() || draft.tillText.trim()) ? (
+          <div className="admin-mascot-preview" aria-label="Предпросмотр реплики">
+            {draft.ivanText.trim() ? <div className="is-ivan"><img src="/mascots/ivan.webp" alt="Иван" /><p><strong>Иван</strong>{draft.ivanText.trim()}</p></div> : null}
+            {draft.tillText.trim() ? <div className="is-till"><p><strong>Тилл</strong>{draft.tillText.trim()}</p><img src="/mascots/till.webp" alt="Тилл" /></div> : null}
+          </div>
+        ) : null}
         <div className="admin-fields two-columns">
           <label><span>Начало показа — необязательно</span><input type="datetime-local" value={draft.startsAt} onChange={(event) => setDraft({ ...draft, startsAt: event.target.value })} /></label>
           <label><span>Окончание показа — необязательно</span><input type="datetime-local" value={draft.endsAt} onChange={(event) => setDraft({ ...draft, endsAt: event.target.value })} /></label>
         </div>
-        <button className="admin-primary" type="submit" disabled={saving}>{saving ? <LoaderCircle className="spin" size={17} /> : draft.id ? <Save size={17} /> : <Plus size={17} />} {draft.id ? 'Сохранить изменения' : 'Добавить реплику'}</button>
+        <div className="admin-mascot-form-actions">
+          <button type="button" onClick={() => setPreviewOpen((value) => !value)} disabled={!draft.ivanText.trim() && !draft.tillText.trim()}><Sparkles size={17} /> {previewOpen ? 'Скрыть предпросмотр' : 'Проверить реплику'}</button>
+          <button className="admin-primary" type="submit" disabled={saving}>{saving ? <LoaderCircle className="spin" size={17} /> : draft.id ? <Save size={17} /> : <Plus size={17} />} {draft.id ? 'Сохранить изменения' : 'Добавить реплику'}</button>
+        </div>
       </form>
 
       <section className="admin-mascot-dialogue-list">
@@ -150,4 +173,3 @@ export default function AdminMascots({ onNotice }) {
     </section>
   );
 }
-

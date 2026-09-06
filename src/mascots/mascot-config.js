@@ -11,6 +11,38 @@ export const DEFAULT_MASCOT_SETTINGS = {
   showRecommendations: true,
 };
 
+export const MASCOT_MODE_IDS = new Set(['normal', 'more', 'tips', 'hidden']);
+
+export const MASCOT_MODE_PREVIEWS = {
+  normal: {
+    id: 'mode-preview-normal',
+    category: 'banter',
+    pages: [],
+    lines: [
+      { character: 'till', text: 'Обычный режим включён. Мы будем появляться редко.' },
+      { character: 'ivan', text: 'Настолько редко, чтобы Тилл успевал придумать достойную реплику.' },
+    ],
+  },
+  more: {
+    id: 'mode-preview-more',
+    category: 'banter',
+    pages: [],
+    lines: [
+      { character: 'till', text: 'Теперь нас будет больше. Это правильное решение.' },
+      { character: 'ivan', text: 'Смелое заявление человека, который уже занял половину экрана.' },
+      { character: 'till', text: 'Я украшаю интерфейс.' },
+    ],
+  },
+  tips: {
+    id: 'mode-preview-tips',
+    category: 'tip',
+    pages: [],
+    lines: [
+      { character: 'ivan', text: 'Режим подсказок включён. Покажем только полезную информацию без сценок и споров.' },
+    ],
+  },
+};
+
 export const MASCOT_MODES = [
   { id: 'normal', label: 'Обычный режим', description: 'Редкие реплики и полезные подсказки.' },
   { id: 'more', label: 'Больше Ивана и Тилла', description: 'Немного больше сценок и разговоров.' },
@@ -48,6 +80,14 @@ export const BUILTIN_DIALOGUES = [
     ],
   },
   {
+    id: 'home-tip',
+    category: 'tip',
+    pages: ['home'],
+    lines: [
+      { character: 'ivan', text: 'Продолжить чтение можно с последней сохранённой страницы на главной.' },
+    ],
+  },
+  {
     id: 'book-page',
     category: 'tip',
     pages: ['book'],
@@ -64,6 +104,30 @@ export const BUILTIN_DIALOGUES = [
       { character: 'till', text: 'Новая глава! Я уже всё проверил.' },
       { character: 'ivan', text: 'Он прочитал только заголовок.' },
       { character: 'till', text: 'Этого было достаточно.' },
+    ],
+  },
+  {
+    id: 'notifications-tip',
+    category: 'tip',
+    pages: ['notifications'],
+    lines: [
+      { character: 'ivan', text: 'В уведомлении видно, где Вы остановились и какие новые главы уже опубликованы.' },
+    ],
+  },
+  {
+    id: 'library-tip',
+    category: 'tip',
+    pages: ['library'],
+    lines: [
+      { character: 'ivan', text: 'Скачанные книги находятся на полке «Офлайн» и открываются без интернета.' },
+    ],
+  },
+  {
+    id: 'profile-tip',
+    category: 'tip',
+    pages: ['profile'],
+    lines: [
+      { character: 'ivan', text: 'Здесь можно в любой момент изменить режим помощников или полностью скрыть нас.' },
     ],
   },
   {
@@ -88,24 +152,46 @@ export const OFFLINE_DIALOGUE = [
   { character: 'ivan', text: 'Но сохранённые книги всё ещё с нами.' },
 ];
 
+export function normalizeMascotSettings(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  return {
+    mode: MASCOT_MODE_IDS.has(source.mode) ? source.mode : DEFAULT_MASCOT_SETTINGS.mode,
+    quietReading: source.quietReading !== false,
+    reducedMotion: source.reducedMotion === true,
+    showGreeting: source.showGreeting !== false,
+    showChapterEnding: source.showChapterEnding !== false,
+    showRecommendations: source.showRecommendations !== false,
+  };
+}
+
 export function loadMascotSettings() {
   if (typeof window === 'undefined') return DEFAULT_MASCOT_SETTINGS;
   try {
     const saved = JSON.parse(localStorage.getItem(MASCOT_SETTINGS_KEY) || '{}');
-    return { ...DEFAULT_MASCOT_SETTINGS, ...saved };
+    return normalizeMascotSettings(saved);
   } catch {
     return DEFAULT_MASCOT_SETTINGS;
   }
 }
 
+export function hasStoredMascotSettings() {
+  if (typeof window === 'undefined') return false;
+  try {
+    return Boolean(localStorage.getItem(MASCOT_SETTINGS_KEY));
+  } catch {
+    return false;
+  }
+}
+
 export function saveMascotSettings(settings) {
   if (typeof window === 'undefined') return;
+  const normalized = normalizeMascotSettings(settings);
   try {
-    localStorage.setItem(MASCOT_SETTINGS_KEY, JSON.stringify({ ...DEFAULT_MASCOT_SETTINGS, ...settings }));
-    window.dispatchEvent(new CustomEvent('booknerd:mascot-settings', { detail: settings }));
+    localStorage.setItem(MASCOT_SETTINGS_KEY, JSON.stringify(normalized));
   } catch {
     // Preferences remain active until the current page closes.
   }
+  window.dispatchEvent(new CustomEvent('booknerd:mascot-settings', { detail: normalized }));
 }
 
 export function mascotPageContext(pathname = '') {
@@ -113,6 +199,7 @@ export function mascotPageContext(pathname = '') {
   if (pathname.startsWith('/books/') && pathname.includes('/chapters/')) return 'reader';
   if (pathname.startsWith('/books/')) return 'book';
   if (pathname.startsWith('/notifications')) return 'notifications';
+  if (pathname.startsWith('/library/offline') || (pathname.startsWith('/library') && /[?&]tab=offline(?:&|$)/.test(pathname))) return 'offline';
   if (pathname.startsWith('/library')) return 'library';
   if (pathname.startsWith('/profile')) return 'profile';
   if (pathname.startsWith('/admin') || pathname.startsWith('/reader-access')) return 'hidden';

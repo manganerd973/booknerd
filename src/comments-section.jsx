@@ -179,11 +179,14 @@ export default function CommentsSection({ bookId, chapterId = null, scope = 'com
       <div className={`reader-comment-thread ${depth ? 'is-reply-thread' : ''}`} key={comment.id}>
         <article id={`${anchorPrefix}-${comment.id}`} className={`reader-comment ${depth ? 'is-reply' : ''} ${comment.authorRole === 'admin' ? 'is-admin' : ''}`}>
           <header className="reader-comment-header">
-            <div className="reader-comment-author-line">
-              <strong>{comment.authorName}</strong>
-              {comment.authorRole === 'admin' ? <span className="reader-comment-admin-badge"><ShieldCheck size={12} /> Администратор</span> : null}
+            <div className="reader-comment-avatar">{comment.avatarUrl ? <img src={comment.avatarUrl} alt="" loading="lazy" /> : <span>{String(comment.authorName || 'B').slice(0, 1).toUpperCase()}</span>}</div>
+            <div className="reader-comment-header-copy">
+              <div className="reader-comment-author-line">
+                <strong>{comment.authorName}</strong>
+                {comment.authorRole === 'admin' ? <span className="reader-comment-admin-badge"><ShieldCheck size={12} /> Администратор</span> : null}
+              </div>
+              {includeChapterComments && comment.chapterId ? <span>Глава {comment.chapterNumber}{comment.chapterTitle ? ` · ${comment.chapterTitle}` : ''}</span> : null}
             </div>
-            {includeChapterComments && comment.chapterId ? <span>Глава {comment.chapterNumber}{comment.chapterTitle ? ` · ${comment.chapterTitle}` : ''}</span> : null}
           </header>
           <CommentBody comment={comment} />
           <div className="reader-comment-actions">
