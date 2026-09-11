@@ -3,7 +3,6 @@
 import React from 'react';
 import { MessageCircle } from 'lucide-react';
 import { CHAPTER_ENDING_DIALOGUES, loadMascotSettings, normalizeMascotSettings } from './mascot-config.js';
-import { resolveFirstSpeaker } from './mascot-dialogue-engine.js';
 
 export default function MascotChapterEnding({ bookSlug = '', currentChapter = 0 }) {
   const [visible, setVisible] = React.useState(false);
@@ -32,8 +31,7 @@ export default function MascotChapterEnding({ bookSlug = '', currentChapter = 0 
             customDialogueRef.current = custom.lines;
             setDialogue(custom.lines);
           } else {
-            const firstSpeaker = resolveFirstSpeaker(data?.config?.defaultFirstSpeaker || 'alternate');
-            setDialogue(CHAPTER_ENDING_DIALOGUES[firstSpeaker] || CHAPTER_ENDING_DIALOGUES.till);
+            setDialogue(CHAPTER_ENDING_DIALOGUES.till);
           }
         })
         .catch(() => {});

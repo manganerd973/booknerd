@@ -7,49 +7,6 @@ import { getVisitorKey } from './site-analytics.js';
 const SHELF_KEY = 'booknerd:custom-shelves:v27';
 const REREAD_KEY = 'booknerd:reread:v27';
 
-function level(value, labels) {
-  const index = Math.max(0, Math.min(labels.length - 1, Number(value || 0)));
-  return labels[index];
-}
-
-function inferredProfile(book) {
-  const haystack = `${(book.genres || []).join(' ')} ${(book.tropes || []).join(' ')} ${(book.triggerWarnings || []).join(' ')}`.toLocaleLowerCase('ru-RU');
-  const romance = /роман|любов|romance|враги|friends to lovers/.test(haystack) ? 3 : 1;
-  const angst = /драма|утрат|смерт|травм|войн|насили|стекл/.test(haystack) ? 3 : 1;
-  const triggers = (book.triggerWarnings || []).length > 4 ? 3 : (book.triggerWarnings || []).length ? 2 : 0;
-  return {
-    romance: level(romance, ['Отсутствует', 'Низкий', 'Умеренный', 'Высокий', 'Основная линия']),
-    angst: level(angst, ['Минимальная', 'Низкая', 'Умеренная', 'Высокая', 'Очень высокая']),
-    pace: /триллер|детектив|экшен|приключ/.test(haystack) ? 'Быстрый' : 'Размеренный',
-    spice: book.hasHotScenes ? 'Высокая' : 'Низкая',
-    triggers: level(triggers, ['Лёгкая', 'Умеренная', 'Заметная', 'Высокая']),
-    atmosphere: [...(book.genres || []), ...(book.tropes || [])].slice(0, 5),
-    age: book.hasHotScenes || triggers >= 3 ? '18+' : triggers >= 2 ? '16+' : '12+',
-  };
-}
-
-export function BookSuitability({ book }) {
-  const profile = useMemo(() => {
-    const fallback = inferredProfile(book);
-    const manual = book.suitabilityProfile && typeof book.suitabilityProfile === 'object' ? book.suitabilityProfile : {};
-    const filled = Object.fromEntries(Object.entries(manual).filter(([, value]) => String(value || '').trim()));
-    return { ...fallback, ...filled, age: String(book.ageRating || '').trim() || fallback.age };
-  }, [book]);
-  const [endingOpen, setEndingOpen] = useState(false);
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const reasons = [book.hasHotScenes ? 'наличие откровенных сцен' : '', ...(book.triggerWarnings || []).slice(0, 2)].filter(Boolean);
-  const ageExplanation = String(book.ageReason || '').trim() || (reasons.length ? `Причина: ${reasons.join('; ')}.` : 'Ограничение установлено с учётом содержания книги.');
-  return <section className="book-quick-guide">
-    <div className="book-quick-guide-top">
-      <button type="button" className="book-quick-fit" onClick={() => setDetailsOpen((value) => !value)} aria-expanded={detailsOpen}><span>Подойдёт ли мне эта книга?</span><strong>{detailsOpen ? 'Скрыть' : 'Посмотреть'}</strong></button>
-      <span className="book-quick-age" title={ageExplanation}><small>Возрастное ограничение</small><strong>{profile.age}</strong></span>
-      <button type="button" className="book-quick-ending" onClick={() => setEndingOpen((value) => !value)}><span>Финал</span><strong>{endingOpen ? (book.status === 'Завершено' ? 'Открыт' : 'Книга выходит') : 'Спойлер'}</strong></button>
-    </div>
-    {profile.atmosphere.length ? <p className="book-quick-atmosphere"><small>Атмосфера:</small> {profile.atmosphere.map((item) => <span key={item}>{item}</span>)}</p> : null}
-    {detailsOpen ? <div className="book-quick-details">{[['Уровень романтики', profile.romance], ['Эмоциональная тяжесть', profile.angst], ['Темп повествования', profile.pace], ['Степень откровенности', profile.spice], ['Тяжесть триггеров', profile.triggers]].map(([name, value]) => <span key={name}><small>{name}</small><strong>{value}</strong></span>)}<p className="book-age-explanation"><strong>Возрастное ограничение: {profile.age}.</strong> {ageExplanation}</p></div> : null}
-  </section>;
-}
-
 export function RelationshipMap({ book, chapters }) {
   const [reread, setReread] = useState(false);
   useEffect(() => { try { setReread(localStorage.getItem(`${REREAD_KEY}:${book.id}`) === '1'); } catch {} }, [book.id]);

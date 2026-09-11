@@ -100,12 +100,13 @@ html[data-app-theme='black'] .reader-page { --ed-paper:#080a09; --ed-card:#12171
 .book-trigger-warnings > div:last-child span { padding: 8px 12px; border: 1px solid rgba(185,93,80,.28); border-radius: 999px; color: #773d35; background: rgba(185,93,80,.08); font-size: 12px; font-weight: 800; }
 .book-art-section { width: min(1180px, calc(100% - 48px)); margin: 0 auto; padding: 82px 0 104px; border-top: 1px solid var(--ed-line); }
 .book-credits,.book-universe,.book-time-capsule { width: min(1180px,calc(100% - 48px)); margin: 0 auto; padding: 78px 0; border-top: 1px solid var(--ed-line); }
-.book-credits h2,.book-universe-heading h2,.book-time-capsule h2 { margin: 8px 0 0; font-family: Georgia,serif; font-size: clamp(36px,5vw,58px); font-weight: 500; letter-spacing: -.05em; }
+.book-universe-heading h2,.book-time-capsule h2 { margin: 8px 0 0; font-family: Georgia,serif; font-size: clamp(36px,5vw,58px); font-weight: 500; letter-spacing: -.05em; }
+.book-credits h2 { margin: 8px 0 0; font-family: var(--sans); font-size: clamp(22px,3vw,30px); font-weight: 800; line-height: 1.2; letter-spacing: -.02em; }
 .book-credits > div:nth-child(2) { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 1px; margin-top: 28px; border: 1px solid var(--ed-line); background: var(--ed-line); }
 .book-credits article { display: grid; gap: 7px; padding: 20px; background: var(--ed-card); }
 .book-credits small { color: var(--ed-mint); font-size: 9px; font-weight: 900; text-transform: uppercase; }
-.book-credits strong { font-family: Georgia,serif; font-size: 20px; font-weight: 500; }
-.book-credits blockquote { margin: 28px 0 0; padding: 25px; border-left: 4px solid var(--ed-yellow); background: rgba(255,212,59,.1); font-family: Georgia,serif; font-size: 21px; font-style: italic; line-height: 1.5; }
+.book-credits strong { font-family: var(--sans); font-size: 15px; font-weight: 750; line-height: 1.45; }
+.book-credits blockquote { margin: 28px 0 0; padding: 22px; border-left: 4px solid var(--ed-yellow); background: rgba(255,212,59,.1); font-family: var(--sans); font-size: 14px; font-style: normal; font-weight: 400; line-height: 1.65; }
 .book-universe-heading,.book-time-capsule > div:first-child { display: flex; align-items: flex-start; gap: 15px; }
 .book-universe-heading > svg,.book-time-capsule > div:first-child > svg { color: var(--ed-mint); }
 .book-universe-heading p,.book-time-capsule > p { margin: 10px 0 0; color: rgba(18,60,53,.62); font-family: Georgia,serif; line-height: 1.6; }

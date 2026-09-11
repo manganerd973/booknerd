@@ -3,12 +3,13 @@ import { cachedRead } from '../../../lib/read-cache.js';
 import { ensureDb, getDb } from '../../../lib/runtime.js';
 import { answerMascotQuestion, parseMascotDialogues } from '../../../lib/mascot-knowledge.js';
 import { answerWithOptionalMascotAi } from '../../../lib/mascot-ai-provider.js';
+import { isSensitiveMascotQuestion } from '../../../lib/mascot-spoiler-guard.js';
 
-const DEFAULT_CONFIG = { enabled: true, aiEnabled: false, disabledPages: [], blockedTopics: [], dialogues: [], defaultFirstSpeaker: 'alternate' };
+const DEFAULT_CONFIG = { enabled: true, aiEnabled: true, disabledPages: [], blockedTopics: [], dialogues: [] };
 const CONFIG_CACHE_MS = 30 * 60 * 1000;
-const CONFIG_CACHE_VERSION = 'v43';
-const FIRST_SPEAKER_PREFIX = '__first-speaker:';
+const CONFIG_CACHE_VERSION = 'v47';
 const requestWindows = new Map();
+const aiRequestWindows = new Map();
 
 function parseList(value) {
   try {
@@ -17,17 +18,6 @@ function parseList(value) {
   } catch {
     return [];
   }
-}
-
-function firstSpeakerFromSettings(value) {
-  const item = parseList(value).find((entry) => typeof entry === 'string' && entry.startsWith(FIRST_SPEAKER_PREFIX));
-  const speaker = item?.slice(FIRST_SPEAKER_PREFIX.length);
-  return ['ivan', 'till', 'alternate'].includes(speaker) ? speaker : 'alternate';
-}
-
-function resolveFirstSpeaker(value, now = Date.now()) {
-  if (value === 'ivan' || value === 'till') return value;
-  return Math.floor(Number(now || 0) / (2 * 60 * 1000)) % 2 === 0 ? 'ivan' : 'till';
 }
 
 async function publicConfig() {
@@ -50,11 +40,10 @@ async function publicConfig() {
       ]);
       return {
         enabled: settings ? Boolean(settings.enabled) : true,
-        aiEnabled: false,
-        disabledPages: parseList(settings?.disabled_pages).filter((item) => !String(item).startsWith(FIRST_SPEAKER_PREFIX)),
+        aiEnabled: settings ? Boolean(settings.ai_enabled) : true,
+        disabledPages: parseList(settings?.disabled_pages).filter((item) => ['home', 'book', 'notifications', 'library', 'offline', 'profile', 'other'].includes(item)),
         blockedTopics: parseList(settings?.blocked_topics),
         dialogues: parseMascotDialogues(dialogues.results || []),
-        defaultFirstSpeaker: firstSpeakerFromSettings(settings?.disabled_pages),
       };
     } catch {
       return DEFAULT_CONFIG;
@@ -78,6 +67,19 @@ function allowRequest(request) {
   requestWindows.set(key, recent);
   if (requestWindows.size > 2000) {
     for (const [entryKey, times] of requestWindows) if (!times.some((time) => now - time < 5 * 60 * 1000)) requestWindows.delete(entryKey);
+  }
+  return true;
+}
+
+function allowAiRequest(request) {
+  const key = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for') || 'local';
+  const now = Date.now();
+  const recent = (aiRequestWindows.get(key) || []).filter((time) => now - time < 10 * 60 * 1000);
+  if (recent.length >= 3) return false;
+  recent.push(now);
+  aiRequestWindows.set(key, recent);
+  if (aiRequestWindows.size > 2000) {
+    for (const [entryKey, times] of aiRequestWindows) if (!times.some((time) => now - time < 10 * 60 * 1000)) aiRequestWindows.delete(entryKey);
   }
   return true;
 }
@@ -121,13 +123,16 @@ export async function POST(request) {
       visitorKey: payload.visitorKey,
       currentChapter: Math.max(0, Number(payload.currentChapter || 0)),
       blockedTopics: config.blockedTopics,
-      firstSpeaker: resolveFirstSpeaker(config.defaultFirstSpeaker),
+      firstSpeaker: 'ivan',
       allowSpoilers: payload.allowSpoilers === true,
     });
+    const sensitive = isSensitiveMascotQuestion(question, config.blockedTopics);
     const aiMessages = deterministic.requiresSpoilerConfirmation ? null : await answerWithOptionalMascotAi({
-      enabled: config.aiEnabled,
+      enabled: config.aiEnabled && allowAiRequest(request),
       question,
       deterministicMessages: deterministic.messages,
+      askMode: payload.askMode,
+      sensitive,
     });
     return Response.json({
       messages: aiMessages || deterministic.messages,

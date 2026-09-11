@@ -4,8 +4,6 @@ import { ensureDb } from '../../../../lib/runtime.js';
 
 const CATEGORIES = new Set(['greeting', 'returning', 'recommendation', 'new-chapter', 'chapter-ending', 'search', 'empty', 'offline', 'error', 'achievement', 'seasonal', 'banter', 'flirt', 'tip']);
 const PAGES = new Set(['home', 'book', 'notifications', 'library', 'offline', 'profile', 'other']);
-const FIRST_SPEAKERS = new Set(['ivan', 'till', 'alternate']);
-const FIRST_SPEAKER_PREFIX = '__first-speaker:';
 
 function parseList(value) {
   try {
@@ -19,12 +17,6 @@ function parseList(value) {
 function cleanList(value, allowed, limit = 20) {
   const source = Array.isArray(value) ? value : [];
   return [...new Set(source.map((item) => String(item || '').trim()).filter((item) => item && (!allowed || allowed.has(item))))].slice(0, limit);
-}
-
-function parseFirstSpeaker(value) {
-  const item = parseList(value).find((entry) => typeof entry === 'string' && entry.startsWith(FIRST_SPEAKER_PREFIX));
-  const speaker = item?.slice(FIRST_SPEAKER_PREFIX.length);
-  return FIRST_SPEAKERS.has(speaker) ? speaker : 'alternate';
 }
 
 function parseDisabledPages(value) {
@@ -52,10 +44,9 @@ async function readState(db) {
   return {
     config: {
       enabled: settings ? Boolean(settings.enabled) : true,
-      aiEnabled: settings ? Boolean(settings.ai_enabled) : false,
+      aiEnabled: settings ? Boolean(settings.ai_enabled) : true,
       disabledPages: parseDisabledPages(settings?.disabled_pages),
       blockedTopics: parseList(settings?.blocked_topics),
-      defaultFirstSpeaker: parseFirstSpeaker(settings?.disabled_pages),
       updatedAt: settings?.updated_at || null,
     },
     dialogues: (dialogues.results || []).map((row) => ({
@@ -90,8 +81,6 @@ export async function PUT(request) {
     const enabled = payload.enabled !== false;
     const aiEnabled = payload.aiEnabled === true;
     const disabledPages = cleanList(payload.disabledPages, PAGES);
-    const defaultFirstSpeaker = FIRST_SPEAKERS.has(payload.defaultFirstSpeaker) ? payload.defaultFirstSpeaker : 'alternate';
-    const storedDisabledPages = [...disabledPages, `${FIRST_SPEAKER_PREFIX}${defaultFirstSpeaker}`];
     const blockedTopics = cleanList(payload.blockedTopics, null, 40).map((item) => item.slice(0, 120));
     const now = new Date().toISOString();
     const db = await ensureDb();
@@ -101,7 +90,7 @@ export async function PUT(request) {
        ON CONFLICT(id) DO UPDATE SET enabled = excluded.enabled, ai_enabled = excluded.ai_enabled,
          disabled_pages = excluded.disabled_pages, blocked_topics = excluded.blocked_topics,
          updated_at = excluded.updated_at, updated_by = excluded.updated_by`
-    ).bind(enabled ? 1 : 0, aiEnabled ? 1 : 0, JSON.stringify(storedDisabledPages), JSON.stringify(blockedTopics), now, auth.email || 'owner').run();
+    ).bind(enabled ? 1 : 0, aiEnabled ? 1 : 0, JSON.stringify(disabledPages), JSON.stringify(blockedTopics), now, auth.email || 'owner').run();
     invalidateCachedRead('mascot-public-config');
     return Response.json({ ok: true, ...(await readState(db)) });
   } catch (error) {

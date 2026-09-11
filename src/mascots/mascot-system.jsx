@@ -14,11 +14,12 @@ import {
   mascotPageContext,
   normalizeMascotSettings,
 } from './mascot-config.js';
-import { openingDialogue, resolveFirstSpeaker, selectDialogueByFirstSpeaker } from './mascot-dialogue-engine.js';
+import { openingDialogue, selectDialogueByFirstSpeaker } from './mascot-dialogue-engine.js';
 import { getVisitorKey } from '../site-analytics.js';
 
-const CONFIG_SESSION_KEY = 'booknerd-mascot-config-v43';
+const CONFIG_SESSION_KEY = 'booknerd-mascot-config-v47';
 const LAST_AUTO_KEY = 'booknerd-mascot-last-auto-v1';
+const NEW_READER_SEEN_KEY = 'booknerd-mascot-new-reader-seen-v1';
 const MAX_HISTORY = 24;
 const AUTO_PAGE_CONTEXTS = new Set(['home', 'book', 'notifications', 'library', 'profile', 'offline', 'other']);
 const TIP_CATEGORIES = new Set(['tip', 'recommendation', 'new-chapter', 'offline', 'error']);
@@ -27,11 +28,10 @@ function normalizeSystemConfig(value) {
   const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
   return {
     enabled: source.enabled !== false,
-    aiEnabled: source.aiEnabled === true,
+    aiEnabled: source.aiEnabled !== false,
     disabledPages: Array.isArray(source.disabledPages) ? source.disabledPages : [],
     blockedTopics: Array.isArray(source.blockedTopics) ? source.blockedTopics : [],
     dialogues: Array.isArray(source.dialogues) ? source.dialogues : [],
-    defaultFirstSpeaker: ['ivan', 'till', 'alternate'].includes(source.defaultFirstSpeaker) ? source.defaultFirstSpeaker : 'alternate',
   };
 }
 
@@ -80,7 +80,7 @@ export default function MascotSystem() {
   const [ready, setReady] = useState(false);
   const [pathname, setPathname] = useState('');
   const [settings, setSettings] = useState(DEFAULT_MASCOT_SETTINGS);
-  const [systemConfig, setSystemConfig] = useState({ enabled: true, aiEnabled: false, disabledPages: [], dialogues: [], defaultFirstSpeaker: 'alternate' });
+  const [systemConfig, setSystemConfig] = useState({ enabled: true, aiEnabled: true, disabledPages: [], dialogues: [] });
   const [open, setOpen] = useState(false);
   const [edgeDialogue, setEdgeDialogue] = useState(null);
   const [edgeLineIndex, setEdgeLineIndex] = useState(0);
@@ -96,6 +96,7 @@ export default function MascotSystem() {
   const swipeStart = useRef(null);
   const settingsRef = useRef(DEFAULT_MASCOT_SETTINGS);
   const previousPathRef = useRef('');
+  const isNewReaderRef = useRef(false);
 
   const pageContext = mascotPageContext(pathname);
   const hiddenByPage = pageContext === 'hidden' || systemConfig.disabledPages.includes(pageContext);
@@ -103,17 +104,15 @@ export default function MascotSystem() {
   const readerHidden = pageContext === 'reader' && settings.quietReading;
   const bookSlug = manualContext?.bookSlug || mascotBookSlug(pathname);
   const currentChapter = Number(manualContext?.currentChapter || 0);
-  const effectiveFirstSpeaker = useMemo(
-    () => resolveFirstSpeaker(systemConfig.defaultFirstSpeaker),
-    [systemConfig.defaultFirstSpeaker],
-  );
-
   useEffect(() => {
     const initialSettings = loadMascotSettings();
     settingsRef.current = initialSettings;
     setPathname(`${window.location.pathname}${window.location.search}`);
     setSettings(initialSettings);
     setHistory(readHistory());
+    try {
+      isNewReaderRef.current = localStorage.getItem(NEW_READER_SEEN_KEY) !== '1';
+    } catch { isNewReaderRef.current = true; }
     setReady(true);
 
     const showModePreview = (mode) => {
@@ -225,6 +224,7 @@ export default function MascotSystem() {
 
     const isAllowed = (dialogue) => {
       if (!(dialogue.pages || []).includes(pageContext)) return false;
+      if (dialogue.id === 'new-reader-welcome' && !isNewReaderRef.current) return false;
       if (!settings.showGreeting && ['greeting', 'returning'].includes(dialogue.category)) return false;
       if (!settings.showRecommendations && dialogue.category === 'recommendation') return false;
       if (settings.mode === 'tips' && !TIP_CATEGORIES.has(dialogue.category)) return false;
@@ -233,7 +233,8 @@ export default function MascotSystem() {
     const customCandidates = (systemConfig.dialogues || []).filter(isAllowed);
     const builtinCandidates = BUILTIN_DIALOGUES.filter(isAllowed);
     const candidates = customCandidates.length ? customCandidates : builtinCandidates;
-    const chosen = selectDialogueByFirstSpeaker(candidates, effectiveFirstSpeaker);
+    const newReaderWelcome = isNewReaderRef.current ? builtinCandidates.find((dialogue) => dialogue.id === 'new-reader-welcome') : null;
+    const chosen = newReaderWelcome || selectDialogueByFirstSpeaker(candidates);
     if (!chosen) return undefined;
     const timer = window.setTimeout(() => {
       const maxLines = settings.mode === 'tips' ? 2 : settings.mode === 'more' ? 5 : 3;
@@ -241,10 +242,14 @@ export default function MascotSystem() {
       try {
         sessionStorage.setItem(pageKey, '1');
         localStorage.setItem(LAST_AUTO_KEY, String(Date.now()));
+        if (chosen.id === 'new-reader-welcome') {
+          localStorage.setItem(NEW_READER_SEEN_KEY, '1');
+          isNewReaderRef.current = false;
+        }
       } catch { /* frequency protection remains best effort */ }
     }, settings.mode === 'more' ? 650 : settings.mode === 'tips' ? 1200 : 2400);
     return () => window.clearTimeout(timer);
-  }, [effectiveFirstSpeaker, globallyHidden, hiddenByPage, pageContext, pathname, readerHidden, ready, settings.mode, settings.showGreeting, settings.showRecommendations, systemConfig.dialogues]);
+  }, [globallyHidden, hiddenByPage, pageContext, pathname, readerHidden, ready, settings.mode, settings.showGreeting, settings.showRecommendations, systemConfig.dialogues]);
 
   useEffect(() => {
     setEdgeLineIndex(0);
@@ -293,8 +298,8 @@ export default function MascotSystem() {
   useEffect(() => saveHistory(history), [history]);
 
   const displayedHistory = useMemo(
-    () => history.length ? history : normalizeMessages(openingDialogue(effectiveFirstSpeaker)),
-    [effectiveFirstSpeaker, history],
+    () => history.length ? history : normalizeMessages(openingDialogue('ivan')),
+    [history],
   );
 
   const closePanel = () => setOpen(false);
@@ -411,7 +416,7 @@ export default function MascotSystem() {
               <label><span className="sr-only">Спросить о книге</span><input ref={inputRef} value={input} onChange={(event) => setInput(event.target.value)} placeholder="Спросить о книге…" maxLength={1000} /></label>
               <button type="submit" disabled={!input.trim() || sending} aria-label="Отправить вопрос">{sending ? <span className="mascot-sending" /> : <Send size={19} />}</button>
             </form>
-            <footer className="mascot-chat-footer"><span>{settings.mode === 'more' ? 'Режим: больше сценок' : settings.mode === 'tips' ? 'Режим: только подсказки' : 'Режим: обычный'} · первым отвечает {effectiveFirstSpeaker === 'ivan' ? 'Иван' : 'Тилл'}</span><button type="button" onClick={clearHistory}><Eraser size={15} /> Очистить</button></footer>
+            <footer className="mascot-chat-footer"><span>{settings.mode === 'more' ? 'Режим: больше сценок' : settings.mode === 'tips' ? 'Режим: только подсказки' : 'Режим: обычный'}</span><button type="button" onClick={clearHistory}><Eraser size={15} /> Очистить</button></footer>
           </aside>
         </div>
       ) : null}

@@ -25,7 +25,7 @@ import SeriesReadingOrder from './series-reading-order.jsx';
 import BookUniverse from './book-universe.jsx';
 import OfflineBookButton from './offline-book-button.jsx';
 import { MobileBottomNavigation } from './page-chrome.jsx';
-import { BookSuitability, CustomShelves, QuoteGallery, ReaderAchievements, RelationshipMap } from './book-experience.jsx';
+import { CustomShelves, QuoteGallery, ReaderAchievements, RelationshipMap } from './book-experience.jsx';
 
 const TABS = [
   ['about', 'О книге'],
@@ -181,7 +181,6 @@ export default function BookDetailPage({ book, chapters = [], artworks = [], ser
           {book.seriesTitle ? <p className="book-series">Серия «{book.seriesTitle}»{book.seriesNumber ? ` · книга ${book.seriesNumber}` : ''}</p> : null}
           <div className="book-profile-badges">{badges.map((badge) => <span key={badge}>{badge}</span>)}<span className="is-releasing"><i /> {book.status === 'Завершено' ? 'Завершено' : 'Выходит'}</span><span className="book-volume-badge">{book.pageCount ? `Объём: ${book.pageCount} стр.` : 'Объём уточняется'}</span></div>
           <div className="book-profile-stats"><span><BookOpen size={17} /><strong>{chapters.length}</strong> глав</span><span><Star size={17} /><strong>{book.progress || 0}%</strong> переведено</span></div>
-          <BookSuitability book={book} />
           <BookRating bookId={book.id} />
           <PrimaryReadButton book={book} chapters={chapters} />
           <div className="book-profile-secondary"><BookLibraryControl bookId={book.id} /><OfflineBookButton book={book} chapters={chapters} />{book.driveUrl ? <a className="editorial-drive-link" href={book.driveUrl} target="_blank" rel="noreferrer">Файл книги <ExternalLink size={16} /></a> : null}</div>

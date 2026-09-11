@@ -51,13 +51,23 @@ export const MASCOT_MODES = [
 ];
 
 export const MASCOT_QUICK_QUESTIONS = [
-  'Подойдёт ли мне эта книга?',
   'Какие здесь предупреждения?',
   'Кто из персонажей мне уже знаком?',
   'В каком порядке читать серию?',
 ];
 
 export const BUILTIN_DIALOGUES = [
+  {
+    id: 'new-reader-welcome',
+    category: 'greeting',
+    pages: ['home'],
+    lines: [
+      { character: 'till', text: 'О, новый читатель! Мне сразу показать Вам лучшие книги?' },
+      { character: 'ivan', text: 'Сначала позволь человеку осмотреться.' },
+      { character: 'till', text: 'Я не мешаю. Я создаю гостеприимную атмосферу.' },
+      { character: 'ivan', text: 'Очень громкую гостеприимную атмосферу.' },
+    ],
+  },
   {
     id: 'welcome',
     category: 'greeting',
