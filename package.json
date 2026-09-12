@@ -1,7 +1,7 @@
 {
   "name": "booknerd-reading-club",
   "private": true,
-  "version": "47.0.0",
+  "version": "50.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,7 +11,8 @@
     "dev:vinext": "vinext dev --port 3001",
     "build:vinext": "vinext build",
     "start:vinext": "wrangler dev --config dist/server/wrangler.json",
-    "deploy:vinext": "vinext-cloudflare deploy --config dist/server/wrangler.json"
+    "deploy:vinext": "vinext-cloudflare deploy --config dist/server/wrangler.json",
+    "test:mascots": "node scripts/test-mascot-emotions.mjs"
   },
   "dependencies": {
     "@block65/webcrypto-web-push": "^1.0.2",

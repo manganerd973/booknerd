@@ -25,6 +25,7 @@ import CommentReport from './comment-report.jsx';
 import { LIBRARY_STATUS, loadReaderLibrary, removeReaderLibraryBook, updateReaderLibrary } from './reader-library.jsx';
 import { ContinueReading, TranslationVoting } from './home-reader-features.jsx';
 import DiscoveryDashboard from './discovery-dashboard.jsx';
+import ReaderMasters from './reader-masters.jsx';
 import { MobileBottomNavigation } from './page-chrome.jsx';
 import { FEATURED_GENRES, genreKey, uniqueGenres } from '../lib/genres.js';
 
@@ -542,6 +543,7 @@ function App({ initialBooks = [], initialPopularComments = [], initialQuoteOfDay
           <ContinueReading items={libraryItems} books={books} />
 
           <DiscoveryDashboard books={books} />
+          <ReaderMasters />
 
           <section className="catalog section" id="catalog">
             <div className="section-heading catalog-heading">

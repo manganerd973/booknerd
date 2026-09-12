@@ -1,5 +1,6 @@
 import { hasReaderAccess } from '../../../../../lib/reader-access.js';
 import { ensureDb } from '../../../../../lib/runtime.js';
+import { refreshReaderLevel } from '../../../../../lib/reader-levels.js';
 
 const voterPattern = /^[a-zA-Z0-9-]{20,80}$/;
 
@@ -84,7 +85,8 @@ export async function POST(request, { params }) {
       `SELECT id, author_name, body, rating, created_at, updated_at
        FROM book_reviews WHERE book_id = ? AND voter_key = ? LIMIT 1`
     ).bind(bookId, voterKey).first();
-    return Response.json({ ok: true, review: mapReview(saved) }, { status: 201 });
+    const level = await refreshReaderLevel({ db, visitorKey: voterKey }).catch(() => null);
+    return Response.json({ ok: true, review: mapReview(saved), levelEvent: level && (level.levelChanged || level.newAchievements.length) ? { level: level.level, rank: level.rank, progress: level.progress, rankChanged: level.rankChanged, newAchievements: level.newAchievements } : null }, { status: 201 });
   } catch (error) {
     return Response.json({ error: error.message || 'Не удалось опубликовать отзыв.' }, { status: 500 });
   }

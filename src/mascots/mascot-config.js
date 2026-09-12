@@ -2,6 +2,10 @@ export const MASCOT_SETTINGS_KEY = 'booknerd-mascot-settings-v1';
 export const MASCOT_HISTORY_KEY = 'booknerd-mascot-history-v1';
 export const MASCOT_RECENT_KEY = 'booknerd-mascot-recent-v1';
 
+function sceneLine(character, text, expression, listenerReaction, extra = {}) {
+  return { character, text, expression, listenerReaction, ...extra };
+}
+
 export const DEFAULT_MASCOT_SETTINGS = {
   mode: 'normal',
   quietReading: true,
@@ -19,8 +23,8 @@ export const MASCOT_MODE_PREVIEWS = {
     category: 'banter',
     pages: [],
     lines: [
-      { character: 'till', text: 'Обычный режим включён. Мы будем появляться редко.' },
-      { character: 'ivan', text: 'Настолько редко, чтобы Тилл успевал придумать достойную реплику.' },
+      sceneLine('till', 'Обычный режим включён. Мы будем появляться редко.', 'proud', 'amused'),
+      sceneLine('ivan', 'Настолько редко, чтобы Тилл успевал придумать достойную реплику.', 'teasing', 'caught'),
     ],
   },
   more: {
@@ -28,9 +32,9 @@ export const MASCOT_MODE_PREVIEWS = {
     category: 'banter',
     pages: [],
     lines: [
-      { character: 'till', text: 'Теперь нас будет больше. Это правильное решение.' },
-      { character: 'ivan', text: 'Смелое заявление человека, который уже занял половину экрана.' },
-      { character: 'till', text: 'Я украшаю интерфейс.' },
+      sceneLine('till', 'Теперь нас будет больше. Это правильное решение.', 'very-excited', 'soft-smile'),
+      sceneLine('ivan', 'Смелое заявление человека, который уже занял половину экрана.', 'amused', 'annoyed'),
+      sceneLine('till', 'Я украшаю интерфейс.', 'proud', 'quiet-laugh'),
     ],
   },
   tips: {
@@ -38,7 +42,7 @@ export const MASCOT_MODE_PREVIEWS = {
     category: 'tip',
     pages: [],
     lines: [
-      { character: 'ivan', text: 'Режим подсказок включён. Покажем только полезную информацию без сценок и споров.' },
+      sceneLine('ivan', 'Режим подсказок включён. Покажем только полезную информацию без сценок и споров.', 'focused', 'neutral'),
     ],
   },
 };
@@ -62,10 +66,10 @@ export const BUILTIN_DIALOGUES = [
     category: 'greeting',
     pages: ['home'],
     lines: [
-      { character: 'till', text: 'О, новый читатель! Мне сразу показать Вам лучшие книги?' },
-      { character: 'ivan', text: 'Сначала позволь человеку осмотреться.' },
-      { character: 'till', text: 'Я не мешаю. Я создаю гостеприимную атмосферу.' },
-      { character: 'ivan', text: 'Очень громкую гостеприимную атмосферу.' },
+      sceneLine('till', 'О, новый читатель! Мне сразу показать Вам лучшие книги?', 'excited', 'soft-smile', { gaze: 'at-reader', delayMs: 500 }),
+      sceneLine('ivan', 'Сначала позволь человеку осмотреться.', 'focused', 'neutral', { gaze: 'at-other' }),
+      sceneLine('till', 'Я не мешаю. Я создаю гостеприимную атмосферу.', 'proud', 'amused', { gaze: 'at-reader' }),
+      sceneLine('ivan', 'Очень громкую гостеприимную атмосферу.', 'quiet-laugh', 'caught', { gaze: 'at-other', afterAction: 'neutral' }),
     ],
   },
   {
@@ -180,22 +184,22 @@ export const BUILTIN_DIALOGUES = [
 
 export const CHAPTER_ENDING_DIALOGUES = {
   till: [
-    { character: 'till', text: 'Я требую следующую главу.' },
-    { character: 'ivan', text: 'Эта закончилась три секунды назад.' },
-    { character: 'till', text: 'И что?' },
+    sceneLine('till', 'Я требую следующую главу.', 'pleading', 'amused', { pose: 'pointing' }),
+    sceneLine('ivan', 'Эта закончилась три секунды назад.', 'teasing', 'annoyed'),
+    sceneLine('till', 'И что?', 'caught', 'quiet-laugh', { afterAction: 'neutral' }),
   ],
   ivan: [
-    { character: 'ivan', text: 'Глава закончилась. Можно спокойно выдохнуть.' },
-    { character: 'till', text: 'Спокойно? После такого финала?' },
-    { character: 'ivan', text: 'Хорошо. Выдохнуть драматично.' },
+    sceneLine('ivan', 'Глава закончилась. Можно спокойно выдохнуть.', 'soft-smile', 'neutral'),
+    sceneLine('till', 'Спокойно? После такого финала?', 'shocked', 'surprised'),
+    sceneLine('ivan', 'Хорошо. Выдохнуть драматично.', 'amused', 'caught', { afterAction: 'neutral' }),
   ],
 };
 
 export const CHAPTER_ENDING_DIALOGUE = CHAPTER_ENDING_DIALOGUES.till;
 
 export const OFFLINE_DIALOGUE = [
-  { character: 'till', text: 'Кажется, связь пропала.' },
-  { character: 'ivan', text: 'Но сохранённые книги всё ещё с нами.' },
+  sceneLine('till', 'Кажется, связь пропала.', 'annoyed', 'focused'),
+  sceneLine('ivan', 'Но сохранённые книги всё ещё с нами.', 'focused', 'neutral', { afterAction: 'neutral' }),
 ];
 
 export function normalizeMascotSettings(value) {

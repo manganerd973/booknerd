@@ -43,6 +43,7 @@ import { CompletionReviewForm } from './book-reviews.jsx';
 import { richDocumentFor } from '../lib/rich-document.js';
 import { getVisitorKey, trackReaderPresence } from './site-analytics.js';
 import { updateReaderLibrary } from './reader-library.jsx';
+import { sendReadingProgress } from './reader-level-client.js';
 import {
   APP_THEME_OPTIONS,
   getStoredAppTheme,
@@ -514,15 +515,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
   useEffect(() => {
     if (!initialPositionApplied.current) return;
     try { localStorage.setItem(`booknerd-reader-position:${book.id}:${chapter.id}`, String(page)); } catch { /* optional */ }
-    updateReaderLibrary({
-      bookId: book.id,
-      status: 'reading',
-      lastChapterId: chapter.id,
-      lastPage: page,
-      progress: Math.max(1, Math.round(((chapterIndex + (page + 1) / Math.max(1, currentChapterPages)) / Math.max(1, chapterList.length)) * 100)),
-      preserveFinished: true,
-    }).catch(() => {});
-  }, [book.id, chapter.id, chapterIndex, chapterList.length, currentChapterPages, page]);
+  }, [book.id, chapter.id, page]);
 
   const bookPageOffset = useMemo(
     () => pageCounts.slice(0, chapterIndex).reduce((total, count) => total + count, 0),
@@ -552,26 +545,8 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
   }, [chapterProgress, page, percent]);
 
   useEffect(() => {
-    if (!initialPositionApplied.current) return;
-    fetch('/api/reading-progress', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        visitorKey: getVisitorKey(),
-        bookId: book.id,
-        chapterId: chapter.id,
-        seconds: 0,
-        chapterProgress,
-        bookProgress: percent,
-        page,
-        completed: chapterProgress >= 100,
-      }),
-      keepalive: true,
-    }).catch(() => {});
-  }, [book.id, chapter.id, chapterProgress, page, percent]);
-
-  useEffect(() => {
     let stopped = false;
+    let lastMilestone = -1;
     const notificationReturn = (() => {
       try { return new URLSearchParams(window.location.search).get('notification') === '1'; } catch { return false; }
     })();
@@ -579,10 +554,10 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       if (stopped && !completed) return;
       if (!completed && document.visibilityState === 'hidden') return;
       const currentReadingState = readingStateRef.current;
-      fetch('/api/reading-progress', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
+      const milestone = Math.floor(currentReadingState.chapterProgress / 10);
+      if (!completed && seconds === 0 && milestone === lastMilestone) return;
+      lastMilestone = Math.max(lastMilestone, milestone);
+      sendReadingProgress({
           visitorKey: getVisitorKey(),
           bookId: book.id,
           chapterId: chapter.id,
@@ -592,9 +567,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
           page: currentReadingState.page,
           completed,
           notificationReturn,
-        }),
-        keepalive: true,
-      }).catch(() => {});
+        }).catch(() => {});
     };
     record(0, false);
     const timer = window.setInterval(() => record(120, false), 120000);
@@ -605,11 +578,21 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
   }, [book.id, chapter.id, next?.id, translationCompleted]);
 
   useEffect(() => {
+    if (!initialPositionApplied.current) return;
+    const timer = window.setTimeout(() => {
+      const currentReadingState = readingStateRef.current;
+      sendReadingProgress({
+        visitorKey: getVisitorKey(), bookId: book.id, chapterId: chapter.id, seconds: 0,
+        chapterProgress: currentReadingState.chapterProgress, bookProgress: currentReadingState.percent,
+        page: currentReadingState.page, completed: false,
+      }).catch(() => {});
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [book.id, chapter.id, Math.floor(chapterProgress / 10)]);
+
+  useEffect(() => {
     if (!showCompletion) return;
-    fetch('/api/reading-progress', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
+    sendReadingProgress({
         visitorKey: getVisitorKey(),
         bookId: book.id,
         chapterId: chapter.id,
@@ -618,9 +601,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
         bookProgress: next || !translationCompleted ? percent : 100,
         page,
         completed: true,
-      }),
-      keepalive: true,
-    }).catch(() => {});
+      }).catch(() => {});
   }, [book.id, chapter.id, next, page, percent, showCompletion, translationCompleted]);
 
   const goBackward = useCallback(() => {

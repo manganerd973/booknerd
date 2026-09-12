@@ -8,6 +8,8 @@ import PwaRegister from '../src/pwa-register.jsx';
 import AppPreferences from '../src/app-preferences.jsx';
 import MascotSystem from '../src/mascots/mascot-system.jsx';
 import MascotErrorBoundary from '../src/mascots/mascot-error-boundary.jsx';
+import ReaderLevelNotice from '../src/reader-level-notice.jsx';
+import '../src/reader-levels.css';
 
 export const metadata = {
   title: 'BOOKNERD — переводы, в которые влюбляются',
@@ -80,7 +82,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="ru">
       <head><script dangerouslySetInnerHTML={{ __html: themeScript }} /><script dangerouslySetInnerHTML={{ __html: recoveryScript }} /></head>
-      <body><PwaRegister /><AppPreferences />{children}<MascotErrorBoundary><MascotSystem /></MascotErrorBoundary></body>
+      <body><PwaRegister /><AppPreferences />{children}<MascotErrorBoundary><MascotSystem /></MascotErrorBoundary><MascotErrorBoundary><ReaderLevelNotice /></MascotErrorBoundary></body>
     </html>
   );
 }

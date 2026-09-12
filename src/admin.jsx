@@ -26,6 +26,7 @@ import {
   Settings2,
   Smartphone,
   Trash2,
+  Trophy,
   UploadCloud,
   Users,
   Wifi,
@@ -46,6 +47,7 @@ import {
 } from './admin-platform-features.jsx';
 import { BackupCenter, BookCompleteness } from './admin-v27-features.jsx';
 import AdminMascots from './mascots/admin-mascots.jsx';
+import AdminLevels from './admin-levels.jsx';
 
 const blankBook = {
   id: null,
@@ -871,6 +873,11 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
             <Bell size={19} /> Голосование
           </button>
           {currentUser.role === 'owner' && (
+            <button className={view === 'levels' ? 'is-active' : ''} onClick={() => navigate('levels')}>
+              <Trophy size={19} /> Уровни и рейтинг
+            </button>
+          )}
+          {currentUser.role === 'owner' && (
             <button className={view === 'mascots' ? 'is-active' : ''} onClick={() => navigate('mascots')}>
               <Sparkles size={19} /> Иван и Тилл
             </button>
@@ -899,7 +906,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
           <button className="admin-menu-toggle" onClick={() => setMenuOpen(true)}><Menu size={21} /></button>
           <div>
             <span>BOOKNERD · ПАНЕЛЬ КОМАНДЫ</span>
-            <strong>{view === 'book' ? (bookForm.id ? 'Редактирование книги' : 'Новая книга') : view === 'team' ? 'Доступ команды' : view === 'comments' ? 'Комментарии и отзывы' : view === 'quotes' ? 'Цитата дня' : view === 'errors' ? 'Ошибки в тексте' : view === 'voting' ? 'Будущие переводы' : view === 'mascots' ? 'Иван и Тилл' : 'Управление библиотекой'}</strong>
+            <strong>{view === 'book' ? (bookForm.id ? 'Редактирование книги' : 'Новая книга') : view === 'team' ? 'Доступ команды' : view === 'comments' ? 'Комментарии и отзывы' : view === 'quotes' ? 'Цитата дня' : view === 'errors' ? 'Ошибки в тексте' : view === 'voting' ? 'Будущие переводы' : view === 'levels' ? 'Уровни и рейтинг' : view === 'mascots' ? 'Иван и Тилл' : 'Управление библиотекой'}</strong>
           </div>
           {currentUser.role === 'owner' ? <button className="admin-install-button" type="button" onClick={installAdminApp}><Smartphone size={17} /><span>{adminAppInstalled ? 'На телефоне' : 'Установить'}</span></button> : null}
           <a href="/" target="_blank">Открыть сайт <ChevronRight size={17} /></a>
@@ -1011,6 +1018,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
         )}
 
         {view === 'mascots' && currentUser.role === 'owner' ? <AdminMascots onNotice={flash} /> : null}
+        {view === 'levels' && currentUser.role === 'owner' ? <AdminLevels onNotice={flash} /> : null}
 
         {view === 'book' && (
           <section className="admin-content admin-editor-page">

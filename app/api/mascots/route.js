@@ -7,7 +7,7 @@ import { isSensitiveMascotQuestion } from '../../../lib/mascot-spoiler-guard.js'
 
 const DEFAULT_CONFIG = { enabled: true, aiEnabled: true, disabledPages: [], blockedTopics: [], dialogues: [] };
 const CONFIG_CACHE_MS = 30 * 60 * 1000;
-const CONFIG_CACHE_VERSION = 'v47';
+const CONFIG_CACHE_VERSION = 'v50';
 const requestWindows = new Map();
 const aiRequestWindows = new Map();
 
@@ -123,7 +123,6 @@ export async function POST(request) {
       visitorKey: payload.visitorKey,
       currentChapter: Math.max(0, Number(payload.currentChapter || 0)),
       blockedTopics: config.blockedTopics,
-      firstSpeaker: 'ivan',
       allowSpoilers: payload.allowSpoilers === true,
     });
     const sensitive = isSensitiveMascotQuestion(question, config.blockedTopics);

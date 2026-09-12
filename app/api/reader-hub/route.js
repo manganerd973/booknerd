@@ -1,5 +1,6 @@
 import { hasReaderAccess } from '../../../lib/reader-access.js';
 import { ensureDb } from '../../../lib/runtime.js';
+import { refreshReaderLevel } from '../../../lib/reader-levels.js';
 
 const EMOTIONS = new Set(['😂', '😭', '😍', '😡', '😱', '🤍']);
 const THEMES = new Set(['original', 'white', 'black', 'system']);
@@ -131,6 +132,7 @@ export async function POST(request) {
           app_theme = excluded.app_theme, atmosphere = excluded.atmosphere,
           mascot_preferences = excluded.mascot_preferences, updated_at = excluded.updated_at`)
         .bind(visitorKey, displayName, banner, JSON.stringify(favoriteCharacters), JSON.stringify(favoriteQuotes), appTheme, atmosphere, JSON.stringify(mascotPreferences), now, now).run();
+      await refreshReaderLevel({ db, visitorKey, suppressNotifications: false }).catch(() => null);
       return Response.json({ ok: true, profile: { displayName, banner, favoriteCharacters, favoriteQuotes, appTheme, atmosphere, mascotPreferences } });
     }
 

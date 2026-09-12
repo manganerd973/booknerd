@@ -1,5 +1,7 @@
 import handler from 'vinext/server/fetch-handler';
 import { publishDueChapters } from '../lib/books.js';
+import { ensureDb } from '../lib/runtime.js';
+import { finalizeReaderMonth } from '../lib/reader-levels.js';
 
 export default {
   async fetch(request, env, context) {
@@ -11,7 +13,11 @@ export default {
     return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
   },
 
-  scheduled(_controller, _env, context) {
+  scheduled(controller, _env, context) {
+    if (controller.cron === '0 1 1 * *') {
+      context.waitUntil(ensureDb().then((db) => finalizeReaderMonth(db)).catch(() => null));
+      return;
+    }
     context.waitUntil(publishDueChapters());
   },
 };

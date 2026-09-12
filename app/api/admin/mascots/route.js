@@ -1,6 +1,7 @@
 import { authorizeAdminRequest } from '../../../../lib/admin-auth.js';
 import { invalidateCachedRead } from '../../../../lib/read-cache.js';
 import { ensureDb } from '../../../../lib/runtime.js';
+import { normalizeMascotLines } from '../../../../src/mascots/mascot-emotions.js';
 
 const CATEGORIES = new Set(['greeting', 'returning', 'recommendation', 'new-chapter', 'chapter-ending', 'search', 'empty', 'offline', 'error', 'achievement', 'seasonal', 'banter', 'flirt', 'tip']);
 const PAGES = new Set(['home', 'book', 'notifications', 'library', 'offline', 'profile', 'other']);
@@ -24,10 +25,7 @@ function parseDisabledPages(value) {
 }
 
 function cleanLines(value) {
-  return (Array.isArray(value) ? value : []).map((line) => ({
-    character: line?.character === 'till' ? 'till' : line?.character === 'both' ? 'both' : 'ivan',
-    text: String(line?.text || '').trim().slice(0, 800),
-  })).filter((line) => line.text).slice(0, 8);
+  return normalizeMascotLines(value).slice(0, 12);
 }
 
 function optionalDate(value) {
@@ -53,7 +51,7 @@ async function readState(db) {
       id: row.id,
       category: row.category,
       pages: parseList(row.pages),
-      lines: parseList(row.lines),
+      lines: normalizeMascotLines(parseList(row.lines), { category: row.category }),
       active: Boolean(row.active),
       startsAt: row.starts_at,
       endsAt: row.ends_at,
@@ -108,6 +106,8 @@ export async function POST(request) {
     const pages = cleanList(payload.pages, PAGES, 8);
     const lines = cleanLines(payload.lines);
     if (!pages.length || !lines.length) return Response.json({ error: 'Выберите страницу и добавьте хотя бы одну реплику.' }, { status: 400 });
+    const serializedLines = JSON.stringify(lines);
+    if (serializedLines.length > 18000) return Response.json({ error: 'Сценка слишком большая. Сократите текст или количество реплик.' }, { status: 400 });
     const startsAt = optionalDate(payload.startsAt);
     const endsAt = optionalDate(payload.endsAt);
     if (payload.startsAt && !startsAt || payload.endsAt && !endsAt) return Response.json({ error: 'Проверьте даты сезонной реплики.' }, { status: 400 });
@@ -120,7 +120,7 @@ export async function POST(request) {
        ON CONFLICT(id) DO UPDATE SET category = excluded.category, pages = excluded.pages, lines = excluded.lines,
          active = excluded.active, starts_at = excluded.starts_at, ends_at = excluded.ends_at,
          updated_at = excluded.updated_at, updated_by = excluded.updated_by`
-    ).bind(id, category, JSON.stringify(pages), JSON.stringify(lines), payload.active === false ? 0 : 1, startsAt, endsAt, now, now, auth.email || 'owner').run();
+    ).bind(id, category, JSON.stringify(pages), serializedLines, payload.active === false ? 0 : 1, startsAt, endsAt, now, now, auth.email || 'owner').run();
     invalidateCachedRead('mascot-public-config');
     return Response.json({ ok: true, ...(await readState(db)) }, { status: payload.id ? 200 : 201 });
   } catch (error) {

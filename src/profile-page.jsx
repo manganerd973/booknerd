@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Award, BookHeart, BookOpen, Camera, Check, Clock3, Flame, Library, LoaderCircle, Save, Sparkles, Star, Trash2, UserRound } from 'lucide-react';
+import { Award, BookHeart, BookOpen, Camera, Check, Clock3, Crown, EyeOff, Flame, Library, LoaderCircle, Save, Sparkles, Star, Trash2, Trophy, UserRound } from 'lucide-react';
 import { getVisitorKey } from './site-analytics.js';
 import { loadReaderLibrary } from './reader-library.jsx';
 import { APP_THEME_OPTIONS, setStoredAppTheme, setStoredAtmosphere } from './app-preferences.jsx';
@@ -72,24 +72,6 @@ function formatDuration(seconds) {
   return minutes < 60 ? `${minutes} мин` : `${Math.floor(minutes / 60)} ч ${minutes % 60} мин`;
 }
 
-function levelFor(stats) {
-  const points = Number(stats?.chaptersRead || 0) * 10 + Number(stats?.booksRead || 0) * 100 + Math.floor(Number(stats?.readingSeconds || 0) / 600);
-  return { level: Math.max(1, Math.floor(points / 250) + 1), points, next: 250 - (points % 250 || 250) };
-}
-
-function achievementsFor(stats, library) {
-  const achievements = [
-    { icon: '🏅', title: 'Первая глава', unlocked: Number(stats?.chaptersRead || 0) >= 1 },
-    { icon: '📚', title: 'Прочитано 100 глав', unlocked: Number(stats?.chaptersRead || 0) >= 100 },
-    { icon: '🌙', title: 'Ночной читатель', unlocked: (stats?.activeHours || []).some((item) => Number(item.hour) >= 23 || Number(item.hour) <= 3), hint: 'Читайте после полуночи' },
-    { icon: '☕', title: 'Утренний читатель', unlocked: (stats?.activeHours || []).some((item) => Number(item.hour) >= 5 && Number(item.hour) <= 9), hint: 'Читайте до 9 утра' },
-    { icon: '❤️', title: 'Первая завершённая книга', unlocked: Number(stats?.booksRead || 0) >= 1 },
-    { icon: '🔥', title: 'Неделя без пропусков', unlocked: Number(stats?.longestStreak || 0) >= 7 },
-    { icon: '🌍', title: 'Книги из 5 стран', unlocked: new Set(library.map((item) => item.book?.country).filter(Boolean)).size >= 5 },
-  ];
-  return achievements;
-}
-
 export default function ProfilePage({ books = [] }) {
   const [profile, setProfile] = useState(DEFAULT_PROFILE);
   const [stats, setStats] = useState(null);
@@ -97,12 +79,15 @@ export default function ProfilePage({ books = [] }) {
   const [memories, setMemories] = useState({ annotations: [], capsules: [] });
   const [notice, setNotice] = useState('');
   const [avatarBusy, setAvatarBusy] = useState(false);
+  const [levelData, setLevelData] = useState(null);
+  const [privacyBusy, setPrivacyBusy] = useState(false);
   const booksById = useMemo(() => new Map(books.map((book) => [book.id, book])), [books]);
   const enrichedLibrary = useMemo(() => library.map((item) => ({ ...item, book: booksById.get(item.bookId) })).filter((item) => item.book), [booksById, library]);
   const favoriteBooks = enrichedLibrary.filter((item) => item.status === 'favorite');
   const completedBooks = enrichedLibrary.filter((item) => item.status === 'finished');
-  const level = levelFor(stats);
-  const achievements = achievementsFor(stats, enrichedLibrary);
+  const level = levelData?.summary || null;
+  const unlocked = new Map((level?.achievements || []).map((item) => [item.key, item]));
+  const achievements = (levelData?.definitions || []).map((item) => ({ ...item, unlocked: unlocked.has(item.key), unlockedAt: unlocked.get(item.key)?.unlockedAt }));
 
   useEffect(() => {
     const visitorKey = getVisitorKey();
@@ -113,10 +98,12 @@ export default function ProfilePage({ books = [] }) {
       fetch(`/api/reader-hub?visitorKey=${encodeURIComponent(visitorKey)}`, { cache: 'no-store' }).then((response) => response.json()),
       fetch(`/api/reader-stats?visitorKey=${encodeURIComponent(visitorKey)}`, { cache: 'no-store' }).then((response) => response.json()),
       loadReaderLibrary(),
-    ]).then(([hubResult, statResult, libraryResult]) => {
+      fetch(`/api/reader-levels?visitorKey=${encodeURIComponent(visitorKey)}`, { cache: 'no-store' }).then((response) => response.ok ? response.json() : null),
+    ]).then(([hubResult, statResult, libraryResult, levelResult]) => {
       const hub = hubResult.status === 'fulfilled' ? hubResult.value : {};
       const statData = statResult.status === 'fulfilled' ? statResult.value : {};
       const libraryData = libraryResult.status === 'fulfilled' ? libraryResult.value : [];
+      if (levelResult.status === 'fulfilled' && levelResult.value?.summary) setLevelData(levelResult.value);
       if (hub.profile) {
         const loadedProfile = { ...DEFAULT_PROFILE, ...hub.profile, mascotPreferences: hasLocalMascotPreferences ? localMascotPreferences : { ...DEFAULT_MASCOT_SETTINGS, ...(hub.profile.mascotPreferences || {}) } };
         setProfile(loadedProfile);
@@ -195,13 +182,29 @@ export default function ProfilePage({ books = [] }) {
     setNotice('Профиль сохранён.');
   };
 
+  const updatePrivacy = async (key, value) => {
+    if (!level) return;
+    const next = { ...level, [key]: value };
+    setLevelData((current) => ({ ...current, summary: next }));
+    setPrivacyBusy(true);
+    try {
+      const response = await fetch('/api/reader-levels', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ visitorKey: getVisitorKey(), publicVisible: next.publicVisible, onlineVisible: next.onlineVisible, currentBookVisible: next.currentBookVisible, plannedShelfVisible: next.plannedShelfVisible, favoriteShelfVisible: next.favoriteShelfVisible, achievementsVisible: next.achievementsVisible }) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Не удалось сохранить настройки.');
+      setNotice('Настройки публичности сохранены.');
+    } catch (error) {
+      setLevelData((current) => ({ ...current, summary: level }));
+      setNotice(error.message);
+    } finally { setPrivacyBusy(false); }
+  };
+
   return (
     <div className="site-shell inner-site-shell profile-page">
       <SiteHeader active="profile" />
       <main>
         <section className={`profile-banner is-${profile.banner}`}>
-          <div className="profile-avatar">{profile.avatarUrl ? <img src={profile.avatarUrl} alt="" /> : <UserRound size={38} />}</div>
-          <div><small>КАРТОЧКА ЧИТАТЕЛЯ</small><h1>{profile.displayName}</h1><p>Уровень {level.level} · {level.points} очков чтения</p></div>
+          <div className={`profile-avatar ${level ? `rank-frame-${level.rank.key}` : ''}`} style={level ? { '--rank-color': level.rank.frameColor } : undefined}>{profile.avatarUrl ? <img src={profile.avatarUrl} alt="" /> : <UserRound size={38} />}</div>
+          <div><small>КАРТОЧКА ЧИТАТЕЛЯ</small><h1>{profile.displayName}</h1><p>{level ? `Уровень ${level.level} · ${level.rank.name}` : 'Уровень загружается'}</p></div>
           <span><Sparkles size={18} /> BOOKNERD READER</span>
         </section>
 
@@ -212,6 +215,17 @@ export default function ProfilePage({ books = [] }) {
             <article><Clock3 size={20} /><strong>{formatDuration(stats?.readingSeconds)}</strong><span>за чтением</span></article>
             <article><Flame size={20} /><strong>{stats?.longestStreak || 0}</strong><span>дней подряд</span></article>
           </div>
+
+          {level ? <section className={`reader-level-card rank-surface-${level.rank.key}`} id="reader-level">
+            <div className="reader-level-card-main"><span>{level.rank.icon}</span><div><small>ВАШ КНИЖНЫЙ РАНГ</small><h2>Уровень {level.level} · {level.rank.name}</h2><p>{level.progress.currentXp.toLocaleString('ru-RU')} / {level.progress.nextLevelXp.toLocaleString('ru-RU')} XP до следующего уровня</p></div><a href="/ranking"><Trophy size={17} /> Рейтинг читателей</a></div>
+            <div className="reader-level-progress" role="progressbar" aria-label="Прогресс до следующего уровня" aria-valuemin="0" aria-valuemax="100" aria-valuenow={level.progress.percent}><span style={{ width: `${level.progress.percent}%` }} /></div>
+            <div className="reader-level-positions"><span>№{levelData.monthly?.position || '—'} в этом месяце</span><span>№{levelData.allTimePosition || '—'} за всё время</span><span>{levelData.monthly?.xp || 0} XP за месяц</span></div>
+          </section> : null}
+
+          {levelData?.previousMonth ? <section className="reader-month-summary">
+            <div><small>ИТОГИ {levelData.previousMonth.monthKey}</small><h2>Ваш читательский месяц</h2></div>
+            <div><article><strong>{levelData.previousMonth.xp}</strong><span>XP заработано</span></article><article><strong>{levelData.previousMonth.completedBooks}</strong><span>книг завершено</span></article><article><strong>{levelData.previousMonth.completedChapters}</strong><span>глав прочитано</span></article><article><strong>{(level.awards || []).filter((item) => item.month_key === levelData.previousMonth.monthKey).length}</strong><span>номинаций</span></article></div>
+          </section> : null}
 
           <section className="profile-editor">
             <div><span className="section-number">МОЙ ПРОФИЛЬ</span><h2>Настройте свою<br /><em>читательскую полку.</em></h2></div>
@@ -239,11 +253,24 @@ export default function ProfilePage({ books = [] }) {
 
           <ProfileNotificationSettings />
 
+          {level ? <section className="profile-publicity">
+            <div className="profile-section-title"><EyeOff size={24} /><div><small>ПУБЛИЧНОСТЬ</small><h2>Что видят другие читатели</h2></div></div>
+            <p>Уровень и опыт продолжают начисляться при любых настройках. Электронная почта, пароль, личные заметки и технические данные никогда не публикуются.</p>
+            <div>{[
+              ['publicVisible', 'Показывать профиль в рейтинге', 'Отключите, чтобы исчезнуть с главной и из публичного рейтинга.'],
+              ['onlineVisible', 'Показывать активность', 'Другие увидят только «сегодня», «вчера» или «на этой неделе».'],
+              ['currentBookVisible', 'Показывать текущую книгу', 'Книга, которую Вы читаете сейчас.'],
+              ['plannedShelfVisible', 'Показывать полку «В планах»', 'Список запланированных книг.'],
+              ['favoriteShelfVisible', 'Показывать любимые книги', 'Публичная полка любимого.'],
+              ['achievementsVisible', 'Показывать историю достижений', 'Полученные книжные награды.'],
+            ].map(([key, title, description]) => <label key={key}><span><strong>{title}</strong><small>{description}</small></span><input type="checkbox" checked={Boolean(level[key])} onChange={(event) => updatePrivacy(key, event.target.checked)} disabled={privacyBusy} aria-label={title} /></label>)}</div>
+          </section> : null}
+
           <MascotSettings value={profile.mascotPreferences} onChange={(mascotPreferences) => setProfile((current) => ({ ...current, mascotPreferences }))} />
 
           <section className="profile-achievements">
             <div className="profile-section-title"><Award size={25} /><div><small>ДОСТИЖЕНИЯ</small><h2>Ваши книжные награды</h2></div></div>
-            <div>{achievements.map((item) => <article className={item.unlocked ? 'is-unlocked' : ''} key={item.title}><span>{item.icon}</span><strong>{item.title}</strong><small>{item.unlocked ? 'Получено' : item.hint || 'Пока закрыто'}</small>{item.unlocked ? <Check size={15} /> : null}</article>)}</div>
+            <div>{achievements.map((item) => <article className={item.unlocked ? 'is-unlocked' : ''} key={item.key}><span>{item.icon}</span><strong>{item.name}</strong><small>{item.unlocked ? item.description : 'Пока закрыто'}</small>{item.unlocked ? <Check size={15} /> : null}</article>)}</div>
           </section>
 
           <section className="profile-shelves">

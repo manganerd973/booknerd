@@ -1,11 +1,13 @@
 import { authorizeAdminRequest } from '../../../../lib/admin-auth.js';
 import { ensureDb } from '../../../../lib/runtime.js';
+import { refreshReaderLevel } from '../../../../lib/reader-levels.js';
 
 export async function GET(request) {
   const auth = await authorizeAdminRequest(request);
   if (auth.response) return auth.response;
   try {
     const db = await ensureDb();
+    const report = await db.prepare(`SELECT visitor_key FROM reader_error_reports WHERE id = ? LIMIT 1`).bind(id).first();
     const result = await db.prepare(
       `SELECT r.*, b.title AS book_title, b.slug AS book_slug,
               c.chapter_number, c.title AS chapter_title
@@ -50,6 +52,7 @@ export async function PATCH(request) {
     await db.prepare(
       `UPDATE reader_error_reports SET status = ?, resolved_by = ?, updated_at = ? WHERE id = ?`
     ).bind(status, status !== 'new' ? auth.email || auth.displayName || '' : '', new Date().toISOString(), id).run();
+    if (report?.visitor_key) await refreshReaderLevel({ db, visitorKey: report.visitor_key }).catch(() => null);
     return Response.json({ ok: true });
   } catch (error) {
     return Response.json({ error: error.message || 'Не удалось обновить сообщение.' }, { status: 500 });

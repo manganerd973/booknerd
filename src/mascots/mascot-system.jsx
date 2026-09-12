@@ -14,10 +14,12 @@ import {
   mascotPageContext,
   normalizeMascotSettings,
 } from './mascot-config.js';
-import { openingDialogue, selectDialogueByFirstSpeaker } from './mascot-dialogue-engine.js';
+import { openingDialogue, selectDialogue } from './mascot-dialogue-engine.js';
+import MascotSprite, { preloadMascotSprites } from './mascot-sprite.jsx';
+import { normalizeMascotLine, normalizeMascotLines } from './mascot-emotions.js';
 import { getVisitorKey } from '../site-analytics.js';
 
-const CONFIG_SESSION_KEY = 'booknerd-mascot-config-v47';
+const CONFIG_SESSION_KEY = 'booknerd-mascot-config-v50';
 const LAST_AUTO_KEY = 'booknerd-mascot-last-auto-v1';
 const NEW_READER_SEEN_KEY = 'booknerd-mascot-new-reader-seen-v1';
 const MAX_HISTORY = 24;
@@ -31,14 +33,14 @@ function normalizeSystemConfig(value) {
     aiEnabled: source.aiEnabled !== false,
     disabledPages: Array.isArray(source.disabledPages) ? source.disabledPages : [],
     blockedTopics: Array.isArray(source.blockedTopics) ? source.blockedTopics : [],
-    dialogues: Array.isArray(source.dialogues) ? source.dialogues : [],
+    dialogues: Array.isArray(source.dialogues) ? source.dialogues.map((dialogue) => ({ ...dialogue, lines: normalizeMascotLines(dialogue.lines, { category: dialogue.category }) })) : [],
   };
 }
 
 function readHistory() {
   try {
     const value = JSON.parse(localStorage.getItem(MASCOT_HISTORY_KEY) || '[]');
-    return Array.isArray(value) ? value.slice(-MAX_HISTORY) : [];
+    return Array.isArray(value) ? normalizeMessages(value).slice(-MAX_HISTORY) : [];
   } catch {
     return [];
   }
@@ -48,16 +50,17 @@ function saveHistory(messages) {
   try { localStorage.setItem(MASCOT_HISTORY_KEY, JSON.stringify(messages.slice(-MAX_HISTORY))); } catch { /* local history is optional */ }
 }
 
-function normalizeMessages(lines = []) {
-  return lines.map((line, index) => ({
-    id: line.id || `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
-    character: ['ivan', 'till', 'reader', 'both'].includes(line.character) ? line.character : 'ivan',
-    text: String(line.text || '').trim(),
-  })).filter((line) => line.text);
+function normalizeMessages(lines = [], options = {}) {
+  return (Array.isArray(lines) ? lines : []).map((line, index) => {
+    if (line?.character === 'reader' || line?.character === 'both') {
+      return { id: line.id || `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`, character: line.character, text: String(line.text || '').trim() };
+    }
+    return normalizeMascotLine({ ...line, id: line.id || `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}` }, { ...options, index });
+  }).filter((line) => line.text);
 }
 
-function CharacterPortrait({ character, compact = false }) {
-  return <img className={`mascot-character-image is-${character}${compact ? ' is-compact' : ''}`} src={`/mascots/${character}.webp`} alt={character === 'ivan' ? 'Иван' : 'Тилл'} loading="lazy" decoding="async" />;
+function CharacterPortrait({ character, compact = false, expression = 'neutral', pose = 'natural', gaze = 'forward', decorative = false }) {
+  return <MascotSprite character={character} expression={expression} pose={pose} gaze={gaze} compact={compact} decorative={decorative} />;
 }
 
 function DialogueMessages({ messages }) {
@@ -65,7 +68,7 @@ function DialogueMessages({ messages }) {
     <div className="mascot-chat-messages" aria-live="polite">
       {messages.map((message) => (
         <article className={`mascot-message is-${message.character}`} key={message.id}>
-          {message.character === 'ivan' || message.character === 'till' ? <CharacterPortrait character={message.character} compact /> : null}
+          {message.character === 'ivan' || message.character === 'till' ? <CharacterPortrait character={message.character} expression={message.expression} pose={message.pose} gaze={message.gaze} compact /> : null}
           <div>
             {message.character !== 'reader' ? <strong>{message.character === 'both' ? 'Иван и Тилл' : message.character === 'ivan' ? 'Иван' : 'Тилл'}</strong> : null}
             <p>{message.text}</p>
@@ -84,6 +87,7 @@ export default function MascotSystem() {
   const [open, setOpen] = useState(false);
   const [edgeDialogue, setEdgeDialogue] = useState(null);
   const [edgeLineIndex, setEdgeLineIndex] = useState(0);
+  const [edgeSettled, setEdgeSettled] = useState(false);
   const [history, setHistory] = useState([]);
   const [input, setInput] = useState('');
   const [askMode, setAskMode] = useState('both');
@@ -122,7 +126,9 @@ export default function MascotSystem() {
         return;
       }
       const preview = MASCOT_MODE_PREVIEWS[mode] || MASCOT_MODE_PREVIEWS.normal;
-      setEdgeDialogue(preview);
+      const lines = normalizeMascotLines(preview.lines, { category: preview.category });
+      preloadMascotSprites(lines);
+      setEdgeDialogue({ ...preview, lines });
       try {
         const locationKey = `${window.location.pathname}${window.location.search}`;
         const context = mascotPageContext(locationKey);
@@ -234,11 +240,13 @@ export default function MascotSystem() {
     const builtinCandidates = BUILTIN_DIALOGUES.filter(isAllowed);
     const candidates = customCandidates.length ? customCandidates : builtinCandidates;
     const newReaderWelcome = isNewReaderRef.current ? builtinCandidates.find((dialogue) => dialogue.id === 'new-reader-welcome') : null;
-    const chosen = newReaderWelcome || selectDialogueByFirstSpeaker(candidates);
+    const chosen = newReaderWelcome || selectDialogue(candidates);
     if (!chosen) return undefined;
     const timer = window.setTimeout(() => {
-      const maxLines = settings.mode === 'tips' ? 2 : settings.mode === 'more' ? 5 : 3;
-      setEdgeDialogue({ ...chosen, lines: chosen.lines.slice(0, maxLines) });
+      const maxLines = chosen.id === 'new-reader-welcome' ? 4 : settings.mode === 'tips' ? 2 : settings.mode === 'more' ? 5 : 3;
+      const lines = normalizeMascotLines(chosen.lines, { category: chosen.category }).slice(0, maxLines);
+      preloadMascotSprites(lines);
+      setEdgeDialogue({ ...chosen, lines });
       try {
         sessionStorage.setItem(pageKey, '1');
         localStorage.setItem(LAST_AUTO_KEY, String(Date.now()));
@@ -251,25 +259,23 @@ export default function MascotSystem() {
     return () => window.clearTimeout(timer);
   }, [globallyHidden, hiddenByPage, pageContext, pathname, readerHidden, ready, settings.mode, settings.showGreeting, settings.showRecommendations, systemConfig.dialogues]);
 
+  useEffect(() => { setEdgeLineIndex(0); setEdgeSettled(false); }, [edgeDialogue?.id]);
+
   useEffect(() => {
-    setEdgeLineIndex(0);
-    const lineCount = edgeDialogue?.lines?.length || 0;
-    if (lineCount < 2) return undefined;
-    const timer = window.setInterval(() => {
-      setEdgeLineIndex((index) => {
-        if (index >= lineCount - 1) {
-          window.clearInterval(timer);
-          return index;
-        }
-        return index + 1;
-      });
-    }, settings.reducedMotion ? 3600 : 2600);
-    return () => window.clearInterval(timer);
-  }, [edgeDialogue, settings.reducedMotion]);
+    const lines = edgeDialogue?.lines || [];
+    const line = lines[edgeLineIndex];
+    if (!line) return undefined;
+    const timer = window.setTimeout(() => {
+      if (edgeLineIndex >= lines.length - 1) setEdgeSettled(true);
+      else setEdgeLineIndex((index) => index + 1);
+    }, line.delayMs + line.durationMs);
+    return () => window.clearTimeout(timer);
+  }, [edgeDialogue, edgeLineIndex]);
 
   useEffect(() => {
     if (!edgeDialogue) return undefined;
-    const timer = window.setTimeout(() => setEdgeDialogue(null), settings.mode === 'more' ? 14000 : 9500);
+    const total = (edgeDialogue.lines || []).reduce((sum, line) => sum + Number(line.delayMs || 0) + Number(line.durationMs || 2600), 1200);
+    const timer = window.setTimeout(() => setEdgeDialogue(null), Math.min(settings.mode === 'more' ? 26000 : 18000, total + 900));
     return () => window.clearTimeout(timer);
   }, [edgeDialogue, settings.mode]);
 
@@ -298,7 +304,7 @@ export default function MascotSystem() {
   useEffect(() => saveHistory(history), [history]);
 
   const displayedHistory = useMemo(
-    () => history.length ? history : normalizeMessages(openingDialogue('ivan')),
+    () => history.length ? history : normalizeMessages(openingDialogue(), { category: 'greeting' }),
     [history],
   );
 
@@ -320,7 +326,7 @@ export default function MascotSystem() {
     setPendingSpoilerQuestion('');
     setSending(true);
     if (!navigator.onLine) {
-      setHistory((current) => [...current, ...normalizeMessages(OFFLINE_DIALOGUE)].slice(-MAX_HISTORY));
+      setHistory((current) => [...current, ...normalizeMessages(OFFLINE_DIALOGUE, { category: 'offline' })].slice(-MAX_HISTORY));
       setSending(false);
       return;
     }
@@ -332,13 +338,13 @@ export default function MascotSystem() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'Ответ временно недоступен.');
-      setHistory((current) => [...current, ...normalizeMessages(data.messages || [])].slice(-MAX_HISTORY));
+      setHistory((current) => [...current, ...normalizeMessages(data.messages || [], { category: 'tip' })].slice(-MAX_HISTORY));
       if (data.requiresSpoilerConfirmation) setPendingSpoilerQuestion(question);
     } catch {
       setHistory((current) => [...current, ...normalizeMessages([
         { character: 'till', text: 'Кажется, ответ потерялся по дороге.' },
         { character: 'ivan', text: 'Попробуйте ещё раз чуть позже. BOOKNERD продолжает работать.' },
-      ])].slice(-MAX_HISTORY));
+      ], { category: 'error' })].slice(-MAX_HISTORY));
     } finally {
       setSending(false);
     }
@@ -348,21 +354,23 @@ export default function MascotSystem() {
 
   const edgeLine = edgeDialogue?.lines?.[edgeLineIndex] || edgeDialogue?.lines?.[0] || null;
   const edgeSpeaker = edgeLine?.character === 'till' ? 'till' : 'ivan';
+  const edgeIvanExpression = edgeSettled ? 'neutral' : edgeSpeaker === 'ivan' ? edgeLine?.expression : edgeLine?.listenerReaction;
+  const edgeTillExpression = edgeSettled ? 'neutral' : edgeSpeaker === 'till' ? edgeLine?.expression : edgeLine?.listenerReaction;
 
   return (
     <div className={`mascot-system${settings.reducedMotion ? ' is-reduced-motion' : ''}`} data-page={pageContext}>
       {edgeDialogue && !open ? (
         <aside className="mascot-edge-banter" aria-live="polite">
           <button type="button" className="mascot-edge-close" onClick={() => setEdgeDialogue(null)} aria-label="Скрыть реплики Ивана и Тилла"><X size={16} /></button>
-          <div className={`mascot-edge-side is-ivan${edgeSpeaker === 'ivan' ? ' is-active' : ''}`}><CharacterPortrait character="ivan" /><div>{edgeSpeaker === 'ivan' && edgeLine ? <p key={edgeLineIndex}>{edgeLine.text}</p> : <span aria-hidden="true">•••</span>}</div></div>
-          <div className={`mascot-edge-side is-till${edgeSpeaker === 'till' ? ' is-active' : ''}`}><div>{edgeSpeaker === 'till' && edgeLine ? <p key={edgeLineIndex}>{edgeLine.text}</p> : <span aria-hidden="true">•••</span>}</div><CharacterPortrait character="till" /></div>
+          <div className={`mascot-edge-side is-ivan${edgeSpeaker === 'ivan' ? ' is-active is-speaking' : ' is-listening'}`}><CharacterPortrait character="ivan" expression={edgeIvanExpression} pose={edgeSpeaker === 'ivan' ? edgeLine?.pose : 'natural'} gaze={edgeSpeaker === 'ivan' ? edgeLine?.gaze : 'at-other'} /><div>{edgeSpeaker === 'ivan' && edgeLine ? <p key={edgeLineIndex}>{edgeLine.text}</p> : <span aria-hidden="true">•••</span>}</div></div>
+          <div className={`mascot-edge-side is-till${edgeSpeaker === 'till' ? ' is-active is-speaking' : ' is-listening'}`}><div>{edgeSpeaker === 'till' && edgeLine ? <p key={edgeLineIndex}>{edgeLine.text}</p> : <span aria-hidden="true">•••</span>}</div><CharacterPortrait character="till" expression={edgeTillExpression} pose={edgeSpeaker === 'till' ? edgeLine?.pose : 'natural'} gaze={edgeSpeaker === 'till' ? edgeLine?.gaze : 'at-other'} /></div>
           <button type="button" className="mascot-edge-open" onClick={() => { setEdgeDialogue(null); setOpen(true); }}>Открыть помощников</button>
         </aside>
       ) : null}
 
       {!readerHidden ? (
         <button ref={launcherRef} type="button" className="mascot-launcher" onClick={() => { setEdgeDialogue(null); setOpen(true); }} aria-label="Открыть помощников Ивана и Тилла">
-          <CharacterPortrait character="ivan" compact /><CharacterPortrait character="till" compact /><span className="mascot-online-dot" aria-hidden="true" />
+          <CharacterPortrait character="ivan" expression="soft-smile" compact /><CharacterPortrait character="till" expression="excited" compact /><span className="mascot-online-dot" aria-hidden="true" />
         </button>
       ) : null}
 
@@ -379,7 +387,7 @@ export default function MascotSystem() {
           >
             <div className="mascot-mobile-handle" aria-hidden="true" />
             <header className="mascot-chat-header">
-              <div className="mascot-chat-portraits" aria-hidden="true"><CharacterPortrait character="ivan" compact /><CharacterPortrait character="till" compact /></div>
+              <div className="mascot-chat-portraits" aria-hidden="true"><CharacterPortrait character="ivan" expression="soft-smile" compact decorative /><CharacterPortrait character="till" expression="excited" compact decorative /></div>
               <div><small><i /> ДОСТУПНЫ</small><h2>Иван и Тилл</h2></div>
               <a href="/profile#ivan-and-till-settings" aria-label="Настройки Ивана и Тилла"><Settings size={18} /></a>
               <button type="button" onClick={closePanel} aria-label="Свернуть помощников"><Minus size={19} /></button>
