@@ -647,6 +647,13 @@ html[data-app-theme='black'] .reader-page { --ed-paper:#080a09; --ed-card:#12171
 .reader-flow-copy blockquote.reader-rich-block { margin-top: 1.15em; margin-bottom: 1.15em; padding: .25em 0 .25em 1.15em; border-left: 4px solid var(--reader-accent); color: var(--reader-soft-ink); font-style: italic; }
 .reader-flow-copy .reader-rich-list-item { position: relative; margin-top: 0; margin-bottom: .55em; padding-left: 1.55em; text-indent: 0; }
 .reader-flow-copy .reader-rich-list-item::before { position: absolute; left: 0; color: var(--reader-accent); font-family: ui-sans-serif, system-ui, sans-serif; font-size: .82em; font-weight: 850; content: attr(data-list-marker); }
+.reader-flow-copy .reader-chapter-image { display: block; width: min(100%,220px); max-width: 100%; break-inside: avoid; margin-top: .9em; margin-bottom: .9em; }
+.reader-flow-copy .reader-chapter-image.is-medium { width: min(100%,420px); }
+.reader-flow-copy .reader-chapter-image.is-wide { width: 100%; }
+.reader-flow-copy .reader-chapter-image.align-left { margin-right: auto; margin-left: 0; }
+.reader-flow-copy .reader-chapter-image.align-center { margin-right: auto; margin-left: auto; }
+.reader-flow-copy .reader-chapter-image.align-right { margin-right: 0; margin-left: auto; }
+.reader-flow-copy .reader-chapter-image img { display: block; width: 100%; max-width: 100%; height: auto; object-fit: contain; }
 .reader-page-arrow { position: absolute; top: 52%; z-index: 7; display: grid; width: 45px; height: 58px; transform: translateY(-50%); place-items: center; border: 1px solid var(--reader-border); border-radius: 999px; color: var(--reader-ink); background: var(--reader-control); box-shadow: 0 7px 24px var(--reader-shadow); cursor: pointer; backdrop-filter: blur(10px); }
 .reader-page-arrow:hover { color: #123c35; background: var(--reader-yellow); }
 .reader-page-arrow:disabled { cursor: not-allowed; opacity: .28; }

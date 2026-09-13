@@ -2,6 +2,7 @@ import { hasReaderAccess } from '../../../lib/reader-access.js';
 import { ensureDb } from '../../../lib/runtime.js';
 import { markReaderForReview, normalizeReaderKey, refreshReaderLevel } from '../../../lib/reader-levels.js';
 import { jsonWithReaderIdentity, verifyOrCreateReaderIdentity } from '../../../lib/reader-identity.js';
+import { verifyChapterCompletion } from '../../../lib/reading-completion.js';
 
 const activity = new Map();
 
@@ -45,16 +46,20 @@ export async function POST(request) {
     const db = await ensureDb();
     const signal = activitySignal(request, visitorKey, chapterId);
     if (signal) await markReaderForReview(db, visitorKey, signal).catch(() => {});
-    const [chapter, today, previouslyCompleted] = await Promise.all([
-      db.prepare(`SELECT id FROM chapters WHERE id = ? AND book_id = ? AND status = 'published' LIMIT 1`).bind(chapterId, bookId).first(),
+    const chapter = await db.prepare(`SELECT id FROM chapters WHERE id = ? AND book_id = ? AND status = 'published' LIMIT 1`).bind(chapterId, bookId).first();
+    if (!chapter) return Response.json({ error: 'Глава не найдена.' }, { status: 404 });
+    const [today, previouslyCompleted] = completionRequested ? await Promise.all([
       db.prepare(`SELECT seconds, max_progress, completed, started_at FROM reading_sessions WHERE visitor_key = ? AND chapter_id = ? AND reading_date = ? LIMIT 1`).bind(visitorKey, chapterId, readingDate).first(),
       db.prepare(`SELECT 1 AS found FROM reading_sessions WHERE visitor_key = ? AND chapter_id = ? AND completed = 1 LIMIT 1`).bind(visitorKey, chapterId).first(),
-    ]);
-    if (!chapter) return Response.json({ error: 'Глава не найдена.' }, { status: 404 });
+    ]) : [null, null];
     const elapsed = today?.started_at ? Math.max(0, (now.getTime() - new Date(today.started_at).getTime()) / 1000) : 0;
-    const progressedNaturally = Number(today?.max_progress || 0) >= 20 || Number(today?.seconds || 0) > 0;
-    const completionVerified = Boolean(previouslyCompleted || (completionRequested && chapterProgress >= 95 && elapsed >= 8 && progressedNaturally && !signal));
-    const newlyCompleted = completionVerified && !previouslyCompleted;
+    const offlineElapsed = Math.max(0, (Number(payload.lastObservedAt || 0) - Number(payload.firstObservedAt || 0)) / 1000);
+    const offlineEvidence = payload.offlineSync === true && Number(payload.observationCount || payload.milestoneCount || 0) >= 2
+      && (chapterProgress - Number(payload.minProgress || chapterProgress) >= 20 || Number(payload.seconds || 0) >= 30 || offlineElapsed >= 30)
+      && offlineElapsed >= 8 && offlineElapsed <= 7 * 86400;
+    const verification = verifyChapterCompletion({ previouslyCompleted: Boolean(previouslyCompleted), requested: completionRequested, progress: chapterProgress, elapsedSeconds: offlineEvidence ? offlineElapsed : elapsed, previousProgress: Number(today?.max_progress || 0), previousSeconds: Number(today?.seconds || 0), suspicious: Boolean(signal), offlineEvidence });
+    const completionVerified = verification.accepted;
+    const newlyCompleted = verification.newlyCompleted;
     await db.batch([
       db.prepare(
         `INSERT INTO reading_sessions
@@ -83,7 +88,7 @@ export async function POST(request) {
       ok: true, completionAccepted: completionVerified, newlyCompleted,
       levelEvent: summary && (summary.levelChanged || summary.newAchievements.length) ? {
         level: summary.level, rank: summary.rank, progress: summary.progress,
-        rankChanged: summary.rankChanged, newAchievements: summary.newAchievements,
+        levelChanged: summary.levelChanged, rankChanged: summary.rankChanged, newAchievements: summary.newAchievements,
       } : null,
     }, identity);
   } catch (error) {

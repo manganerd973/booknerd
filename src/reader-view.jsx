@@ -58,7 +58,6 @@ import {
   StickerPicker,
   stickerById,
 } from './reader-annotations.jsx';
-import MascotChapterEnding from './mascots/mascot-chapter-ending.jsx';
 
 const SETTINGS_KEY = 'booknerd-reader-settings-v2';
 const ANNOTATIONS_KEY_PREFIX = 'booknerd-reader-annotations-v1';
@@ -190,6 +189,20 @@ function ChapterFlow({
       </header>
       <div className="reader-flow-copy">
         {blocks.map((block, index) => {
+          if (block.type === 'image') {
+            return (
+              <figure className={`reader-chapter-image is-${block.size} align-${block.align}`} key={`image-${block.src}-${index}`}>
+                <img
+                  src={block.src}
+                  alt={block.alt || ''}
+                  width={block.width || undefined}
+                  height={block.height || undefined}
+                  loading="lazy"
+                  decoding="async"
+                />
+              </figure>
+            );
+          }
           const text = block.runs.map((run) => run.text).join('');
           const element = block.chatSide ? 'p' : block.type === 'heading' ? 'h2' : block.type === 'subheading' ? 'h3' : block.type === 'blockquote' ? 'blockquote' : 'p';
           const listMarker = block.type === 'list-item' ? block.listType === 'number' ? `${block.listIndex || index + 1}.` : '•' : '';
@@ -569,7 +582,6 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
           notificationReturn,
         }).catch(() => {});
     };
-    record(0, false);
     const timer = window.setInterval(() => record(120, false), 120000);
     return () => {
       stopped = true;
@@ -1302,7 +1314,6 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       {panel === 'menu' ? (
         <ReaderSheet title="Меню чтения" eyebrow={`${currentBookPage} из ${totalBookPages}`} onClose={() => setPanel(null)}>
           <div className="reader-menu-list">
-            <button type="button" onClick={() => { setPanel(null); window.dispatchEvent(new CustomEvent('booknerd:open-mascots', { detail: { bookSlug: book.slug, currentChapter: chapter.chapterNumber } })); }}><MessageCircle size={22} /><span><strong>Спросить Ивана и Тилла</strong><small>Помощники откроются только по Вашему нажатию</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('contents')}><List size={22} /><span><strong>Содержание</strong><small>Все главы книги</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('search')}><Search size={22} /><span><strong>Поиск по книге</strong><small>Найти слово во всех главах</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('annotations')}><Highlighter size={22} /><span><strong>Мои пометки</strong><small>{annotations.length ? `${annotations.length} сохранено` : 'Выделения, заметки и стикеры'}</small></span><ChevronRight size={18} /></button>
@@ -1725,7 +1736,6 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
                   ? 'Вы дошли до последней страницы. Оставьте оценку и отзыв — он сразу появится на главной странице этой книги.'
                   : 'Вы прочитали всё, что уже опубликовано. Книга автоматически остаётся в разделе «Читаю», а после выхода новой главы можно будет продолжить с этого места.'}</p>
             </div>
-            <MascotChapterEnding bookSlug={book.slug} currentChapter={chapter.chapterNumber} />
             <section className="reader-emotion-map">
               <small>Какая эмоция осталась после главы?</small>
               <div>

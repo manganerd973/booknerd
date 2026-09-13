@@ -183,10 +183,10 @@ html[data-app-theme='black'] .library-hero p { color: var(--muted); }
 .discovery-celebrations span { display: grid; gap: 3px; }
 .discovery-celebrations small { font-size: 8px; font-weight: 900; text-transform: uppercase; }
 .discovery-celebrations strong { font-family: var(--serif); font-size: 18px; }
-.booknerd-mascot-tip { display: flex; width: min(430px,100%); align-items: center; gap: 13px; margin: 26px 0 0 auto; padding: 14px 16px; border: 1px dashed var(--line); border-radius: 18px 18px 4px 18px; background: rgba(255,212,59,.14); }
-.booknerd-mascot-tip > span { font-size: 30px; }
-.booknerd-mascot-tip p { display: grid; gap: 2px; margin: 0; color: var(--muted); font-size: 9px; line-height: 1.5; }
-.booknerd-mascot-tip strong { color: var(--ink); font-size: 10px; }
+.booknerd-discovery-tip { display: flex; width: min(430px,100%); align-items: center; gap: 13px; margin: 26px 0 0 auto; padding: 14px 16px; border: 1px dashed var(--line); border-radius: 18px 18px 4px 18px; background: rgba(255,212,59,.14); }
+.booknerd-discovery-tip > span { font-size: 30px; }
+.booknerd-discovery-tip p { display: grid; gap: 2px; margin: 0; color: var(--muted); font-size: 9px; line-height: 1.5; }
+.booknerd-discovery-tip strong { color: var(--ink); font-size: 10px; }
 .discovery-records { margin-top: 26px; padding: 26px; color: var(--cream); background: var(--navy); }
 .discovery-records > header small { color: var(--yellow); font-size: 8px; font-weight: 900; letter-spacing: .14em; }
 .discovery-records > header h3 { margin: 6px 0 20px; font-family: var(--serif); font-size: 28px; font-weight: 500; }

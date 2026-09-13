@@ -8,7 +8,7 @@
   "main": "worker/index.js",
   "triggers": {
     "crons": [
-      "* * * * *",
+      "*/5 * * * *",
       "0 1 1 * *"
     ]
   },
@@ -19,9 +19,6 @@
   },
   "cache": {
     "enabled": true
-  },
-  "ai": {
-    "binding": "AI"
   },
   "d1_databases": [
     {

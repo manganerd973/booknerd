@@ -272,6 +272,9 @@ export function ChapterPreview({ book, chapter, onClose }) {
             <h1>Глава {chapter.chapterNumber}<span>{chapter.title}</span></h1>
             {chapter.pointOfView ? <em>От лица {chapter.pointOfView}</em> : null}
             <div>{documentValue.blocks.map((block, index) => {
+              if (block.type === 'image') {
+                return <figure className={`preview-chapter-image is-${block.size} align-${block.align}`} key={`image-${block.src}-${index}`}><img src={block.src} alt={block.alt || ''} width={block.width || undefined} height={block.height || undefined} /></figure>;
+              }
               const Tag = block.type === 'heading' ? 'h2' : block.type === 'blockquote' ? 'blockquote' : 'p';
               return <Tag className={block.chatSide ? `preview-chat is-${block.chatSide}` : ''} key={index}>{block.chatSender ? <small>{block.chatSender}</small> : null}<PreviewRuns runs={block.runs} /></Tag>;
             })}</div>

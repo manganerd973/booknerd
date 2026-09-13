@@ -432,7 +432,6 @@ export const readerProfiles = sqliteTable('reader_profiles', {
   favoriteQuotes: text('favorite_quotes').notNull().default('[]'),
   appTheme: text('app_theme').notNull().default('original'),
   atmosphere: text('atmosphere').notNull().default('auto'),
-  mascotPreferences: text('mascot_preferences').notNull().default('{}'),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 });
@@ -452,6 +451,8 @@ export const readerLevelStats = sqliteTable('reader_level_stats', {
   uniqueReadingDays: integer('unique_reading_days').notNull().default(0),
   completedBookKeys: text('completed_book_keys').notNull().default('[]'),
   completedSeriesKeys: text('completed_series_keys').notNull().default('[]'),
+  favoriteGenres: text('favorite_genres').notNull().default('[]'),
+  favoriteTropes: text('favorite_tropes').notNull().default('[]'),
   publicVisible: integer('public_visible', { mode: 'boolean' }).notNull().default(true),
   onlineVisible: integer('online_visible', { mode: 'boolean' }).notNull().default(true),
   currentBookVisible: integer('current_book_visible', { mode: 'boolean' }).notNull().default(true),
@@ -499,6 +500,17 @@ export const readerAchievements = sqliteTable('reader_achievements', {
   index('reader_achievements_unlocked_idx').on(table.visitorKey, table.unlockedAt),
 ]);
 
+export const readerRankHistory = sqliteTable('reader_rank_history', {
+  visitorKey: text('visitor_key').notNull(),
+  rankKey: text('rank_key').notNull(),
+  rankName: text('rank_name').notNull(),
+  reachedLevel: integer('reached_level').notNull(),
+  unlockedAt: text('unlocked_at').notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.visitorKey, table.rankKey] }),
+  index('reader_rank_history_reader_unlocked_idx').on(table.visitorKey, table.unlockedAt),
+]);
+
 export const readerMonthlyAwards = sqliteTable('reader_monthly_awards', {
   visitorKey: text('visitor_key').notNull(),
   monthKey: text('month_key').notNull(),
@@ -537,31 +549,6 @@ export const readerMonthFinalizations = sqliteTable('reader_month_finalizations'
   startedAt: text('started_at').notNull(),
   completedAt: text('completed_at'),
 });
-
-export const mascotSettings = sqliteTable('mascot_settings', {
-  id: text('id').primaryKey(),
-  enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
-  aiEnabled: integer('ai_enabled', { mode: 'boolean' }).notNull().default(false),
-  disabledPages: text('disabled_pages').notNull().default('[]'),
-  blockedTopics: text('blocked_topics').notNull().default('[]'),
-  updatedAt: text('updated_at').notNull(),
-  updatedBy: text('updated_by').notNull().default(''),
-});
-
-export const mascotDialogues = sqliteTable('mascot_dialogues', {
-  id: text('id').primaryKey(),
-  category: text('category').notNull().default('tip'),
-  pages: text('pages').notNull().default('[]'),
-  lines: text('lines').notNull().default('[]'),
-  active: integer('active', { mode: 'boolean' }).notNull().default(true),
-  startsAt: text('starts_at'),
-  endsAt: text('ends_at'),
-  createdAt: text('created_at').notNull(),
-  updatedAt: text('updated_at').notNull(),
-  updatedBy: text('updated_by').notNull().default(''),
-}, (table) => [
-  index('mascot_dialogues_active_dates_idx').on(table.active, table.startsAt, table.endsAt),
-]);
 
 export const paragraphReactions = sqliteTable('paragraph_reactions', {
   id: text('id').primaryKey(),

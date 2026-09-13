@@ -17,23 +17,29 @@ export async function GET(request) {
   const accessDenied = await denied(request);
   if (accessDenied) return accessDenied;
   try {
-    const visitorKey = normalizeReaderKey(new URL(request.url).searchParams.get('visitorKey'));
+    const url = new URL(request.url);
+    const visitorKey = normalizeReaderKey(url.searchParams.get('visitorKey'));
+    const legacyVoterKey = normalizeReaderKey(url.searchParams.get('legacyVoterKey'));
     if (!visitorKey) return Response.json({ error: 'Читатель не определён.' }, { status: 400 });
     const identity = await verifyOrCreateReaderIdentity(request, visitorKey);
     if (!identity.valid) return Response.json({ error: 'Профиль чтения не совпадает с защищённой сессией.' }, { status: 403 });
     const db = await ensureDb();
+    if (legacyVoterKey && legacyVoterKey !== visitorKey) {
+      await db.prepare(`UPDATE OR IGNORE book_reviews SET voter_key = ? WHERE voter_key = ?`).bind(visitorKey, legacyVoterKey).run();
+    }
     let row = await db.prepare(`SELECT * FROM reader_level_stats WHERE visitor_key = ? LIMIT 1`).bind(visitorKey).first();
     if (!row) {
       await refreshReaderLevel({ db, visitorKey, legacyBackfill: true, suppressNotifications: true });
       row = await db.prepare(`SELECT * FROM reader_level_stats WHERE visitor_key = ? LIMIT 1`).bind(visitorKey).first();
     }
     const currentMonth = monthKey();
-    const [monthly, achievements, awards, monthPosition, allPosition, previousMonth] = await Promise.all([
+    const [monthly, achievements, awards, rankHistory, monthPosition, allPosition, previousMonth] = await Promise.all([
       db.prepare(`SELECT * FROM reader_monthly_stats WHERE visitor_key = ? AND month_key = ? LIMIT 1`).bind(visitorKey, currentMonth).first(),
       db.prepare(`SELECT achievement_key, unlocked_at FROM reader_achievements WHERE visitor_key = ? ORDER BY unlocked_at DESC`).bind(visitorKey).all(),
       db.prepare(`SELECT month_key, nomination_key, title, awarded_at FROM reader_monthly_awards WHERE visitor_key = ? ORDER BY awarded_at DESC LIMIT 60`).bind(visitorKey).all(),
-      db.prepare(`SELECT 1 + COUNT(*) AS position FROM reader_monthly_stats m JOIN reader_level_stats s ON s.visitor_key = m.visitor_key WHERE m.month_key = ? AND s.rating_status = 'active' AND (m.xp > COALESCE((SELECT xp FROM reader_monthly_stats WHERE visitor_key = ? AND month_key = ?), 0) OR (m.xp = COALESCE((SELECT xp FROM reader_monthly_stats WHERE visitor_key = ? AND month_key = ?), 0) AND m.reached_xp_at < COALESCE((SELECT reached_xp_at FROM reader_monthly_stats WHERE visitor_key = ? AND month_key = ?), '9999')))`).bind(currentMonth, visitorKey, currentMonth, visitorKey, currentMonth, visitorKey, currentMonth).first(),
-      db.prepare(`SELECT 1 + COUNT(*) AS position FROM reader_level_stats WHERE rating_status = 'active' AND (total_xp > ? OR (total_xp = ? AND COALESCE(first_counted_at, created_at) < COALESCE(?, '9999')))`).bind(Number(row?.total_xp || 0), Number(row?.total_xp || 0), row?.first_counted_at || row?.created_at).first(),
+      db.prepare(`SELECT rank_key, rank_name, reached_level, unlocked_at FROM reader_rank_history WHERE visitor_key = ? ORDER BY reached_level DESC`).bind(visitorKey).all(),
+      db.prepare(`WITH own AS (SELECT xp, completed_books, unique_reading_days, completed_chapters, COALESCE(reached_xp_at, updated_at) AS reached_at FROM reader_monthly_stats WHERE visitor_key = ? AND month_key = ?) SELECT 1 + COUNT(*) AS position FROM reader_monthly_stats m CROSS JOIN own o JOIN reader_level_stats s ON s.visitor_key = m.visitor_key WHERE m.month_key = ? AND s.rating_status = 'active' AND (m.xp > o.xp OR (m.xp = o.xp AND (m.completed_books > o.completed_books OR (m.completed_books = o.completed_books AND (m.unique_reading_days > o.unique_reading_days OR (m.unique_reading_days = o.unique_reading_days AND (m.completed_chapters > o.completed_chapters OR (m.completed_chapters = o.completed_chapters AND COALESCE(m.reached_xp_at, m.updated_at) < o.reached_at))))))))`).bind(visitorKey, currentMonth, currentMonth).first(),
+      db.prepare(`WITH own AS (SELECT total_xp, completed_books, unique_reading_days, completed_chapters, COALESCE(first_counted_at, created_at) AS reached_at FROM reader_level_stats WHERE visitor_key = ?) SELECT 1 + COUNT(*) AS position FROM reader_level_stats s CROSS JOIN own o WHERE s.rating_status = 'active' AND (s.total_xp > o.total_xp OR (s.total_xp = o.total_xp AND (s.completed_books > o.completed_books OR (s.completed_books = o.completed_books AND (s.unique_reading_days > o.unique_reading_days OR (s.unique_reading_days = o.unique_reading_days AND (s.completed_chapters > o.completed_chapters OR (s.completed_chapters = o.completed_chapters AND COALESCE(s.first_counted_at, s.created_at) < o.reached_at))))))))`).bind(visitorKey).first(),
       db.prepare(`SELECT * FROM reader_monthly_stats WHERE visitor_key = ? AND month_key = ? LIMIT 1`).bind(visitorKey, previousMonthKey()).first(),
     ]);
     const config = await readReaderLevelConfig(db);
@@ -43,6 +49,7 @@ export async function GET(request) {
       monthly: monthly ? { monthKey: monthly.month_key, xp: Number(monthly.xp || 0), completedChapters: Number(monthly.completed_chapters || 0), completedBooks: Number(monthly.completed_books || 0), position: Number(monthPosition?.position || 1) } : { monthKey: currentMonth, xp: 0, completedChapters: 0, completedBooks: 0, position: 1 },
       allTimePosition: Number(allPosition?.position || 1),
       previousMonth: previousMonth ? { monthKey: previousMonth.month_key, xp: Number(previousMonth.xp || 0), completedChapters: Number(previousMonth.completed_chapters || 0), completedBooks: Number(previousMonth.completed_books || 0) } : null,
+      rankHistory: rankHistory.results || [],
       definitions: ACHIEVEMENT_DEFINITIONS,
     }, identity);
   } catch (error) {

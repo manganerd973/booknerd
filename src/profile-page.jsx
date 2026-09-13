@@ -3,14 +3,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Award, BookHeart, BookOpen, Camera, Check, Clock3, Crown, EyeOff, Flame, Library, LoaderCircle, Save, Sparkles, Star, Trash2, Trophy, UserRound } from 'lucide-react';
 import { getVisitorKey } from './site-analytics.js';
+import { getCommentVoterKey } from './comment-votes.jsx';
 import { loadReaderLibrary } from './reader-library.jsx';
 import { APP_THEME_OPTIONS, setStoredAppTheme, setStoredAtmosphere } from './app-preferences.jsx';
 import ProfileNotificationSettings from './profile-notification-settings.jsx';
 import { SiteFooter, SiteHeader } from './page-chrome.jsx';
-import MascotSettings from './mascots/mascot-settings.jsx';
-import { DEFAULT_MASCOT_SETTINGS, hasStoredMascotSettings, loadMascotSettings, saveMascotSettings } from './mascots/mascot-config.js';
 
-const DEFAULT_PROFILE = { displayName: 'Читатель BOOKNERD', avatarUrl: '', banner: 'books', favoriteCharacters: [], favoriteQuotes: [], appTheme: 'original', atmosphere: 'auto', mascotPreferences: DEFAULT_MASCOT_SETTINGS };
+const DEFAULT_PROFILE = { displayName: 'Читатель BOOKNERD', avatarUrl: '', banner: 'books', favoriteCharacters: [], favoriteQuotes: [], appTheme: 'original', atmosphere: 'auto' };
 const MAX_AVATAR_SOURCE_BYTES = 10 * 1024 * 1024;
 const MAX_AVATAR_UPLOAD_BYTES = 180 * 1024;
 
@@ -91,23 +90,18 @@ export default function ProfilePage({ books = [] }) {
 
   useEffect(() => {
     const visitorKey = getVisitorKey();
-    const localMascotPreferences = loadMascotSettings();
-    const hasLocalMascotPreferences = hasStoredMascotSettings();
-    setProfile((current) => ({ ...current, mascotPreferences: localMascotPreferences }));
     Promise.allSettled([
       fetch(`/api/reader-hub?visitorKey=${encodeURIComponent(visitorKey)}`, { cache: 'no-store' }).then((response) => response.json()),
       fetch(`/api/reader-stats?visitorKey=${encodeURIComponent(visitorKey)}`, { cache: 'no-store' }).then((response) => response.json()),
       loadReaderLibrary(),
-      fetch(`/api/reader-levels?visitorKey=${encodeURIComponent(visitorKey)}`, { cache: 'no-store' }).then((response) => response.ok ? response.json() : null),
+      fetch(`/api/reader-levels?visitorKey=${encodeURIComponent(visitorKey)}&legacyVoterKey=${encodeURIComponent(getCommentVoterKey())}`, { cache: 'no-store' }).then((response) => response.ok ? response.json() : null),
     ]).then(([hubResult, statResult, libraryResult, levelResult]) => {
       const hub = hubResult.status === 'fulfilled' ? hubResult.value : {};
       const statData = statResult.status === 'fulfilled' ? statResult.value : {};
       const libraryData = libraryResult.status === 'fulfilled' ? libraryResult.value : [];
       if (levelResult.status === 'fulfilled' && levelResult.value?.summary) setLevelData(levelResult.value);
       if (hub.profile) {
-        const loadedProfile = { ...DEFAULT_PROFILE, ...hub.profile, mascotPreferences: hasLocalMascotPreferences ? localMascotPreferences : { ...DEFAULT_MASCOT_SETTINGS, ...(hub.profile.mascotPreferences || {}) } };
-        setProfile(loadedProfile);
-        saveMascotSettings(loadedProfile.mascotPreferences);
+        setProfile({ ...DEFAULT_PROFILE, ...hub.profile });
       }
       setStats(statData.stats || null);
       setLibrary(libraryData || []);
@@ -222,10 +216,12 @@ export default function ProfilePage({ books = [] }) {
             <div className="reader-level-positions"><span>№{levelData.monthly?.position || '—'} в этом месяце</span><span>№{levelData.allTimePosition || '—'} за всё время</span><span>{levelData.monthly?.xp || 0} XP за месяц</span></div>
           </section> : null}
 
-          {levelData?.previousMonth ? <section className="reader-month-summary">
+          {levelData?.previousMonth ? <section className="reader-month-summary" id="reader-month-summary">
             <div><small>ИТОГИ {levelData.previousMonth.monthKey}</small><h2>Ваш читательский месяц</h2></div>
             <div><article><strong>{levelData.previousMonth.xp}</strong><span>XP заработано</span></article><article><strong>{levelData.previousMonth.completedBooks}</strong><span>книг завершено</span></article><article><strong>{levelData.previousMonth.completedChapters}</strong><span>глав прочитано</span></article><article><strong>{(level.awards || []).filter((item) => item.month_key === levelData.previousMonth.monthKey).length}</strong><span>номинаций</span></article></div>
           </section> : null}
+
+          {levelData?.rankHistory?.length ? <section className="reader-rank-history"><div><Crown size={23} /><span><small>ИСТОРИЯ РАНГОВ</small><h2>Пройденные книжные ступени</h2></span></div><div>{levelData.rankHistory.map((item) => <article key={item.rank_key}><strong>{item.rank_name}</strong><small>с уровня {item.reached_level}</small></article>)}</div></section> : null}
 
           <section className="profile-editor">
             <div><span className="section-number">МОЙ ПРОФИЛЬ</span><h2>Настройте свою<br /><em>читательскую полку.</em></h2></div>
@@ -265,8 +261,6 @@ export default function ProfilePage({ books = [] }) {
               ['achievementsVisible', 'Показывать историю достижений', 'Полученные книжные награды.'],
             ].map(([key, title, description]) => <label key={key}><span><strong>{title}</strong><small>{description}</small></span><input type="checkbox" checked={Boolean(level[key])} onChange={(event) => updatePrivacy(key, event.target.checked)} disabled={privacyBusy} aria-label={title} /></label>)}</div>
           </section> : null}
-
-          <MascotSettings value={profile.mascotPreferences} onChange={(mascotPreferences) => setProfile((current) => ({ ...current, mascotPreferences }))} />
 
           <section className="profile-achievements">
             <div className="profile-section-title"><Award size={25} /><div><small>ДОСТИЖЕНИЯ</small><h2>Ваши книжные награды</h2></div></div>

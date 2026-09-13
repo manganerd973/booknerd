@@ -18,6 +18,6 @@ export default {
       context.waitUntil(ensureDb().then((db) => finalizeReaderMonth(db)).catch(() => null));
       return;
     }
-    context.waitUntil(publishDueChapters());
+    context.waitUntil(ensureDb().then(() => publishDueChapters()).catch(() => null));
   },
 };

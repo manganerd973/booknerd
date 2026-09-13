@@ -27,6 +27,7 @@ export default defineConfig({
       cache: { cdn: cdnAdapter() },
     }),
     cloudflare({
+      remoteBindings: false,
       viteEnvironment: {
         name: "rsc",
         childEnvironments: ["ssr"],

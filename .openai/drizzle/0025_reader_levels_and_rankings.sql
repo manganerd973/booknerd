@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS reader_level_stats (
   unique_reading_days INTEGER NOT NULL DEFAULT 0,
   completed_book_keys TEXT NOT NULL DEFAULT '[]',
   completed_series_keys TEXT NOT NULL DEFAULT '[]',
+  favorite_genres TEXT NOT NULL DEFAULT '[]',
+  favorite_tropes TEXT NOT NULL DEFAULT '[]',
   public_visible INTEGER NOT NULL DEFAULT 1,
   online_visible INTEGER NOT NULL DEFAULT 1,
   current_book_visible INTEGER NOT NULL DEFAULT 1,
@@ -76,6 +78,18 @@ CREATE TABLE IF NOT EXISTS reader_achievements (
 
 CREATE INDEX IF NOT EXISTS reader_achievements_unlocked_idx
 ON reader_achievements(visitor_key, unlocked_at DESC);
+
+CREATE TABLE IF NOT EXISTS reader_rank_history (
+  visitor_key TEXT NOT NULL,
+  rank_key TEXT NOT NULL,
+  rank_name TEXT NOT NULL,
+  reached_level INTEGER NOT NULL,
+  unlocked_at TEXT NOT NULL,
+  PRIMARY KEY (visitor_key, rank_key)
+);
+
+CREATE INDEX IF NOT EXISTS reader_rank_history_reader_unlocked_idx
+ON reader_rank_history(visitor_key, unlocked_at DESC);
 
 CREATE TABLE IF NOT EXISTS reader_monthly_awards (
   visitor_key TEXT NOT NULL,

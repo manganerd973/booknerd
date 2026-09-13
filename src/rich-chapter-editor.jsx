@@ -13,8 +13,10 @@ import {
   IndentDecrease,
   IndentIncrease,
   Italic,
+  ImagePlus,
   List,
   ListOrdered,
+  LoaderCircle,
   Pilcrow,
   Pin,
   Quote,
@@ -22,6 +24,7 @@ import {
   Search,
   Smile,
   Smartphone,
+  Trash2,
   Underline,
   Undo2,
   X,
@@ -33,8 +36,12 @@ import {
   serializeRichDocument,
 } from '../lib/rich-document.js';
 
-const BLOCK_TAGS = new Set(['P', 'DIV', 'H1', 'H2', 'H3', 'BLOCKQUOTE', 'LI']);
+const BLOCK_TAGS = new Set(['P', 'DIV', 'H1', 'H2', 'H3', 'BLOCKQUOTE', 'LI', 'FIGURE']);
 const ALLOWED_PASTE_TAGS = new Set(['P', 'DIV', 'BR', 'STRONG', 'B', 'EM', 'I', 'U', 'S', 'STRIKE', 'BLOCKQUOTE', 'UL', 'OL', 'LI', 'H1', 'H2', 'H3', 'SPAN', 'FONT']);
+const CHAPTER_IMAGE_MAX_SOURCE_BYTES = 12 * 1024 * 1024;
+const CHAPTER_IMAGE_MAX_UPLOAD_BYTES = 300 * 1024;
+const CHAPTER_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const MAX_CHAPTER_IMAGES = 24;
 const CHAT_EMOJI_CATEGORIES = [
   {
     id: 'faces',
@@ -162,6 +169,19 @@ function blockFromElement(element, listType = '', listIndex = 0) {
   };
 }
 
+function imageBlockFromElement(element) {
+  return {
+    type: 'image',
+    src: element.dataset?.imageSrc || element.querySelector('img')?.getAttribute('src') || '',
+    alt: element.dataset?.imageAlt || element.querySelector('img')?.getAttribute('alt') || '',
+    size: element.dataset?.imageSize || 'small',
+    align: element.dataset?.imageAlign || 'center',
+    width: Number(element.dataset?.imageWidth || element.querySelector('img')?.getAttribute('width') || 0),
+    height: Number(element.dataset?.imageHeight || element.querySelector('img')?.getAttribute('height') || 0),
+    runs: [],
+  };
+}
+
 function hasDirectBlockChild(element) {
   return [...element.children].some((child) => BLOCK_TAGS.has(child.tagName) || child.tagName === 'UL' || child.tagName === 'OL');
 }
@@ -182,6 +202,11 @@ function extractBlocks(root) {
     }
     if (node.nodeType !== Node.ELEMENT_NODE) return;
     const tag = node.tagName;
+    if (tag === 'FIGURE' && node.dataset?.chapterImage === 'true') {
+      flushLooseRuns();
+      blocks.push(imageBlockFromElement(node));
+      return;
+    }
     if (tag === 'UL' || tag === 'OL') {
       flushLooseRuns();
       let index = Math.max(1, Number(node.getAttribute('start')) || 1);
@@ -202,7 +227,56 @@ function extractBlocks(root) {
 
   root.childNodes.forEach(visit);
   flushLooseRuns();
-  return normalizeRichDocument({ version: 1, blocks });
+  return normalizeRichDocument({ version: 2, blocks });
+}
+
+function canvasToBlob(canvas, type, quality) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Не удалось подготовить фото.')), type, quality);
+  });
+}
+
+async function prepareChapterImage(file) {
+  if (!CHAPTER_IMAGE_TYPES.has(file.type)) throw new Error('Поддерживаются JPG, PNG и WEBP.');
+  if (!file.size || file.size > CHAPTER_IMAGE_MAX_SOURCE_BYTES) throw new Error('Исходное фото должно быть меньше 12 МБ.');
+
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = new Image();
+    await new Promise((resolve, reject) => {
+      image.onload = resolve;
+      image.onerror = () => reject(new Error('Не удалось прочитать фото.'));
+      image.src = objectUrl;
+    });
+    const attempts = [
+      { width: 1600, height: 1400, quality: .84 },
+      { width: 1350, height: 1200, quality: .74 },
+      { width: 1100, height: 1000, quality: .64 },
+      { width: 900, height: 850, quality: .56 },
+    ];
+    for (const attempt of attempts) {
+      const scale = Math.min(1, attempt.width / image.naturalWidth, attempt.height / image.naturalHeight);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Браузер не смог подготовить фото.');
+      context.imageSmoothingEnabled = true;
+      context.imageSmoothingQuality = 'high';
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const blob = await canvasToBlob(canvas, 'image/webp', attempt.quality);
+      if (blob.size <= CHAPTER_IMAGE_MAX_UPLOAD_BYTES) {
+        return {
+          file: new File([blob], `booknerd-chapter-image-${Date.now()}.webp`, { type: 'image/webp' }),
+          width: canvas.width,
+          height: canvas.height,
+        };
+      }
+    }
+    throw new Error('Фото не удалось сделать достаточно лёгким. Выберите изображение попроще.');
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
 }
 
 function sanitizePastedHtml(html) {
@@ -250,7 +324,13 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
   const [pinnedChatSenders, setPinnedChatSenders] = useState([]);
   const [chatEmojiOpen, setChatEmojiOpen] = useState(false);
   const [chatEmojiCategory, setChatEmojiCategory] = useState(CHAT_EMOJI_CATEGORIES[0].id);
+  const [imageUploading, setImageUploading] = useState(false);
+  const [imageNotice, setImageNotice] = useState('');
+  const [selectedImage, setSelectedImage] = useState(null);
   const activeMatchRef = useRef(-1);
+  const imageInputRef = useRef(null);
+  const imageAnchorRef = useRef(null);
+  const selectedImageElementRef = useRef(null);
   const savedChatRangeRef = useRef(null);
   const savedChatBlocksRef = useRef([]);
   const chatScrollSnapshotRef = useRef(null);
@@ -295,6 +375,8 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
     if (editorRef.current) editorRef.current.innerHTML = initialHtml;
     savedChatRangeRef.current = null;
     savedChatBlocksRef.current = [];
+    selectedImageElementRef.current = null;
+    setSelectedImage(null);
     onTextSelect?.('');
   }, [initialHtml]);
 
@@ -330,6 +412,145 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
       activeMatchRef.current = -1;
       setSearchPosition({ current: 0, total });
     }
+  };
+
+  const topLevelEditorBlock = (element) => {
+    const root = editorRef.current;
+    let current = element;
+    while (current?.parentElement && current.parentElement !== root) current = current.parentElement;
+    return current?.parentElement === root ? current : null;
+  };
+
+  const rememberImageAnchor = () => {
+    const selection = window.getSelection?.();
+    const node = selection?.anchorNode?.nodeType === Node.ELEMENT_NODE
+      ? selection.anchorNode
+      : selection?.anchorNode?.parentElement;
+    const block = node?.closest?.('p,div,h1,h2,h3,blockquote,li,figure[data-chapter-image="true"]');
+    imageAnchorRef.current = block && editorRef.current?.contains(block) ? topLevelEditorBlock(block) : null;
+  };
+
+  const createImageFigure = ({ src, alt = '', size = 'small', align = 'center', width = 0, height = 0 }) => {
+    const figure = document.createElement('figure');
+    figure.className = `admin-chapter-image is-${size} align-${align}`;
+    figure.dataset.chapterImage = 'true';
+    figure.dataset.imageSrc = src;
+    figure.dataset.imageAlt = alt;
+    figure.dataset.imageSize = size;
+    figure.dataset.imageAlign = align;
+    figure.dataset.imageWidth = String(width || 0);
+    figure.dataset.imageHeight = String(height || 0);
+    figure.contentEditable = 'false';
+    figure.tabIndex = 0;
+    const image = document.createElement('img');
+    image.src = src;
+    image.alt = alt;
+    image.loading = 'lazy';
+    image.decoding = 'async';
+    if (width) image.width = width;
+    if (height) image.height = height;
+    const caption = document.createElement('figcaption');
+    caption.textContent = 'Фото в тексте · маленькое';
+    figure.append(image, caption);
+    return figure;
+  };
+
+  const selectImageFigure = (figure) => {
+    if (!figure?.isConnected) {
+      selectedImageElementRef.current = null;
+      setSelectedImage(null);
+      return;
+    }
+    selectedImageElementRef.current = figure;
+    setSelectedImage({
+      src: figure.dataset.imageSrc || '',
+      alt: figure.dataset.imageAlt || '',
+      size: figure.dataset.imageSize || 'small',
+      align: figure.dataset.imageAlign || 'center',
+    });
+  };
+
+  const insertImageFigure = (imageData) => {
+    const root = editorRef.current;
+    if (!root) return;
+    const figure = createImageFigure(imageData);
+    const anchor = imageAnchorRef.current;
+    if (anchor?.isConnected && root.contains(anchor)) anchor.insertAdjacentElement('afterend', figure);
+    else root.append(figure);
+    const paragraph = document.createElement('p');
+    paragraph.append(document.createElement('br'));
+    figure.insertAdjacentElement('afterend', paragraph);
+    const range = document.createRange();
+    range.selectNodeContents(paragraph);
+    range.collapse(true);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    imageAnchorRef.current = null;
+    selectImageFigure(figure);
+    emitChange();
+    figure.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  };
+
+  const openImagePicker = () => {
+    if (imageUploading) return;
+    if ((editorRef.current?.querySelectorAll('figure[data-chapter-image="true"]').length || 0) >= MAX_CHAPTER_IMAGES) {
+      setImageNotice('В одной главе можно разместить не больше 24 изображений.');
+      return;
+    }
+    rememberImageAnchor();
+    setImageNotice('');
+    imageInputRef.current?.click();
+  };
+
+  const uploadChapterImage = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setImageUploading(true);
+    setImageNotice('Подготавливаем маленькое фото…');
+    try {
+      const prepared = await prepareChapterImage(file);
+      const formData = new FormData();
+      formData.append('image', prepared.file, prepared.file.name);
+      const response = await fetch('/api/admin/chapter-images', { method: 'POST', body: formData });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Не удалось загрузить фото.');
+      insertImageFigure({ src: data.imageUrl, width: prepared.width, height: prepared.height });
+      setImageNotice('Фото добавлено после выбранного абзаца. Теперь сохраните главу.');
+    } catch (error) {
+      setImageNotice(error.message || 'Не удалось добавить фото.');
+    } finally {
+      setImageUploading(false);
+    }
+  };
+
+  const updateSelectedImage = (patch) => {
+    const figure = selectedImageElementRef.current;
+    if (!figure?.isConnected) return selectImageFigure(null);
+    const next = { ...selectedImage, ...patch };
+    figure.dataset.imageAlt = next.alt || '';
+    figure.dataset.imageSize = next.size;
+    figure.dataset.imageAlign = next.align;
+    figure.className = `admin-chapter-image is-${next.size} align-${next.align}`;
+    const image = figure.querySelector('img');
+    if (image) image.alt = next.alt || '';
+    const caption = figure.querySelector('figcaption');
+    if (caption) caption.textContent = `Фото в тексте · ${next.size === 'small' ? 'маленькое' : next.size === 'medium' ? 'среднее' : 'по ширине'}`;
+    setSelectedImage(next);
+    emitChange();
+  };
+
+  const removeSelectedImage = () => {
+    const figure = selectedImageElementRef.current;
+    if (!figure?.isConnected) return selectImageFigure(null);
+    const next = figure.nextElementSibling || figure.previousElementSibling;
+    figure.remove();
+    selectedImageElementRef.current = null;
+    setSelectedImage(null);
+    emitChange();
+    next?.scrollIntoView?.({ block: 'center' });
+    editorRef.current?.focus();
   };
 
   const textMatches = () => {
@@ -665,10 +886,42 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
         <div>{toolbarButton('Отменить последнее изменение — Ctrl+Z', <><Undo2 size={16} /><span>Отменить</span></>, () => command('undo'))}{toolbarButton('Вернуть отменённое изменение — Ctrl+Y', <><Redo2 size={16} /><span>Вернуть</span></>, () => command('redo'))}</div>
         <div>{toolbarButton('Жирный текст', <Bold size={17} />, () => command('bold'))}{toolbarButton('Курсив', <Italic size={17} />, () => command('italic'))}{toolbarButton('Подчёркивание', <Underline size={17} />, () => command('underline'))}</div>
         <div>{toolbarButton('Оформить сообщение из переписки', <><Smartphone size={16} /><span>Переписка</span></>, openChatComposer)}</div>
+        <div>{toolbarButton('Добавить маленькое фото после выбранного абзаца', <>{imageUploading ? <LoaderCircle className="spin" size={16} /> : <ImagePlus size={16} />}<span>{imageUploading ? 'Загрузка' : 'Фото'}</span></>, openImagePicker)}</div>
         <div>{toolbarButton('По левому краю', <AlignLeft size={17} />, () => command('justifyLeft'))}{toolbarButton('По центру', <AlignCenter size={17} />, () => command('justifyCenter'))}{toolbarButton('По правому краю', <AlignRight size={17} />, () => command('justifyRight'))}{toolbarButton('По ширине', <AlignJustify size={17} />, () => command('justifyFull'))}</div>
         <div>{toolbarButton('Маркированный список', <List size={17} />, () => command('insertUnorderedList'))}{toolbarButton('Нумерованный список', <ListOrdered size={17} />, () => command('insertOrderedList'))}{toolbarButton('Цитата', <Quote size={17} />, () => command('formatBlock', 'blockquote'))}</div>
         <div>{toolbarButton('Отступ первой строки', <><Pilcrow size={16} /><span>Красная строка</span></>, toggleFirstLine)}{toolbarButton('Уменьшить отступ абзаца', <IndentDecrease size={17} />, () => changeBlockIndent(-1))}{toolbarButton('Увеличить отступ абзаца', <IndentIncrease size={17} />, () => changeBlockIndent(1))}{toolbarButton('Очистить оформление', <Eraser size={17} />, () => command('removeFormat'))}</div>
+        <input ref={imageInputRef} className="admin-rich-image-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadChapterImage} tabIndex="-1" aria-hidden="true" />
       </div>
+      {imageNotice ? <p className="admin-rich-image-notice" role="status">{imageNotice}</p> : null}
+      {selectedImage ? (
+        <section className="admin-rich-image-settings" aria-label="Настройки фото в тексте">
+          <div>
+            <strong>Фото в тексте</strong>
+            <small>Настройки применяются только к выбранному фото.</small>
+          </div>
+          <label>
+            <span>Описание для доступности</span>
+            <input value={selectedImage.alt} onChange={(event) => updateSelectedImage({ alt: event.target.value })} maxLength="240" placeholder="Оставьте пустым, если это декоративная картинка" />
+          </label>
+          <div className="admin-rich-image-options">
+            <span>Размер</span>
+            {[
+              ['small', 'Маленькое'],
+              ['medium', 'Среднее'],
+              ['wide', 'По ширине'],
+            ].map(([value, label]) => <button type="button" className={selectedImage.size === value ? 'is-active' : ''} onClick={() => updateSelectedImage({ size: value })} aria-pressed={selectedImage.size === value} key={value}>{label}</button>)}
+          </div>
+          <div className="admin-rich-image-options">
+            <span>Положение</span>
+            {[
+              ['left', 'Слева'],
+              ['center', 'По центру'],
+              ['right', 'Справа'],
+            ].map(([value, label]) => <button type="button" className={selectedImage.align === value ? 'is-active' : ''} onClick={() => updateSelectedImage({ align: value })} aria-pressed={selectedImage.align === value} key={value}>{label}</button>)}
+          </div>
+          <button type="button" className="admin-rich-image-remove" onClick={removeSelectedImage}><Trash2 size={15} /> Удалить из текста</button>
+        </section>
+      ) : null}
       {chatComposerOpen ? (
         <div className="admin-chat-composer" role="dialog" aria-label="Оформление сообщения">
           <div className="admin-chat-composer-head">
@@ -827,7 +1080,21 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
         onTouchEnd={reportSelection}
         onSelect={reportSelection}
         onKeyUp={reportSelection}
-        onKeyDown={handleEditorShortcut}
+        onClick={(event) => {
+          const figure = event.target.closest?.('figure[data-chapter-image="true"]');
+          if (figure && editorRef.current?.contains(figure)) selectImageFigure(figure);
+          else if (selectedImageElementRef.current) selectImageFigure(null);
+        }}
+        onKeyDown={(event) => {
+          const figure = event.target.closest?.('figure[data-chapter-image="true"]');
+          if (figure && ['Backspace', 'Delete'].includes(event.key)) {
+            event.preventDefault();
+            selectImageFigure(figure);
+            window.requestAnimationFrame(removeSelectedImage);
+            return;
+          }
+          handleEditorShortcut(event);
+        }}
         onPaste={(event) => {
           const html = event.clipboardData.getData('text/html');
           if (!html) return;
@@ -836,7 +1103,7 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
           emitChange();
         }}
       />
-      <p className="admin-rich-hint"><strong>Переписка:</strong> можно сначала открыть «Переписку» и выбрать героя, а затем выделить сообщение в тексте и нажать «Применить». Панель останется открытой, а редактор — на том же месте. Для каждой книги хранится свой список героев. На iPhone эмодзи отображаются в стиле Apple. <strong>Случайно изменили текст?</strong> Нажмите «Отменить» или Ctrl+Z.</p>
+      <p className="admin-rich-hint"><strong>Фото:</strong> поставьте курсор в нужный абзац и нажмите «Фото» — изображение появится сразу после него. Можно выбрать маленький, средний размер или ширину текста. Фото автоматически сжимается и не записывается внутрь текста главы. <strong>Переписка:</strong> выделите сообщение и настройте его через кнопку «Переписка». <strong>Случайно изменили текст?</strong> Нажмите «Отменить» или Ctrl+Z.</p>
     </div>
   );
 });

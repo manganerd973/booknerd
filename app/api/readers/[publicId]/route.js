@@ -22,20 +22,21 @@ export async function GET(request, { params }) {
     const db = await ensureDb();
     const row = await db.prepare(
       `SELECT s.*, p.display_name, p.photo_key, p.favorite_characters, rl.last_opened_at, rl.book_id AS current_book_id,
-              b.title AS current_book_title, b.slug AS current_book_slug, b.genres, b.tropes
+              b.title AS current_book_title, b.slug AS current_book_slug, b.series_title AS current_series_title
        FROM reader_level_stats s LEFT JOIN reader_profiles p ON p.visitor_key = s.visitor_key
-       LEFT JOIN reader_library rl ON rl.visitor_key = s.visitor_key AND rl.last_opened_at = (SELECT MAX(x.last_opened_at) FROM reader_library x WHERE x.visitor_key = s.visitor_key)
+       LEFT JOIN reader_library rl ON rl.visitor_key = s.visitor_key AND rl.book_id = (SELECT x.book_id FROM reader_library x WHERE x.visitor_key = s.visitor_key ORDER BY x.last_opened_at DESC, x.updated_at DESC LIMIT 1)
        LEFT JOIN books b ON b.id = rl.book_id WHERE s.public_id = ? AND s.public_visible = 1 LIMIT 1`
     ).bind(publicId).first();
     if (!row) return Response.json({ error: 'Этот профиль скрыт или не найден.' }, { status: 404 });
     const currentMonth = monthKey();
-    const [config, month, monthPosition, allPosition, achievements, awards, shelves] = await Promise.all([
+    const [config, month, monthPosition, allPosition, achievements, awards, rankHistory, shelves] = await Promise.all([
       readReaderLevelConfig(db),
       db.prepare(`SELECT * FROM reader_monthly_stats WHERE visitor_key = ? AND month_key = ? LIMIT 1`).bind(row.visitor_key, currentMonth).first(),
-      db.prepare(`SELECT 1 + COUNT(*) AS position FROM reader_monthly_stats m JOIN reader_level_stats s ON s.visitor_key = m.visitor_key WHERE m.month_key = ? AND s.public_visible = 1 AND s.rating_status = 'active' AND m.xp > COALESCE((SELECT xp FROM reader_monthly_stats WHERE visitor_key = ? AND month_key = ?), 0)`).bind(currentMonth, row.visitor_key, currentMonth).first(),
-      db.prepare(`SELECT 1 + COUNT(*) AS position FROM reader_level_stats WHERE public_visible = 1 AND rating_status = 'active' AND total_xp > ?`).bind(Number(row.total_xp || 0)).first(),
+      db.prepare(`WITH own AS (SELECT xp, completed_books, unique_reading_days, completed_chapters, COALESCE(reached_xp_at, updated_at) AS reached_at FROM reader_monthly_stats WHERE visitor_key = ? AND month_key = ?) SELECT 1 + COUNT(*) AS position FROM reader_monthly_stats m CROSS JOIN own o JOIN reader_level_stats s ON s.visitor_key = m.visitor_key WHERE m.month_key = ? AND s.public_visible = 1 AND s.rating_status = 'active' AND (m.xp > o.xp OR (m.xp = o.xp AND (m.completed_books > o.completed_books OR (m.completed_books = o.completed_books AND (m.unique_reading_days > o.unique_reading_days OR (m.unique_reading_days = o.unique_reading_days AND (m.completed_chapters > o.completed_chapters OR (m.completed_chapters = o.completed_chapters AND COALESCE(m.reached_xp_at, m.updated_at) < o.reached_at))))))))`).bind(row.visitor_key, currentMonth, currentMonth).first(),
+      db.prepare(`WITH own AS (SELECT total_xp, completed_books, unique_reading_days, completed_chapters, COALESCE(first_counted_at, created_at) AS reached_at FROM reader_level_stats WHERE visitor_key = ?) SELECT 1 + COUNT(*) AS position FROM reader_level_stats s CROSS JOIN own o WHERE s.public_visible = 1 AND s.rating_status = 'active' AND (s.total_xp > o.total_xp OR (s.total_xp = o.total_xp AND (s.completed_books > o.completed_books OR (s.completed_books = o.completed_books AND (s.unique_reading_days > o.unique_reading_days OR (s.unique_reading_days = o.unique_reading_days AND (s.completed_chapters > o.completed_chapters OR (s.completed_chapters = o.completed_chapters AND COALESCE(s.first_counted_at, s.created_at) < o.reached_at))))))))`).bind(row.visitor_key).first(),
       row.achievements_visible ? db.prepare(`SELECT achievement_key, unlocked_at FROM reader_achievements WHERE visitor_key = ? ORDER BY unlocked_at DESC LIMIT 100`).bind(row.visitor_key).all() : Promise.resolve({ results: [] }),
       db.prepare(`SELECT month_key, nomination_key, title, awarded_at FROM reader_monthly_awards WHERE visitor_key = ? ORDER BY awarded_at DESC LIMIT 60`).bind(row.visitor_key).all(),
+      db.prepare(`SELECT rank_key, rank_name, reached_level, unlocked_at FROM reader_rank_history WHERE visitor_key = ? ORDER BY reached_level DESC`).bind(row.visitor_key).all(),
       db.prepare(`SELECT rl.status, b.title, b.slug, b.cover_key FROM reader_library rl JOIN books b ON b.id = rl.book_id AND b.published = 1 WHERE rl.visitor_key = ? AND rl.status IN ('reading','saved','finished','favorite') ORDER BY rl.updated_at DESC LIMIT 60`).bind(row.visitor_key).all(),
     ]);
     const shelfRows = (shelves.results || []).filter((item) => item.status !== 'saved' || row.planned_shelf_visible).filter((item) => item.status !== 'favorite' || row.favorite_shelf_visible);
@@ -45,12 +46,14 @@ export async function GET(request, { params }) {
       monthPosition: Number(monthPosition?.position || 1), allTimePosition: Number(allPosition?.position || 1),
       completedBooks: Number(row.completed_books || 0), completedChapters: Number(row.completed_chapters || 0), completedSeries: Number(row.completed_series || 0),
       savedQuotes: Number(row.saved_quotes || 0), approvedReviews: Number(row.approved_reviews || 0),
-      favoriteGenres: parseList(row.genres).slice(0, 8), favoriteTropes: parseList(row.tropes).slice(0, 8),
+      favoriteGenres: parseList(row.favorite_genres).slice(0, 8), favoriteTropes: parseList(row.favorite_tropes).slice(0, 8),
       activity: activityLabel(row.last_opened_at, Boolean(row.online_visible)),
       currentBook: row.current_book_visible && row.current_book_id ? { title: row.current_book_title, slug: row.current_book_slug } : null,
+      currentSeries: row.current_book_visible ? row.current_series_title || '' : '',
       monthly: month ? { xp: Number(month.xp || 0), books: Number(month.completed_books || 0), chapters: Number(month.completed_chapters || 0) } : { xp: 0, books: 0, chapters: 0 },
       achievements: (achievements.results || []).map((item) => { const definition = ACHIEVEMENT_DEFINITIONS.find((candidate) => candidate.key === item.achievement_key); return definition ? { ...definition, unlockedAt: item.unlocked_at } : null; }).filter(Boolean),
       awards: awards.results || [],
+      rankHistory: rankHistory.results || [],
       shelves: shelfRows.map((item) => ({ status: item.status, title: item.title, slug: item.slug, coverUrl: item.cover_key ? `/api/covers/${String(item.cover_key).split('/').map(encodeURIComponent).join('/')}` : '' })),
     } });
   } catch (error) {

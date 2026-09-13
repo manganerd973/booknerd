@@ -1,7 +1,7 @@
 import { authorizeAdminRequest } from '../../../../lib/admin-auth.js';
 import { ensureDb } from '../../../../lib/runtime.js';
 
-const TABLES = ['books','chapters','book_artworks','comments','comment_votes','comment_reports','book_ratings','book_reviews','reader_profiles','reader_library','reader_bookmarks','reader_error_reports','book_glossary','chapter_versions','chapter_audit','reading_sessions','paragraph_reactions','reader_public_notes','chapter_emotions','reader_time_capsules','community_posts','community_votes','mascot_settings','mascot_dialogues','reader_level_stats','reader_monthly_stats','reader_achievements','reader_monthly_awards','reader_level_config','reader_xp_adjustments','reader_month_finalizations'];
+const TABLES = ['books','chapters','book_artworks','comments','comment_votes','comment_reports','book_ratings','book_reviews','reader_profiles','reader_library','reader_bookmarks','reader_error_reports','book_glossary','chapter_versions','chapter_audit','reading_sessions','paragraph_reactions','reader_public_notes','chapter_emotions','reader_time_capsules','community_posts','community_votes','reader_level_stats','reader_monthly_stats','reader_achievements','reader_rank_history','reader_monthly_awards','reader_level_config','reader_xp_adjustments','reader_month_finalizations'];
 
 export async function GET(request) {
   const auth = await authorizeAdminRequest(request, { ownerOnly: true });
@@ -13,6 +13,6 @@ export async function GET(request) {
       const result = await db.prepare(`SELECT * FROM ${table}`).all();
       data[table] = result.results || [];
     }
-    return new Response(JSON.stringify({ format: 'BOOKNERD_BACKUP_V47', createdAt: new Date().toISOString(), createdBy: auth.email || '', data }), { headers: { 'content-type': 'application/json; charset=utf-8', 'content-disposition': `attachment; filename="booknerd-backup-${new Date().toISOString().slice(0, 10)}.json"`, 'cache-control': 'no-store' } });
+    return new Response(JSON.stringify({ format: 'BOOKNERD_BACKUP_V52', createdAt: new Date().toISOString(), createdBy: auth.email || '', data }), { headers: { 'content-type': 'application/json; charset=utf-8', 'content-disposition': `attachment; filename="booknerd-backup-${new Date().toISOString().slice(0, 10)}.json"`, 'cache-control': 'no-store' } });
   } catch (error) { return Response.json({ error: error.message || 'Не удалось создать резервную копию.' }, { status: 500 }); }
 }

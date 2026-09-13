@@ -132,7 +132,7 @@ export default function DiscoveryDashboard({ books = [] }) {
         </div>
       </div> : null}
 
-      <div className="booknerd-mascot-tip" title="Пасхалка BOOKNERD"><span aria-hidden="true">🦉</span><p><strong>Маленький хранитель полки</strong>Нажмите на случайную книгу, если не знаете, что читать дальше.</p></div>
+      <div className="booknerd-discovery-tip" title="Пасхалка BOOKNERD"><span aria-hidden="true">🦉</span><p><strong>Маленький хранитель полки</strong>Нажмите на случайную книгу, если не знаете, что читать дальше.</p></div>
     </section>
   );
 }

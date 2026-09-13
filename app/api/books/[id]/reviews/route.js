@@ -27,6 +27,7 @@ export async function GET(request, { params }) {
   try {
     const { id } = await params;
     const voterKey = String(new URL(request.url).searchParams.get('voterKey') || '').trim();
+    const legacyVoterKey = String(new URL(request.url).searchParams.get('legacyVoterKey') || '').trim();
     const db = await ensureDb();
     const book = await db.prepare(`SELECT id FROM books WHERE id = ? AND published = 1 LIMIT 1`).bind(id).first();
     if (!book) return Response.json({ error: 'Книга не найдена.' }, { status: 404 });
@@ -35,6 +36,9 @@ export async function GET(request, { params }) {
        FROM book_reviews WHERE book_id = ? AND status = 'approved'
        ORDER BY created_at DESC LIMIT 100`
     ).bind(id).all();
+    if (voterPattern.test(voterKey) && voterPattern.test(legacyVoterKey) && voterKey !== legacyVoterKey) {
+      await db.prepare(`UPDATE OR IGNORE book_reviews SET voter_key = ? WHERE voter_key = ?`).bind(voterKey, legacyVoterKey).run();
+    }
     const own = voterPattern.test(voterKey)
       ? await db.prepare(
         `SELECT id, author_name, body, rating, created_at, updated_at
@@ -54,6 +58,7 @@ export async function POST(request, { params }) {
     const { id: bookId } = await params;
     const payload = await request.json();
     const voterKey = String(payload.voterKey || '').trim();
+    const legacyVoterKey = String(payload.legacyVoterKey || '').trim();
     const authorName = String(payload.authorName || '').trim().replace(/\s+/g, ' ').slice(0, 60);
     const body = String(payload.body || '').trim().slice(0, 3000);
     const rating = Number(payload.rating);
@@ -66,6 +71,9 @@ export async function POST(request, { params }) {
     const book = await db.prepare(`SELECT id FROM books WHERE id = ? AND published = 1 LIMIT 1`).bind(bookId).first();
     if (!book) return Response.json({ error: 'Книга не найдена.' }, { status: 404 });
     const now = new Date().toISOString();
+    if (voterPattern.test(legacyVoterKey) && legacyVoterKey !== voterKey) {
+      await db.prepare(`UPDATE OR IGNORE book_reviews SET voter_key = ? WHERE voter_key = ?`).bind(voterKey, legacyVoterKey).run();
+    }
     const reviewId = crypto.randomUUID();
     await db.batch([
       db.prepare(
@@ -86,7 +94,7 @@ export async function POST(request, { params }) {
        FROM book_reviews WHERE book_id = ? AND voter_key = ? LIMIT 1`
     ).bind(bookId, voterKey).first();
     const level = await refreshReaderLevel({ db, visitorKey: voterKey }).catch(() => null);
-    return Response.json({ ok: true, review: mapReview(saved), levelEvent: level && (level.levelChanged || level.newAchievements.length) ? { level: level.level, rank: level.rank, progress: level.progress, rankChanged: level.rankChanged, newAchievements: level.newAchievements } : null }, { status: 201 });
+    return Response.json({ ok: true, review: mapReview(saved), levelEvent: level && (level.levelChanged || level.newAchievements.length) ? { level: level.level, rank: level.rank, progress: level.progress, levelChanged: level.levelChanged, rankChanged: level.rankChanged, newAchievements: level.newAchievements } : null }, { status: 201 });
   } catch (error) {
     return Response.json({ error: error.message || 'Не удалось опубликовать отзыв.' }, { status: 500 });
   }

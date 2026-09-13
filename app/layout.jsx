@@ -3,12 +3,10 @@ import '../src/styles.css';
 import '../src/admin.css';
 import '../src/editorial.css';
 import '../src/pages.css';
-import '../src/mascots/mascots.css';
 import PwaRegister from '../src/pwa-register.jsx';
 import AppPreferences from '../src/app-preferences.jsx';
-import MascotSystem from '../src/mascots/mascot-system.jsx';
-import MascotErrorBoundary from '../src/mascots/mascot-error-boundary.jsx';
 import ReaderLevelNotice from '../src/reader-level-notice.jsx';
+import ReaderLevelErrorBoundary from '../src/reader-level-error-boundary.jsx';
 import '../src/reader-levels.css';
 
 export const metadata = {
@@ -82,7 +80,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="ru">
       <head><script dangerouslySetInnerHTML={{ __html: themeScript }} /><script dangerouslySetInnerHTML={{ __html: recoveryScript }} /></head>
-      <body><PwaRegister /><AppPreferences />{children}<MascotErrorBoundary><MascotSystem /></MascotErrorBoundary><MascotErrorBoundary><ReaderLevelNotice /></MascotErrorBoundary></body>
+      <body><PwaRegister /><AppPreferences />{children}<ReaderLevelErrorBoundary><ReaderLevelNotice /></ReaderLevelErrorBoundary></body>
     </html>
   );
 }

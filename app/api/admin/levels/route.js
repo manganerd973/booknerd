@@ -2,7 +2,7 @@ import { authorizeAdminRequest } from '../../../../lib/admin-auth.js';
 import { invalidateCachedRead } from '../../../../lib/read-cache.js';
 import { ensureDb } from '../../../../lib/runtime.js';
 import { DEFAULT_READER_LEVEL_CONFIG, sanitizeReaderLevelConfig, xpForLevel } from '../../../../lib/reader-level-config.js';
-import { finalizeReaderMonth, monthKey, normalizeReaderKey, readReaderLevelConfig, refreshReaderLevel } from '../../../../lib/reader-levels.js';
+import { finalizeReaderMonth, monthKey, previousMonthKey, readReaderLevelConfig, refreshReaderLevel } from '../../../../lib/reader-levels.js';
 
 function cleanText(value, max = 300) { return String(value || '').trim().slice(0, max); }
 
@@ -14,8 +14,8 @@ async function preview(db) {
   ]);
   const total = Number(readers?.total || 0);
   const missing = Math.max(0, total - Number(existing?.total || 0));
-  const estimatedRows = missing * 3 + Math.max(0, total * 4 - Number(achievements?.total || 0));
-  return { readers: total, existingReaders: Number(existing?.total || 0), estimatedNewRows: estimatedRows, estimatedBytes: estimatedRows * 260, note: 'Оценка включает итоговую, месячную и несколько компактных записей достижений. Книги и главы не копируются.' };
+  const estimatedRows = missing * 4 + Math.max(0, total * 8 - Number(achievements?.total || 0));
+  return { readers: total, existingReaders: Number(existing?.total || 0), estimatedNewRows: estimatedRows, estimatedBytes: estimatedRows * 260, note: 'Консервативная оценка включает итоговую и месячную статистику, достижения и историю рангов. Книги и главы не копируются.' };
 }
 
 export async function GET(request) {
@@ -24,15 +24,16 @@ export async function GET(request) {
   try {
     const db = await ensureDb();
     const q = cleanText(new URL(request.url).searchParams.get('q'), 80);
-    const [config, top, flagged, estimate, errors, adjustments] = await Promise.all([
+    const [config, top, flagged, estimate, errors, adjustments, awards] = await Promise.all([
       readReaderLevelConfig(db),
-      db.prepare(`SELECT s.visitor_key, s.public_id, s.total_xp, s.level, s.rank_key, s.rating_status, s.public_visible, s.suspicious_reason, p.display_name FROM reader_level_stats s LEFT JOIN reader_profiles p ON p.visitor_key = s.visitor_key WHERE (? = '' OR p.display_name LIKE '%' || ? || '%' OR s.public_id LIKE '%' || ? || '%') ORDER BY s.total_xp DESC LIMIT 100`).bind(q, q, q).all(),
+      db.prepare(`SELECT s.visitor_key, s.public_id, s.total_xp, s.level, s.rank_key, s.completed_chapters, s.completed_books, s.completed_series, s.approved_reviews, s.confirmed_errors, s.rating_status, s.public_visible, s.suspicious_reason, p.display_name FROM reader_level_stats s LEFT JOIN reader_profiles p ON p.visitor_key = s.visitor_key WHERE (? = '' OR p.display_name LIKE '%' || ? || '%' OR s.public_id LIKE '%' || ? || '%') ORDER BY s.total_xp DESC LIMIT 100`).bind(q, q, q).all(),
       db.prepare(`SELECT s.public_id, s.total_xp, s.level, s.suspicious_reason, p.display_name FROM reader_level_stats s LEFT JOIN reader_profiles p ON p.visitor_key = s.visitor_key WHERE s.rating_status = 'review' ORDER BY s.updated_at DESC LIMIT 100`).all(),
       preview(db),
       db.prepare(`SELECT COUNT(*) AS total FROM reader_month_finalizations WHERE status != 'completed'`).first(),
       db.prepare(`SELECT x.old_xp, x.new_xp, x.delta, x.reason, x.changed_by, x.created_at, s.public_id, p.display_name FROM reader_xp_adjustments x JOIN reader_level_stats s ON s.visitor_key = x.visitor_key LEFT JOIN reader_profiles p ON p.visitor_key = x.visitor_key ORDER BY x.created_at DESC LIMIT 50`).all(),
+      db.prepare(`SELECT a.month_key, a.nomination_key, a.title, a.awarded_at, a.awarded_by, s.public_id, p.display_name FROM reader_monthly_awards a JOIN reader_level_stats s ON s.visitor_key = a.visitor_key LEFT JOIN reader_profiles p ON p.visitor_key = a.visitor_key ORDER BY a.awarded_at DESC LIMIT 100`).all(),
     ]);
-    return Response.json({ config, readers: top.results || [], flagged: flagged.results || [], preview: estimate, systemErrors: Number(errors?.total || 0), adjustments: adjustments.results || [] });
+    return Response.json({ config, readers: top.results || [], flagged: flagged.results || [], preview: estimate, systemErrors: Number(errors?.total || 0), adjustments: adjustments.results || [], awards: awards.results || [], previousMonthKey: previousMonthKey() });
   } catch (error) {
     return Response.json({ error: error.message || 'Не удалось открыть уровни и рейтинг.' }, { status: 500 });
   }
@@ -46,7 +47,7 @@ export async function PUT(request) {
     const db = await ensureDb();
     await db.prepare(`INSERT INTO reader_level_config (id, config, updated_at, updated_by) VALUES ('global', ?, ?, ?) ON CONFLICT(id) DO UPDATE SET config = excluded.config, updated_at = excluded.updated_at, updated_by = excluded.updated_by`)
       .bind(JSON.stringify(config), new Date().toISOString(), auth.email || 'owner').run();
-    invalidateCachedRead('reader-level-config:v48');
+    invalidateCachedRead('reader-level-config:v51');
     return Response.json({ ok: true, config });
   } catch (error) { return Response.json({ error: error.message || 'Не удалось сохранить настройки.' }, { status: 500 }); }
 }

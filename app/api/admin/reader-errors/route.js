@@ -7,7 +7,6 @@ export async function GET(request) {
   if (auth.response) return auth.response;
   try {
     const db = await ensureDb();
-    const report = await db.prepare(`SELECT visitor_key FROM reader_error_reports WHERE id = ? LIMIT 1`).bind(id).first();
     const result = await db.prepare(
       `SELECT r.*, b.title AS book_title, b.slug AS book_slug,
               c.chapter_number, c.title AS chapter_title
@@ -49,6 +48,8 @@ export async function PATCH(request) {
     const status = ['new', 'resolved', 'not_error'].includes(payload.status) ? payload.status : 'new';
     if (!id) return Response.json({ error: 'Сообщение не указано.' }, { status: 400 });
     const db = await ensureDb();
+    const report = await db.prepare(`SELECT visitor_key FROM reader_error_reports WHERE id = ? LIMIT 1`).bind(id).first();
+    if (!report) return Response.json({ error: 'Сообщение не найдено.' }, { status: 404 });
     await db.prepare(
       `UPDATE reader_error_reports SET status = ?, resolved_by = ?, updated_at = ? WHERE id = ?`
     ).bind(status, status !== 'new' ? auth.email || auth.displayName || '' : '', new Date().toISOString(), id).run();

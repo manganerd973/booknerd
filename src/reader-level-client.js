@@ -12,6 +12,7 @@ function saveQueue(items) {
 }
 
 function queuePayload(payload) {
+  const observedAt = Date.now();
   const items = readQueue();
   const index = items.findIndex((item) => item.visitorKey === payload.visitorKey && item.chapterId === payload.chapterId);
   if (index >= 0) {
@@ -22,8 +23,13 @@ function queuePayload(payload) {
       chapterProgress: Math.max(Number(old.chapterProgress || 0), Number(payload.chapterProgress || 0)),
       bookProgress: Math.max(Number(old.bookProgress || 0), Number(payload.bookProgress || 0)),
       completed: Boolean(old.completed || payload.completed),
+      minProgress: Math.min(Number(old.minProgress ?? old.chapterProgress ?? 100), Number(payload.chapterProgress || 0)),
+      milestoneCount: Number(old.milestoneCount || 1) + (Number(payload.chapterProgress || 0) > Number(old.chapterProgress || 0) ? 1 : 0),
+      observationCount: Number(old.observationCount || 1) + 1,
+      firstObservedAt: Number(old.firstObservedAt || observedAt),
+      lastObservedAt: observedAt,
     };
-  } else items.push(payload);
+  } else items.push({ ...payload, minProgress: Number(payload.chapterProgress || 0), milestoneCount: 1, observationCount: 1, firstObservedAt: observedAt, lastObservedAt: observedAt });
   saveQueue(items);
 }
 
