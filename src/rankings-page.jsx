@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Award, BookOpen, Crown, LoaderCircle, Trophy, UserRound } from 'lucide-react';
+import { Award, BookOpen, Crown, LoaderCircle, Sparkles, Trophy, UserRound } from 'lucide-react';
 import { getVisitorKey } from './site-analytics.js';
 import { SiteFooter, SiteHeader } from './page-chrome.jsx';
 
@@ -9,14 +9,35 @@ const TABS = [
   ['month', 'Этот месяц'], ['all', 'За всё время'], ['ranks', 'По рангам'], ['nominations', 'Номинации'], ['mine', 'Мои результаты'],
 ];
 
+function countLabel(value, forms) {
+  const count = Math.max(0, Number(value || 0));
+  const mod100 = count % 100;
+  const mod10 = count % 10;
+  const form = mod100 >= 11 && mod100 <= 19 ? forms[2] : mod10 === 1 ? forms[0] : mod10 >= 2 && mod10 <= 4 ? forms[1] : forms[2];
+  return `${count.toLocaleString('ru-RU')} ${form}`;
+}
+
 function RankRow({ reader, own = false, scope = 'month' }) {
+  const experience = scope === 'all' ? reader.totalXp : reader.monthXp;
+  const completedBooks = scope === 'all' ? reader.allCompletedBooks : reader.completedBooks;
+  const positionLabel = reader.positionChange == null
+    ? 'Позиция формируется'
+    : reader.positionChange > 0
+      ? `Подъём на ${reader.positionChange}`
+      : reader.positionChange < 0
+        ? `Изменение на ${Math.abs(reader.positionChange)}`
+        : 'Позиция без изменений';
   return (
-    <a className={`ranking-reader-row rank-surface-${reader.rank.key} ${own ? 'is-own' : ''}`} href={`/readers/${reader.publicId}`}>
-      <b>№{reader.position}</b>
+    <a
+      className={`ranking-reader-row rank-surface-${reader.rank.key} ${reader.position <= 3 ? `is-podium is-place-${reader.position}` : ''} ${own ? 'is-own' : ''}`}
+      href={`/readers/${reader.publicId}`}
+      aria-label={`${reader.displayName}, место ${reader.position}, уровень ${reader.level}`}
+    >
+      <span className="ranking-reader-position"><small>место</small><b>№{reader.position}</b></span>
       <span className={`reader-rank-avatar rank-frame-${reader.rank.key}`} style={{ '--rank-color': reader.rank.frameColor }}>{reader.avatarUrl ? <img src={reader.avatarUrl} alt="" /> : <UserRound />}</span>
-      <span><strong>{reader.displayName}</strong><small>Уровень {reader.level} · {reader.rank.name}</small></span>
-      <span><strong>{scope === 'all' ? reader.totalXp : reader.monthXp} XP</strong><small>{scope === 'all' ? reader.allCompletedBooks : reader.completedBooks} книг · {reader.completedChapters} глав</small></span>
-      <span><small>{reader.positionChange == null ? 'позиция формируется' : reader.positionChange > 0 ? `↑ ${reader.positionChange}` : reader.positionChange < 0 ? `↓ ${Math.abs(reader.positionChange)}` : 'без изменений'}</small>{reader.latestAchievement ? <em>{reader.latestAchievement.icon} {reader.latestAchievement.name}</em> : null}</span>
+      <span className="ranking-reader-identity"><strong>{reader.displayName}</strong><small>Уровень {reader.level} · {reader.rank.name}</small></span>
+      <span className="ranking-reader-score"><strong>{Number(experience || 0).toLocaleString('ru-RU')} <em>XP</em></strong><small><BookOpen size={13} aria-hidden="true" /> {countLabel(completedBooks, ['книга', 'книги', 'книг'])} · {countLabel(reader.completedChapters, ['глава', 'главы', 'глав'])}</small></span>
+      <span className="ranking-reader-status"><small>{positionLabel}</small>{reader.latestAchievement ? <em>{reader.latestAchievement.icon} {reader.latestAchievement.name}</em> : <em className="is-muted">Новое достижение впереди</em>}</span>
     </a>
   );
 }
@@ -36,9 +57,13 @@ export default function RankingsPage() {
   }, [tab]);
   const rows = useMemo(() => tab === 'ranks' && data?.rows ? [...data.rows].sort((a, b) => b.level - a.level || a.position - b.position) : data?.rows || [], [data, tab]);
   return (
-    <div className="site-shell inner-site-shell ranking-page"><SiteHeader />
+    <div className="site-shell inner-site-shell ranking-page"><SiteHeader active="ranking" />
       <main className="ranking-main">
-        <header className="ranking-hero"><span><Crown size={18} /> ЧИТАТЕЛЬСКОЕ СООБЩЕСТВО</span><h1>Мастера<br /><em>BOOKNERD</em></h1><p>Уровни отмечают прочитанные истории. Месячный рейтинг начинается заново, а постоянный опыт и награды всегда остаются с Вами.</p></header>
+        <header className="ranking-hero">
+          <span><Crown size={18} /> ЧИТАТЕЛЬСКОЕ СООБЩЕСТВО</span>
+          <h1><span>Мастера</span><em>BOOKNERD</em></h1>
+          <div className="ranking-hero-copy"><Sparkles size={20} aria-hidden="true" /><p>Уровни отмечают прочитанные истории. Месячный рейтинг начинается заново, а постоянный опыт и награды всегда остаются с Вами.</p></div>
+        </header>
         <nav className="ranking-tabs" aria-label="Разделы рейтинга">{TABS.map(([key, label]) => <button type="button" className={tab === key ? 'is-active' : ''} onClick={() => setTab(key)} aria-pressed={tab === key} key={key}>{label}</button>)}</nav>
         {error ? <section className="ranking-fallback" role="status"><Trophy /><h2>Рейтинг отдыхает</h2><p>{error} Остальные разделы BOOKNERD продолжают работать.</p></section> : null}
         {!data && !error ? <div className="ranking-loading"><LoaderCircle className="spin" /> Загружаем результаты…</div> : null}

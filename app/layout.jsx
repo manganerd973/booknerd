@@ -3,7 +3,9 @@ import '../src/styles.css';
 import '../src/admin.css';
 import '../src/editorial.css';
 import '../src/pages.css';
+import '../src/pwa-install-reminder.css';
 import PwaRegister from '../src/pwa-register.jsx';
+import PwaInstallReminder from '../src/pwa-install-reminder.jsx';
 import AppPreferences from '../src/app-preferences.jsx';
 import ReaderLevelNotice from '../src/reader-level-notice.jsx';
 import ReaderLevelErrorBoundary from '../src/reader-level-error-boundary.jsx';
@@ -35,6 +37,7 @@ export const metadata = {
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
+  viewportFit: 'cover',
   themeColor: '#123c35',
 };
 
@@ -76,11 +79,18 @@ const themeScript = `(() => {
   } catch {}
 })();`;
 
+const pwaModeScript = `(() => {
+  try {
+    const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+    document.documentElement.dataset.pwaMode = standalone ? 'standalone' : 'browser';
+  } catch { document.documentElement.dataset.pwaMode = 'browser'; }
+})();`;
+
 export default function RootLayout({ children }) {
   return (
     <html lang="ru">
-      <head><script dangerouslySetInnerHTML={{ __html: themeScript }} /><script dangerouslySetInnerHTML={{ __html: recoveryScript }} /></head>
-      <body><PwaRegister /><AppPreferences />{children}<ReaderLevelErrorBoundary><ReaderLevelNotice /></ReaderLevelErrorBoundary></body>
+      <head><script dangerouslySetInnerHTML={{ __html: themeScript }} /><script dangerouslySetInnerHTML={{ __html: pwaModeScript }} /><script dangerouslySetInnerHTML={{ __html: recoveryScript }} /></head>
+      <body><PwaRegister /><ReaderLevelErrorBoundary><PwaInstallReminder /></ReaderLevelErrorBoundary><AppPreferences />{children}<ReaderLevelErrorBoundary><ReaderLevelNotice /></ReaderLevelErrorBoundary></body>
     </html>
   );
 }

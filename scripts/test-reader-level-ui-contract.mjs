@@ -13,7 +13,7 @@ assert.match(css, /@media \(max-width:900px\)/, 'tablet layout exists');
 assert.match(css, /@media \(max-width:620px\)/, 'small and large phone layout exists');
 assert.match(css, /safe-area-inset-bottom/, 'mobile safe area is respected');
 assert.match(css, /reader-master-scroll[^}]*overflow-x:auto/, 'mobile master cards scroll inside their own strip');
-assert.match(css, /ranking-reader-row[^}]*grid-template-columns:42px 50px minmax\(0,1fr\)/, 'ranking becomes compact cards on phones');
+assert.match(css, /ranking-reader-row[^}]*grid-template-columns:48px 54px minmax\(0,1fr\)/, 'ranking becomes compact cards on phones');
 assert.match(css, /prefers-reduced-motion:reduce/, 'rank motion can be reduced');
 assert.match(layout, /ReaderLevelErrorBoundary><ReaderLevelNotice/, 'level notice failure cannot break the site');
 assert.match(profile, /Показывать профиль в рейтинге/, 'public profile opt-out exists');
@@ -26,7 +26,7 @@ assert.match(ranking, /Номинации/, 'nomination tab exists');
 assert.match(ranking, /Мои результаты/, 'personal result tab exists');
 assert.doesNotMatch(publicProfile, /visitorKey|email|password|IP-адрес/, 'public component does not render private identifiers');
 assert.doesNotMatch(workerConfig, /r2_buckets|r2_bucket/i, 'R2 is not configured');
-assert.match(serviceWorker, /booknerd-shell-v53/, 'PWA shell cache is updated');
+assert.match(serviceWorker, /booknerd-shell-v54/, 'PWA shell cache is updated');
 assert.doesNotMatch(serviceWorker, /const PRELOAD_URLS = \[[^\n]*'\/ranking'/, 'rating is cached on demand instead of blocking PWA install');
 
 console.log('Reader level UI contract: 19 checks passed.');

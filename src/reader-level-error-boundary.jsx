@@ -13,7 +13,7 @@ export default class ReaderLevelErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error) {
-    if (typeof console !== 'undefined') console.error('BOOKNERD reader-level notice was disabled after an error.', error);
+    if (typeof console !== 'undefined') console.error('An optional BOOKNERD interface module was disabled after an error.', error);
   }
 
   render() {
