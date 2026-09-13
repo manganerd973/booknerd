@@ -1,7 +1,7 @@
 {
   "name": "booknerd-reading-club",
   "private": true,
-  "version": "52.0.0",
+  "version": "53.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,8 +12,9 @@
     "build:vinext": "vinext build",
     "start:vinext": "wrangler dev --config dist/server/wrangler.json",
     "deploy:vinext": "vinext-cloudflare deploy --config dist/server/wrangler.json",
-    "test:levels": "node scripts/test-reader-levels.mjs && node scripts/test-ranking-sql.mjs && node scripts/test-reader-level-ui-contract.mjs && node scripts/test-v51-cleanup.mjs && node scripts/test-chapter-images.mjs",
-    "test:chapter-images": "node scripts/test-chapter-images.mjs"
+    "test:levels": "node scripts/test-reader-levels.mjs && node scripts/test-ranking-sql.mjs && node scripts/test-reader-level-ui-contract.mjs && node scripts/test-v51-cleanup.mjs && node scripts/test-chapter-images.mjs && node scripts/test-performance-contract.mjs",
+    "test:chapter-images": "node scripts/test-chapter-images.mjs",
+    "test:performance": "node scripts/test-performance-contract.mjs"
   },
   "dependencies": {
     "@block65/webcrypto-web-push": "^1.0.2",

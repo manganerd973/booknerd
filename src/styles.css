@@ -609,6 +609,8 @@ a { color: inherit; text-decoration: none; }
 .book-library-state.is-finished { background: rgba(255,212,59,.24); border-color: rgba(214,157,0,.42); }
 .book-library-state.is-reading { color: var(--cream); background: var(--navy); border-color: var(--navy); }
 .book-grid.book-list-home { grid-template-columns: 1fr; gap: 16px; }
+.catalog-load-more { display: flex; align-items: center; justify-content: center; gap: 9px; min-width: 220px; margin: 28px auto 0; padding: 13px 22px; border: 1px solid var(--ink); border-radius: 999px; background: transparent; color: var(--ink); font: 800 12px/1 var(--sans); letter-spacing: .04em; cursor: pointer; }
+.catalog-load-more:hover { background: var(--ink); color: var(--paper); }
 .book-list-home .book-card { display: grid; grid-template-columns: 190px minmax(0,1fr); overflow: hidden; border: 1px solid var(--line); background: color-mix(in srgb, var(--paper) 92%, white 8%); }
 .book-list-home .book-visual-wrap { min-height: 270px; padding: 22px; }
 .book-list-home .book-info { display: grid; align-content: center; padding: 26px 30px; }

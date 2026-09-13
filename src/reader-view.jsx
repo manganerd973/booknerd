@@ -146,6 +146,9 @@ function blocksFor(chapter) {
 }
 
 function wordCountForChapter(chapter) {
+  if (!chapter.body && !chapter.bodyRich && Number.isFinite(Number(chapter.wordCount))) {
+    return Math.max(0, Number(chapter.wordCount));
+  }
   const documentValue = richDocumentFor(chapter.bodyRich, chapter.body);
   const text = documentValue.blocks.flatMap((block) => block.runs || []).map((run) => run.text || '').join(' ');
   return text.match(/[\p{L}\p{N}]+(?:[’'\-][\p{L}\p{N}]+)*/gu)?.length || 0;
@@ -264,7 +267,9 @@ function ReadingModeIcon({ mode, size = 22 }) {
 }
 
 export default function ReaderView({ book, chapter, chapters = [], previous, next }) {
-  const chapterList = useMemo(() => chapters.length ? chapters : [chapter], [chapters, chapter]);
+  const chapterList = useMemo(() => chapters.length
+    ? chapters.map((item) => item.id === chapter.id ? { ...item, ...chapter } : item)
+    : [chapter], [chapters, chapter]);
   const chapterIndex = Math.max(0, chapterList.findIndex((item) => item.id === chapter.id));
   const translationCompleted = book.status === 'Завершено';
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
@@ -275,6 +280,9 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
   const [measurementReady, setMeasurementReady] = useState(false);
   const [panel, setPanel] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState('');
   const [bookmarks, setBookmarks] = useState([]);
   const [bookmarkDraft, setBookmarkDraft] = useState(null);
   const [errorDraft, setErrorDraft] = useState(null);
@@ -473,11 +481,12 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
 
     const measure = () => {
       if (cancelled) return;
-      const counts = chapterList.map((item) => {
-        const node = measureRefs.current.get(item.id);
-        if (!node) return 1;
-        return Math.max(1, Math.ceil((node.scrollWidth - 1) / dimensions.width));
-      });
+      const node = measureRefs.current.get(chapter.id);
+      const currentCount = node ? Math.max(1, Math.ceil((node.scrollWidth - 1) / dimensions.width)) : 1;
+      const currentWords = Math.max(1, wordCountForChapter(chapter));
+      const counts = chapterList.map((item) => item.id === chapter.id
+        ? currentCount
+        : Math.max(1, Math.round((wordCountForChapter(item) / currentWords) * currentCount)));
       setPageCounts((current) => current.join(',') === counts.join(',') ? current : counts);
       setMeasurementReady(true);
     };
@@ -495,7 +504,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       window.cancelAnimationFrame(firstFrame);
       window.cancelAnimationFrame(secondFrame);
     };
-  }, [annotationVersion, chapterList, dimensions, settings.align, settings.bold, settings.fontFamily, settings.fontSize, settings.lineHeight, settingsReady]);
+  }, [annotationVersion, chapter, chapterList, dimensions, settings.align, settings.bold, settings.fontFamily, settings.fontSize, settings.lineHeight, settingsReady]);
 
   const currentChapterPages = pageCounts[chapterIndex] || 1;
 
@@ -1130,21 +1139,43 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
     window.setTimeout(() => document.getElementById('chapter-comments')?.scrollIntoView({ behavior: 'smooth' }), 80);
   };
 
-  const searchResults = useMemo(() => {
-    const needle = searchQuery.trim().toLocaleLowerCase('ru-RU');
-    if (needle.length < 2) return [];
-    return chapterList.flatMap((item) => {
-      const body = String(item.body || '');
-      const haystack = `${item.title}\n${body}`.toLocaleLowerCase('ru-RU');
-      const foundAt = haystack.indexOf(needle);
-      if (foundAt < 0) return [];
-      const bodyPosition = Math.max(0, body.toLocaleLowerCase('ru-RU').indexOf(needle));
-      const start = Math.max(0, bodyPosition - 70);
-      const end = Math.min(body.length, bodyPosition + needle.length + 120);
-      const snippet = `${start > 0 ? '…' : ''}${body.slice(start, end).replace(/\s+/g, ' ')}${end < body.length ? '…' : ''}`;
-      return [{ ...item, snippet: snippet || item.title }];
-    }).slice(0, 30);
-  }, [chapterList, searchQuery]);
+  useEffect(() => {
+    const normalized = searchQuery.trim();
+    if (panel !== 'search' || normalized.length < 2) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      setSearchError('');
+      return undefined;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      setSearchLoading(true);
+      setSearchError('');
+      const query = new URLSearchParams({
+        q: normalized,
+        chapterId: chapter.id,
+      });
+      fetch(`/api/books/${book.id}/chapter-search?${query.toString()}`, { cache: 'no-store', signal: controller.signal })
+        .then(async (response) => {
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(data.error || 'Поиск временно недоступен.');
+          setSearchResults(Array.isArray(data.results) ? data.results : []);
+        })
+        .catch((error) => {
+          if (error.name !== 'AbortError') {
+            setSearchResults([]);
+            setSearchError(error.message || 'Поиск временно недоступен.');
+          }
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setSearchLoading(false);
+        });
+    }, 420);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [book.id, chapter.chapterNumber, panel, searchQuery]);
 
   const visibleGlossaryEntries = useMemo(() => {
     const needle = glossaryQuery.trim().toLocaleLowerCase('ru-RU');
@@ -1255,7 +1286,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       </section>
 
       <div className="reader-measure-layer" aria-hidden="true">
-        {dimensions.width && dimensions.height ? chapterList.map((item) => (
+        {dimensions.width && dimensions.height ? [chapter].map((item) => (
           <div
             className="reader-column-flow reader-measure-flow"
             key={item.id}
@@ -1358,9 +1389,11 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       {panel === 'search' ? (
         <ReaderSheet title="Поиск по книге" eyebrow={book.title} onClose={() => setPanel(null)} wide>
           <label className="reader-search-field"><Search size={21} /><input autoFocus value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Введите слово или фразу" /></label>
-          {searchQuery.trim().length < 2 ? <p className="reader-search-hint">Введите хотя бы две буквы. Поиск пройдёт по всем опубликованным главам.</p> : null}
+          {searchQuery.trim().length < 2 ? <p className="reader-search-hint">Введите хотя бы две буквы. Поиск пройдёт только по уже доступным Вам главам.</p> : null}
           <div className="reader-search-results">
-            {searchQuery.trim().length >= 2 && !searchResults.length ? <p>Ничего не найдено.</p> : searchResults.map((result) => (
+            {searchLoading ? <p>Ищем по прочитанным главам…</p> : null}
+            {searchError ? <p role="alert">{searchError}</p> : null}
+            {searchQuery.trim().length >= 2 && !searchLoading && !searchError && !searchResults.length ? <p>Ничего не найдено.</p> : searchResults.map((result) => (
               <a href={`/books/${book.slug}/chapters/${result.id}`} key={result.id}>
                 <strong>{readerChapterTitle(result)}</strong><span>{result.snippet}</span>
               </a>

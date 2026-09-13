@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, CakeSlice, CalendarHeart, Dice5, Flame, MessageCircle, Sparkles, TrendingUp } from 'lucide-react';
+import { useDeferredVisible } from './use-deferred-visible.js';
 
 function dateSeed() {
   const today = new Date();
@@ -57,6 +58,7 @@ function Ranking({ title, icon, items = [], empty, label }) {
 }
 
 export default function DiscoveryDashboard({ books = [] }) {
+  const [sectionRef, shouldLoad] = useDeferredVisible();
   const [data, setData] = useState(null);
   const [daily, setDaily] = useState(INITIAL_DAILY);
   const [randomIndex, setRandomIndex] = useState(0);
@@ -76,8 +78,10 @@ export default function DiscoveryDashboard({ books = [] }) {
   }, [books, daily.seed]);
 
   useEffect(() => {
+    if (!shouldLoad) return undefined;
     fetch('/api/discovery', { cache: 'no-store' }).then((response) => response.ok ? response.json() : null).then(setData).catch(() => {});
-  }, []);
+    return undefined;
+  }, [shouldLoad]);
 
   useEffect(() => {
     const seed = dateSeed();
@@ -95,7 +99,7 @@ export default function DiscoveryDashboard({ books = [] }) {
   };
 
   return (
-    <section className="discovery-dashboard section" aria-labelledby="discovery-title">
+    <section ref={sectionRef} className="discovery-dashboard section" aria-labelledby="discovery-title">
       <div className="section-heading discovery-heading">
         <div><span className="section-number">СЕГОДНЯ В BOOKNERD</span><h2 id="discovery-title">{daily.greeting}.<br /><em>Что читаем?</em></h2></div>
         <p>Ежедневная подборка меняется вместе с библиотекой и тем, что сейчас любят читатели.</p>

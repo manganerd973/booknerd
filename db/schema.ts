@@ -1,5 +1,11 @@
 import { blob, index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
+export const appSchema = sqliteTable('app_schema', {
+  id: text('id').primaryKey(),
+  version: integer('version').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});
+
 export const books = sqliteTable('books', {
   id: text('id').primaryKey(),
   slug: text('slug').notNull(),

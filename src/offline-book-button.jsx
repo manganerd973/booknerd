@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from 'react';
 import { Check, Download, LoaderCircle, RefreshCw } from 'lucide-react';
-import { richDocumentFor } from '../lib/rich-document.js';
 
 const STORAGE_KEY = 'booknerd-offline-books-v1';
 const SERVICE_WORKER_READY_TIMEOUT = 15000;
@@ -47,16 +46,12 @@ export default function OfflineBookButton({ book, chapters = [] }) {
       const registration = await readyServiceWorker();
       const worker = registration.active || navigator.serviceWorker.controller;
       if (!worker) throw new Error('Перезагрузите страницу и попробуйте ещё раз.');
-      const chapterImageUrls = chapters.flatMap((chapter) => richDocumentFor(chapter.bodyRich, chapter.body).blocks
-        .filter((block) => block.type === 'image' && block.src)
-        .map((block) => block.src));
       const urls = [
         '/library?tab=offline',
         `/books/${book.slug}`,
         ...chapters.map((chapter) => `/books/${book.slug}/chapters/${chapter.id}`),
         book.coverUrl,
         book.worldMap?.imageUrl,
-        ...chapterImageUrls,
       ].filter(Boolean);
       const result = await new Promise((resolve, reject) => {
         const channel = new MessageChannel();

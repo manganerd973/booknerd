@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { getBookBySlug, listChapters, listSeriesBooks } from '../../../lib/books.js';
+import { getBookBySlug, listChapterSummaries, listSeriesBooks } from '../../../lib/books.js';
 import { listBookArtworks } from '../../../lib/artworks.js';
 import { requireReaderAccess } from '../../../lib/reader-access.js';
 import BookDetailPage from '../../../src/book-detail-page.jsx';
@@ -12,7 +12,7 @@ export default async function BookPage({ params }) {
   const book = await getBookBySlug(slug);
   if (!book) notFound();
   const [chapters, artworks, seriesBooks] = await Promise.all([
-    listChapters(book.id),
+    listChapterSummaries(book.id),
     listBookArtworks(book.id),
     listSeriesBooks(book.seriesTitle),
   ]);

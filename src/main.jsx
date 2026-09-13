@@ -209,6 +209,8 @@ function QuoteOfDay({ quote }) {
   useEffect(() => {
     let active = true;
     let timeoutId;
+    let loadTimer;
+    let idleId;
     let quotePool = quote ? [quote] : [];
 
     const pickCurrentQuote = () => {
@@ -240,11 +242,14 @@ function QuoteOfDay({ quote }) {
     };
 
     pickCurrentQuote();
-    loadPool();
+    if ('requestIdleCallback' in window) idleId = window.requestIdleCallback(loadPool, { timeout: 2200 });
+    else loadTimer = window.setTimeout(loadPool, 1200);
     scheduleNext();
     return () => {
       active = false;
       window.clearTimeout(timeoutId);
+      window.clearTimeout(loadTimer);
+      if (idleId) window.cancelIdleCallback(idleId);
     };
   }, [quote]);
 
@@ -389,6 +394,7 @@ function App({ initialBooks = [], initialPopularComments = [], initialQuoteOfDay
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [notice, setNotice] = useState('');
+  const [visibleBookLimit, setVisibleBookLimit] = useState(8);
   const [libraryItems, setLibraryItems] = useState([]);
   const libraryByBook = useMemo(() => new Map(libraryItems.map((item) => [item.bookId, item])), [libraryItems]);
 
@@ -444,6 +450,11 @@ function App({ initialBooks = [], initialPopularComments = [], initialQuoteOfDay
       const inSearch = !normalized || `${book.title} ${book.author} ${(book.genres || [book.genre]).join(' ')} ${(book.tropes || []).join(' ')}`.toLowerCase().includes(normalized);
       return inFilter && inSearch;
     });
+  }, [activeFilter, query]);
+  const renderedBooks = visibleBooks.slice(0, visibleBookLimit);
+
+  useEffect(() => {
+    setVisibleBookLimit(8);
   }, [activeFilter, query]);
 
   const toggleSave = async (book) => {
@@ -573,7 +584,7 @@ function App({ initialBooks = [], initialPopularComments = [], initialQuoteOfDay
 
             {visibleBooks.length > 0 ? (
               <div className="book-grid book-list-home">
-                {visibleBooks.map((book) => (
+                {renderedBooks.map((book) => (
                   <BookCard
                     key={book.id}
                     book={book}
@@ -590,6 +601,11 @@ function App({ initialBooks = [], initialPopularComments = [], initialQuoteOfDay
                 <p>Попробуй другой запрос или жанр.</p>
               </div>
             )}
+            {visibleBooks.length > renderedBooks.length ? (
+              <button className="catalog-load-more" type="button" onClick={() => setVisibleBookLimit((current) => current + 8)}>
+                Показать ещё книги <ArrowDownRight size={18} />
+              </button>
+            ) : null}
           </section>
 
           <PopularComments comments={initialPopularComments} />

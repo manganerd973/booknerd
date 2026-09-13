@@ -1,4 +1,4 @@
-const SHELL_CACHE = 'booknerd-shell-v52';
+const SHELL_CACHE = 'booknerd-shell-v53';
 const OFFLINE_CACHE = 'booknerd-offline-library-v2';
 const OFFLINE_FALLBACK = '/offline.html';
 const OFFLINE_LIBRARY = '/library?tab=offline';
@@ -6,8 +6,7 @@ const NAVIGATION_TIMEOUT = 45000;
 const ASSET_TIMEOUT = 30000;
 const BOOK_DOWNLOAD_TIMEOUT = 45000;
 const BOOK_DOWNLOAD_CONCURRENCY = 3;
-const REACTION_STICKER_URLS = Array.from({ length: 67 }, (_, index) => `/reaction-stickers/sticker-${String(index + 1).padStart(2, '0')}.jpg`);
-const PRELOAD_URLS = ['/', '/profile', '/ranking', OFFLINE_LIBRARY, OFFLINE_FALLBACK, '/manifest.webmanifest', '/booknerd-icon-v2-192.png', ...REACTION_STICKER_URLS];
+const PRELOAD_URLS = [OFFLINE_FALLBACK, '/manifest.webmanifest', '/booknerd-icon-v2-192.png'];
 const STATIC_DESTINATIONS = new Set(['style', 'script', 'font', 'image']);
 
 function isAppAsset(pathname) {
@@ -16,13 +15,20 @@ function isAppAsset(pathname) {
     || /\.(?:css|js|mjs|woff2?|ttf)$/i.test(pathname);
 }
 
-function linkedAssets(html, baseUrl) {
+function isOfflineMedia(pathname) {
+  return pathname.startsWith('/api/covers/')
+    || pathname.startsWith('/api/world-maps/')
+    || pathname.startsWith('/api/artworks/');
+}
+
+function linkedAssets(html, baseUrl, includeImages = false) {
   const urls = new Set();
   const expression = /(?:src|href)=["']([^"']+)["']/gi;
   for (const match of html.matchAll(expression)) {
     try {
       const url = new URL(match[1], baseUrl);
-      if (url.origin === self.location.origin && isAppAsset(url.pathname)) urls.add(url.pathname + url.search);
+      const allowed = isAppAsset(url.pathname) || (includeImages && isOfflineMedia(url.pathname));
+      if (url.origin === self.location.origin && allowed) urls.add(url.pathname + url.search);
     } catch {
       // Ignore invalid markup URLs; the document itself remains available.
     }
@@ -40,11 +46,11 @@ async function fetchAndCacheAsset(cache, url) {
   return true;
 }
 
-async function cacheDocument(cache, request, response) {
+async function cacheDocument(cache, request, response, { includeImages = false } = {}) {
   await cache.put(request, response.clone());
   if (!(response.headers.get('content-type') || '').includes('text/html')) return;
   const html = await response.clone().text();
-  await Promise.allSettled(linkedAssets(html, response.url || request.url).map((url) => fetchAndCacheAsset(cache, url)));
+  await Promise.allSettled(linkedAssets(html, response.url || request.url, includeImages).map((url) => fetchAndCacheAsset(cache, url)));
 }
 
 async function warmShell() {
@@ -69,7 +75,7 @@ async function migrateLegacyCaches() {
       for (const request of await legacy.keys()) {
         const url = new URL(request.url);
         const keep = legacyOffline
-          ? url.pathname.startsWith('/books/') || url.pathname === '/library' || url.pathname.startsWith('/api/covers/') || isAppAsset(url.pathname)
+          ? url.pathname.startsWith('/books/') || url.pathname === '/library' || isOfflineMedia(url.pathname) || isAppAsset(url.pathname)
           : isAppAsset(url.pathname);
         if (!keep || await offline.match(request)) continue;
         const response = await legacy.match(request);
@@ -114,7 +120,7 @@ self.addEventListener('message', (event) => {
           const response = await fetchWithTimeout(request, BOOK_DOWNLOAD_TIMEOUT);
           const redirectedToAccess = response.redirected && new URL(response.url).pathname.startsWith('/reader-access');
           if (!response.ok || redirectedToAccess) throw new Error('Страница недоступна для сохранения.');
-          await cacheDocument(cache, request, response);
+          await cacheDocument(cache, request, response, { includeImages: true });
           saved += 1;
         } catch {
           if (url.startsWith('/books/')) failedRequired.push(url);

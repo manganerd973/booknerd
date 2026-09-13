@@ -60,6 +60,7 @@ const editor = read('src/rich-chapter-editor.jsx');
 const reader = read('src/reader-view.jsx');
 const preview = read('src/admin-platform-features.jsx');
 const offline = read('src/offline-book-button.jsx');
+const serviceWorker = read('public/sw.js');
 const adminCss = read('src/admin.css');
 const readerCss = read('src/editorial.css');
 const wrangler = read('wrangler.jsonc');
@@ -76,9 +77,10 @@ assert.match(editor, /Описание для доступности/, 'editor s
 assert.match(reader, /reader-chapter-image/, 'reader renders chapter images');
 assert.match(reader, /loading="lazy"/, 'reader lazy-loads chapter images');
 assert.match(preview, /preview-chapter-image/, 'editorial preview renders chapter images');
-assert.match(offline, /chapterImageUrls/, 'offline download explicitly includes chapter images');
+assert.match(offline, /chapters\.map\(\(chapter\) => `\/books\//, 'offline download explicitly includes every chapter page');
+assert.match(serviceWorker, /includeImages: true/, 'offline chapter pages discover and cache their inline images');
 assert.match(adminCss, /admin-chapter-image\.is-wide/, 'editor supports full text width');
 assert.match(readerCss, /reader-chapter-image\.is-medium/, 'reader supports compact size presets');
 assert.doesNotMatch(wrangler, /r2_buckets|r2_bucket/i, 'R2 remains disabled');
 
-console.log('Inline chapter images: 31 checks passed.');
+console.log('Inline chapter images: 32 checks passed.');

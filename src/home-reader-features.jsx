@@ -16,6 +16,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { getVisitorKey } from './site-analytics.js';
+import { useDeferredVisible } from './use-deferred-visible.js';
 
 function formatDuration(seconds) {
   const minutes = Math.max(0, Math.round(Number(seconds || 0) / 60));
@@ -115,6 +116,7 @@ export function ReaderStatistics() {
 }
 
 export function TranslationVoting() {
+  const [sectionRef, shouldLoad] = useDeferredVisible();
   const [candidates, setCandidates] = useState([]);
   const [suggestion, setSuggestion] = useState({ title: '', author: '' });
   const [sending, setSending] = useState(false);
@@ -126,7 +128,10 @@ export function TranslationVoting() {
       .then((response) => response.json())
       .then((data) => setCandidates(data.candidates || []));
   };
-  useEffect(() => { reload().catch(() => {}); }, []);
+  useEffect(() => {
+    if (!shouldLoad) return;
+    reload().catch(() => {});
+  }, [shouldLoad]);
 
   const send = async (payload) => {
     setSending(true);
@@ -147,7 +152,7 @@ export function TranslationVoting() {
   };
 
   return (
-    <section className="translation-voting section">
+    <section ref={sectionRef} className="translation-voting section">
       <div className="section-heading">
         <div><span className="section-number">БУДУЩИЕ ПЕРЕВОДЫ</span><h2>Что читать<br /><em>следующим.</em></h2></div>
         <p>Предлагайте книги. Команда перенесёт подходящие варианты в официальное голосование.</p>

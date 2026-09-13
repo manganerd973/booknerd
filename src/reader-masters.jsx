@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { ArrowRight, Award, BookOpen, Crown, UserRound } from 'lucide-react';
+import { useDeferredVisible } from './use-deferred-visible.js';
 
 function ReaderAvatar({ reader, large = false }) {
   return <span className={`reader-rank-avatar rank-frame-${reader.rank.key} ${large ? 'is-large' : ''}`} style={{ '--rank-color': reader.rank.frameColor }}>{reader.avatarUrl ? <img src={reader.avatarUrl} alt="" /> : <UserRound aria-hidden="true" />}</span>;
@@ -25,16 +26,18 @@ function ReaderCard({ reader, nomination, master = false }) {
 }
 
 export default function ReaderMasters() {
+  const [sectionRef, shouldLoad] = useDeferredVisible();
   const [data, setData] = useState(null);
   useEffect(() => {
+    if (!shouldLoad) return undefined;
     let active = true;
     fetch('/api/rankings?view=home', { cache: 'no-store' }).then((response) => response.ok ? response.json() : null)
       .then((value) => { if (active) setData(value); }).catch(() => {});
     return () => { active = false; };
-  }, []);
-  if (!data?.master) return null;
+  }, [shouldLoad]);
+  if (!data?.master) return <div ref={sectionRef} className="home-deferred-sentinel" aria-hidden="true" />;
   return (
-    <section className="reader-masters section" aria-labelledby="reader-masters-title">
+    <section ref={sectionRef} className="reader-masters section" aria-labelledby="reader-masters-title">
       <div className="reader-masters-heading"><div><span className="section-number">МАСТЕРА BOOKNERD</span><h2 id="reader-masters-title">Читатели,<br /><em>которые живут историями</em></h2></div><a href="/ranking">Посмотреть весь рейтинг <ArrowRight size={17} /></a></div>
       <div className="reader-masters-layout">
         <ReaderCard reader={data.master} nomination="Мастер месяца" master />

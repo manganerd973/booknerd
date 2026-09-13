@@ -69,6 +69,8 @@ export function MobileBottomNavigation({ active = '' }) {
   ];
   useEffect(() => {
     let activeRequest = true;
+    let timer = 0;
+    let idleId = 0;
     try {
       const cached = JSON.parse(sessionStorage.getItem('booknerd-notification-summary-v1') || 'null');
       if (cached?.savedAt && Date.now() - cached.savedAt < 5 * 60 * 1000) {
@@ -76,16 +78,22 @@ export function MobileBottomNavigation({ active = '' }) {
         return () => { activeRequest = false; };
       }
     } catch { /* fetch a fresh compact summary */ }
-    fetch(`/api/notifications?visitorKey=${encodeURIComponent(getVisitorKey())}&summary=1`, { cache: 'no-store' })
-      .then((response) => response.ok ? response.json() : null)
-      .then((data) => {
-        if (!activeRequest || !data) return;
-        const unreadCount = Number(data.unreadCount || 0);
-        setNotificationCount(unreadCount);
-        try { sessionStorage.setItem('booknerd-notification-summary-v1', JSON.stringify({ savedAt: Date.now(), unreadCount })); } catch { /* optional cache */ }
-      })
-      .catch(() => {});
-    return () => { activeRequest = false; };
+    const load = () => fetch(`/api/notifications?visitorKey=${encodeURIComponent(getVisitorKey())}&summary=1`, { cache: 'no-store' })
+        .then((response) => response.ok ? response.json() : null)
+        .then((data) => {
+          if (!activeRequest || !data) return;
+          const unreadCount = Number(data.unreadCount || 0);
+          setNotificationCount(unreadCount);
+          try { sessionStorage.setItem('booknerd-notification-summary-v1', JSON.stringify({ savedAt: Date.now(), unreadCount })); } catch { /* optional cache */ }
+        })
+        .catch(() => {});
+    if ('requestIdleCallback' in window) idleId = window.requestIdleCallback(load, { timeout: 2500 });
+    else timer = window.setTimeout(load, 1500);
+    return () => {
+      activeRequest = false;
+      window.clearTimeout(timer);
+      if (idleId) window.cancelIdleCallback(idleId);
+    };
   }, []);
   return (
       <nav className="mobile-bottom-navigation" aria-label="Основные разделы">
