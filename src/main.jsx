@@ -669,7 +669,7 @@ function App({ initialBooks = [], initialPopularComments = [], initialQuoteOfDay
         <footer>
           <Logo />
           <p>Книжная команда переводов · сделано читателями для читателей</p>
-          <div><a href="/translations">Переводы</a><a href="/library">Закладки</a><a href="/calendar">Календарь</a><a href="/community">Сообщество</a><a href="/profile">Профиль</a><a href="/search">Поиск</a><a href="/about">О нас</a><a href="/team">Команда</a><a href="/go/telegram" target="_blank" rel="noreferrer">Telegram</a></div>
+          <div><a href="/translations">Переводы</a><a href="/library">Закладки</a><a href="/calendar">Расписание</a><a href="/community">Сообщество</a><a href="/profile">Профиль</a><a href="/search">Поиск</a><a href="/about">О нас</a><a href="/team">Команда</a><a href="/terms">Соглашение</a><a href="/privacy">Конфиденциальность</a><a href="/go/telegram" target="_blank" rel="noreferrer">Telegram</a></div>
           <span>© 2026 BOOKNERD</span>
         </footer>
         <MobileBottomNavigation active="home" />

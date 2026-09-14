@@ -32,6 +32,6 @@ assert.doesNotMatch(reminder, /fetch\(|\/api\//, 'reminder does not write impres
 assert.match(reminderCss, /safe-area-inset-bottom/, 'reminder stays above phone navigation and safe area');
 assert.match(reminderCss, /@media \(min-width:761px\)[^{]*\{[^}]*pwa-install-reminder[^}]*display:none/s, 'reminder is phone-only');
 assert.match(reminderCss, /prefers-reduced-motion:reduce/, 'reminder animation respects reduced motion');
-assert.match(worker, /booknerd-shell-v54/, 'new client assets invalidate the old PWA shell');
+assert.match(worker, /booknerd-shell-v55/, 'new client assets invalidate the old PWA shell');
 
 console.log('V54 ranking and PWA reminder contract: 22 checks passed.');

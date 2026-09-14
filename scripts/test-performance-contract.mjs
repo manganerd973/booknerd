@@ -20,7 +20,7 @@ assert.match(reader, /\[chapter\]\.map/);
 assert.match(reader, /\/chapter-search\?/);
 assert.match(reader, /item\.id === chapter\.id \? \{ \.\.\.item, \.\.\.chapter \} : item/);
 
-assert.match(serviceWorker, /booknerd-shell-v54/);
+assert.match(serviceWorker, /booknerd-shell-v55/);
 assert.doesNotMatch(serviceWorker, /REACTION_STICKER_URLS/);
 assert.doesNotMatch(serviceWorker, /const PRELOAD_URLS = \[[^\n]*'\/profile'/);
 assert.match(serviceWorker, /includeImages: true/);
@@ -30,4 +30,4 @@ assert.match(runtime, /SELECT version FROM app_schema/);
 assert.match(migration, /CREATE TABLE IF NOT EXISTS app_schema/);
 assert.match(migration, /ON CONFLICT\(id\) DO UPDATE/);
 
-console.log('V54 performance contract: OK');
+console.log('V55 performance contract: OK');

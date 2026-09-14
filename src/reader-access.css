@@ -105,6 +105,9 @@
   text-align: center;
 }
 
+.reader-access-legal { display:flex; flex-wrap:wrap; justify-content:center; gap:7px 15px; margin-top:15px; }
+.reader-access-legal a { color:#365a53; font-size:11px; font-weight:750; text-decoration:underline; text-underline-offset:3px; }
+
 @media (max-width: 560px) {
   .reader-access-card {
     border-radius: 22px;

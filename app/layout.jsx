@@ -3,6 +3,8 @@ import '../src/styles.css';
 import '../src/admin.css';
 import '../src/editorial.css';
 import '../src/pages.css';
+import '../src/catalog-v55.css';
+import '../src/information-pages.css';
 import '../src/pwa-install-reminder.css';
 import PwaRegister from '../src/pwa-register.jsx';
 import PwaInstallReminder from '../src/pwa-install-reminder.jsx';

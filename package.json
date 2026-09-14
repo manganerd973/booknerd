@@ -1,7 +1,7 @@
 {
   "name": "booknerd-reading-club",
   "private": true,
-  "version": "54.0.0",
+  "version": "55.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,7 +12,7 @@
     "build:vinext": "vinext build",
     "start:vinext": "wrangler dev --config dist/server/wrangler.json",
     "deploy:vinext": "vinext-cloudflare deploy --config dist/server/wrangler.json",
-    "test:levels": "node scripts/test-reader-levels.mjs && node scripts/test-ranking-sql.mjs && node scripts/test-reader-level-ui-contract.mjs && node scripts/test-v51-cleanup.mjs && node scripts/test-chapter-images.mjs && node scripts/test-performance-contract.mjs && node scripts/test-v54-ranking-pwa.mjs",
+    "test:levels": "node scripts/test-reader-levels.mjs && node scripts/test-ranking-sql.mjs && node scripts/test-reader-level-ui-contract.mjs && node scripts/test-v51-cleanup.mjs && node scripts/test-chapter-images.mjs && node scripts/test-performance-contract.mjs && node scripts/test-v54-ranking-pwa.mjs && node scripts/test-v55-catalog-info.mjs",
     "test:chapter-images": "node scripts/test-chapter-images.mjs",
     "test:performance": "node scripts/test-performance-contract.mjs"
   },
