@@ -45,7 +45,7 @@ assert.match(chrome, /href="\/privacy"/, 'privacy is linked in the site footer')
 assert.match(access, /reader-access-legal/, 'legal pages are linked before reader login');
 assert.match(layout, /catalog-v55\.css/, 'catalog styles are loaded');
 assert.match(layout, /information-pages\.css/, 'information page styles are loaded');
-assert.match(worker, /booknerd-shell-v55/, 'PWA shell is refreshed for V55');
+assert.match(worker, /booknerd-shell-v56/, 'PWA shell is refreshed after the catalog release');
 assert.doesNotMatch(workerConfig, /r2_buckets|r2_bucket/i, 'R2 remains disabled');
 assert.deepEqual(readdirSync(new URL('../.openai/drizzle/', import.meta.url)).filter((name) => name.endsWith('.sql')).sort().at(-1), '0027_app_schema_marker.sql', 'no D1 migration was added');
 

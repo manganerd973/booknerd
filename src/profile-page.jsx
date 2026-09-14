@@ -10,8 +10,10 @@ import ProfileNotificationSettings from './profile-notification-settings.jsx';
 import { SiteFooter, SiteHeader } from './page-chrome.jsx';
 
 const DEFAULT_PROFILE = { displayName: 'Читатель BOOKNERD', avatarUrl: '', banner: 'books', favoriteCharacters: [], favoriteQuotes: [], appTheme: 'original', atmosphere: 'auto' };
-const MAX_AVATAR_SOURCE_BYTES = 10 * 1024 * 1024;
+const MAX_AVATAR_SOURCE_BYTES = 25 * 1024 * 1024;
 const MAX_AVATAR_UPLOAD_BYTES = 180 * 1024;
+const AVATAR_SOURCE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'image/avif']);
+const AVATAR_SOURCE_EXTENSION = /\.(?:jpe?g|png|webp|heic|heif|avif)$/i;
 
 function canvasToBlob(canvas, type, quality) {
   return new Promise((resolve, reject) => {
@@ -20,11 +22,12 @@ function canvasToBlob(canvas, type, quality) {
 }
 
 async function prepareAvatar(file) {
-  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-    throw new Error('Для аватара подходят JPG, PNG и WEBP.');
+  const sourceType = String(file.type || '').toLowerCase();
+  if (!AVATAR_SOURCE_TYPES.has(sourceType) && !AVATAR_SOURCE_EXTENSION.test(String(file.name || ''))) {
+    throw new Error('Выберите фотографию в формате JPG, PNG, WEBP, HEIC, HEIF или AVIF.');
   }
   if (file.size > MAX_AVATAR_SOURCE_BYTES) {
-    throw new Error('Выберите фотографию размером меньше 10 МБ.');
+    throw new Error('Выберите фотографию размером меньше 25 МБ.');
   }
 
   const objectUrl = URL.createObjectURL(file);
@@ -32,7 +35,7 @@ async function prepareAvatar(file) {
     const image = new Image();
     await new Promise((resolve, reject) => {
       image.onload = resolve;
-      image.onerror = () => reject(new Error('Не удалось прочитать фотографию.'));
+      image.onerror = () => reject(new Error('Браузер не смог открыть это фото. Попробуйте выбрать другое изображение или его снимок экрана.'));
       image.src = objectUrl;
     });
     const sourceSize = Math.min(image.naturalWidth, image.naturalHeight);
@@ -231,9 +234,9 @@ export default function ProfilePage({ books = [] }) {
                 <div>
                   <div className="profile-avatar-preview">{profile.avatarUrl ? <img src={profile.avatarUrl} alt="Текущий аватар" /> : <UserRound size={30} />}</div>
                   <div className="profile-avatar-actions">
-                    <label className="profile-avatar-upload">{avatarBusy ? <LoaderCircle className="spin" size={16} /> : <Camera size={16} />}{avatarBusy ? 'Подготавливаем…' : profile.avatarUrl ? 'Заменить фото' : 'Выбрать фото'}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={chooseAvatar} disabled={avatarBusy} /></label>
+                    <label className="profile-avatar-upload" aria-busy={avatarBusy}>{avatarBusy ? <LoaderCircle className="spin" size={16} /> : <Camera size={16} />}{avatarBusy ? 'Подготавливаем…' : profile.avatarUrl ? 'Заменить фото' : 'Выбрать из галереи'}<input type="file" accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif,.avif" aria-label={profile.avatarUrl ? 'Заменить аватар фотографией из галереи' : 'Выбрать аватар из галереи'} onChange={chooseAvatar} disabled={avatarBusy} /></label>
                     {profile.avatarUrl ? <button type="button" onClick={removeAvatar} disabled={avatarBusy}><Trash2 size={15} /> Удалить</button> : null}
-                    <small>Фотография автоматически обрезается и уменьшается, чтобы экономить место.</small>
+                    <small>Поддерживаются фотографии JPG, PNG, WEBP, HEIC, HEIF и AVIF до 25 МБ. Изображение автоматически обрезается и уменьшается.</small>
                   </div>
                 </div>
               </div>
