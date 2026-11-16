@@ -1,112 +1,84 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
-import { Award, BookHeart, BookOpen, Camera, Check, Clock3, Crown, EyeOff, Flame, Library, LoaderCircle, Save, Sparkles, Star, Trash2, Trophy, UserRound } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Award, Camera, Check, Library, LoaderCircle, MessageCircle, Pencil, Save, Sparkles, Star, Trash2, UserRound } from 'lucide-react';
 import { getVisitorKey } from './site-analytics.js';
-import { getCommentVoterKey } from './comment-votes.jsx';
 import { loadReaderLibrary } from './reader-library.jsx';
 import { APP_THEME_OPTIONS, setStoredAppTheme, setStoredAtmosphere } from './app-preferences.jsx';
 import ProfileNotificationSettings from './profile-notification-settings.jsx';
 import { SiteFooter, SiteHeader } from './page-chrome.jsx';
+import { InstallInstructions, useBooknerdInstall } from './pwa-register.jsx';
 
-const DEFAULT_PROFILE = { displayName: 'Читатель BOOKNERD', avatarUrl: '', banner: 'books', favoriteCharacters: [], favoriteQuotes: [], appTheme: 'original', atmosphere: 'auto' };
-const MAX_AVATAR_SOURCE_BYTES = 25 * 1024 * 1024;
-const MAX_AVATAR_UPLOAD_BYTES = 180 * 1024;
-const AVATAR_SOURCE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'image/avif']);
-const AVATAR_SOURCE_EXTENSION = /\.(?:jpe?g|png|webp|heic|heif|avif)$/i;
-
-function canvasToBlob(canvas, type, quality) {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Не удалось подготовить аватар.')), type, quality);
-  });
-}
-
-async function prepareAvatar(file) {
-  const sourceType = String(file.type || '').toLowerCase();
-  if (!AVATAR_SOURCE_TYPES.has(sourceType) && !AVATAR_SOURCE_EXTENSION.test(String(file.name || ''))) {
-    throw new Error('Выберите фотографию в формате JPG, PNG, WEBP, HEIC, HEIF или AVIF.');
-  }
-  if (file.size > MAX_AVATAR_SOURCE_BYTES) {
-    throw new Error('Выберите фотографию размером меньше 25 МБ.');
-  }
-
-  const objectUrl = URL.createObjectURL(file);
-  try {
-    const image = new Image();
-    await new Promise((resolve, reject) => {
-      image.onload = resolve;
-      image.onerror = () => reject(new Error('Браузер не смог открыть это фото. Попробуйте выбрать другое изображение или его снимок экрана.'));
-      image.src = objectUrl;
-    });
-    const sourceSize = Math.min(image.naturalWidth, image.naturalHeight);
-    const sourceX = Math.max(0, Math.round((image.naturalWidth - sourceSize) / 2));
-    const sourceY = Math.max(0, Math.round((image.naturalHeight - sourceSize) / 2));
-    const attempts = [
-      { size: 320, quality: 0.82 },
-      { size: 256, quality: 0.74 },
-      { size: 192, quality: 0.66 },
-    ];
-
-    for (const attempt of attempts) {
-      const canvas = document.createElement('canvas');
-      canvas.width = attempt.size;
-      canvas.height = attempt.size;
-      const context = canvas.getContext('2d');
-      if (!context) throw new Error('Браузер не смог обработать фотографию.');
-      context.imageSmoothingEnabled = true;
-      context.imageSmoothingQuality = 'high';
-      context.drawImage(image, sourceX, sourceY, sourceSize, sourceSize, 0, 0, attempt.size, attempt.size);
-      const blob = await canvasToBlob(canvas, 'image/webp', attempt.quality);
-      if (blob.size <= MAX_AVATAR_UPLOAD_BYTES) {
-        const type = blob.type || 'image/webp';
-        const extension = type === 'image/png' ? 'png' : type === 'image/jpeg' ? 'jpg' : 'webp';
-        return new File([blob], `booknerd-avatar.${extension}`, { type });
-      }
-    }
-    throw new Error('Не удалось уменьшить фотографию. Попробуйте другое изображение.');
-  } finally {
-    URL.revokeObjectURL(objectUrl);
-  }
-}
+const DEFAULT_PROFILE = { displayName: 'Читатель BOOKNERD', photoUrl: '', photoName: '', bio: '', createdAt: null, banner: 'books', favoriteCharacters: [], favoriteQuotes: [], appTheme: 'original', atmosphere: 'auto' };
 
 function formatDuration(seconds) {
   const minutes = Math.round(Number(seconds || 0) / 60);
   return minutes < 60 ? `${minutes} мин` : `${Math.floor(minutes / 60)} ч ${minutes % 60} мин`;
 }
 
+function levelFor(stats) {
+  const points = Number(stats?.chaptersRead || 0) * 10 + Number(stats?.booksRead || 0) * 100 + Math.floor(Number(stats?.readingSeconds || 0) / 600);
+  return { level: Math.max(1, Math.floor(points / 250) + 1), points, next: 250 - (points % 250 || 250) };
+}
+
+function achievementsFor(stats, library) {
+  const achievements = [
+    { icon: '🏅', title: 'Первая глава', unlocked: Number(stats?.chaptersRead || 0) >= 1 },
+    { icon: '📚', title: 'Прочитано 100 глав', unlocked: Number(stats?.chaptersRead || 0) >= 100 },
+    { icon: '🌙', title: 'Ночной читатель', unlocked: (stats?.activeHours || []).some((item) => Number(item.hour) >= 23 || Number(item.hour) <= 3), hint: 'Читайте после полуночи' },
+    { icon: '☕', title: 'Утренний читатель', unlocked: (stats?.activeHours || []).some((item) => Number(item.hour) >= 5 && Number(item.hour) <= 9), hint: 'Читайте до 9 утра' },
+    { icon: '❤️', title: 'Первая завершённая книга', unlocked: Number(stats?.booksRead || 0) >= 1 },
+    { icon: '🔥', title: 'Неделя без пропусков', unlocked: Number(stats?.longestStreak || 0) >= 7 },
+    { icon: '🌍', title: 'Книги из 5 стран', unlocked: new Set(library.map((item) => item.book?.country).filter(Boolean)).size >= 5 },
+  ];
+  return achievements;
+}
+
 export default function ProfilePage({ books = [] }) {
+  const { device, installed } = useBooknerdInstall();
+  if (installed) return <InstalledProfile books={books} />;
+  return (
+    <div className="site-shell shelf-page">
+      <SiteHeader compact />
+      <main className="booknerd-profile-install">
+        {device ? <>
+          <img src="/booknerd-icon-v2-192.png" width="64" height="64" alt="" />
+          <h1>Профиль в приложении Booknerd</h1>
+          <InstallInstructions />
+          <a href="/">Вернуться к книгам</a>
+        </> : <p role="status">Проверяем режим запуска…</p>}
+      </main>
+      <SiteFooter />
+    </div>
+  );
+}
+
+function InstalledProfile({ books }) {
   const [profile, setProfile] = useState(DEFAULT_PROFILE);
+  const [ownComments, setOwnComments] = useState([]);
   const [stats, setStats] = useState(null);
   const [library, setLibrary] = useState([]);
   const [memories, setMemories] = useState({ annotations: [], capsules: [] });
   const [notice, setNotice] = useState('');
-  const [avatarBusy, setAvatarBusy] = useState(false);
-  const [levelData, setLevelData] = useState(null);
-  const [privacyBusy, setPrivacyBusy] = useState(false);
+  const [photoSaving, setPhotoSaving] = useState(false);
+  const photoInputRef = useRef(null);
   const booksById = useMemo(() => new Map(books.map((book) => [book.id, book])), [books]);
   const enrichedLibrary = useMemo(() => library.map((item) => ({ ...item, book: booksById.get(item.bookId) })).filter((item) => item.book), [booksById, library]);
   const favoriteBooks = enrichedLibrary.filter((item) => item.status === 'favorite');
   const completedBooks = enrichedLibrary.filter((item) => item.status === 'finished');
-  const level = levelData?.summary || null;
-  const unlocked = new Map((level?.achievements || []).map((item) => [item.key, item]));
-  const achievements = (levelData?.definitions || []).map((item) => ({ ...item, unlocked: unlocked.has(item.key), unlockedAt: unlocked.get(item.key)?.unlockedAt }));
+  const level = levelFor(stats);
+  const achievements = achievementsFor(stats, enrichedLibrary);
 
   useEffect(() => {
     const visitorKey = getVisitorKey();
-    Promise.allSettled([
-      fetch(`/api/reader-hub?visitorKey=${encodeURIComponent(visitorKey)}`, { cache: 'no-store' }).then((response) => response.json()),
+    Promise.all([
+      fetch(`/api/reader-hub?profileView=1&visitorKey=${encodeURIComponent(visitorKey)}`, { cache: 'no-store' }).then((response) => response.json()),
       fetch(`/api/reader-stats?visitorKey=${encodeURIComponent(visitorKey)}`, { cache: 'no-store' }).then((response) => response.json()),
       loadReaderLibrary(),
-      fetch(`/api/reader-levels?visitorKey=${encodeURIComponent(visitorKey)}&legacyVoterKey=${encodeURIComponent(getCommentVoterKey())}`, { cache: 'no-store' }).then((response) => response.ok ? response.json() : null),
-    ]).then(([hubResult, statResult, libraryResult, levelResult]) => {
-      const hub = hubResult.status === 'fulfilled' ? hubResult.value : {};
-      const statData = statResult.status === 'fulfilled' ? statResult.value : {};
-      const libraryData = libraryResult.status === 'fulfilled' ? libraryResult.value : [];
-      if (levelResult.status === 'fulfilled' && levelResult.value?.summary) setLevelData(levelResult.value);
-      if (hub.profile) {
-        setProfile({ ...DEFAULT_PROFILE, ...hub.profile });
-      }
+    ]).then(([hub, statData, libraryData]) => {
+      if (hub.profile) setProfile({ ...DEFAULT_PROFILE, ...hub.profile });
       setStats(statData.stats || null);
+      setOwnComments(hub.ownComments || []);
       setLibrary(libraryData || []);
       const annotations = [];
       try {
@@ -118,56 +90,8 @@ export default function ProfilePage({ books = [] }) {
         }
       } catch { /* memory box still works with server data */ }
       setMemories({ annotations, capsules: hub.capsules || [] });
-      if ([hubResult, statResult, libraryResult].some((result) => result.status === 'rejected') || hub.error || statData.error) {
-        setNotice('Не удалось загрузить часть профиля. Попробуйте обновить страницу позже.');
-      }
-    });
+    }).catch(() => setNotice('Не удалось загрузить часть статистики.'));
   }, []);
-
-  const chooseAvatar = async (event) => {
-    const input = event.currentTarget;
-    const file = input.files?.[0];
-    input.value = '';
-    if (!file) return;
-    setAvatarBusy(true);
-    setNotice('');
-    try {
-      const avatar = await prepareAvatar(file);
-      const formData = new FormData();
-      formData.append('visitorKey', getVisitorKey());
-      formData.append('avatar', avatar);
-      const response = await fetch('/api/reader-avatar', { method: 'POST', body: formData });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || 'Не удалось сохранить аватар.');
-      setProfile((current) => ({ ...current, avatarUrl: data.avatarUrl || '' }));
-      setNotice('Аватар сохранён.');
-    } catch (error) {
-      setNotice(error.message || 'Не удалось сохранить аватар.');
-    } finally {
-      setAvatarBusy(false);
-    }
-  };
-
-  const removeAvatar = async () => {
-    if (!profile.avatarUrl || !window.confirm('Удалить аватар?')) return;
-    setAvatarBusy(true);
-    setNotice('');
-    try {
-      const response = await fetch('/api/reader-avatar', {
-        method: 'DELETE',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ visitorKey: getVisitorKey() }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || 'Не удалось удалить аватар.');
-      setProfile((current) => ({ ...current, avatarUrl: '' }));
-      setNotice('Аватар удалён.');
-    } catch (error) {
-      setNotice(error.message || 'Не удалось удалить аватар.');
-    } finally {
-      setAvatarBusy(false);
-    }
-  };
 
   const save = async () => {
     const response = await fetch('/api/reader-hub', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ visitorKey: getVisitorKey(), action: 'profile', ...profile }) });
@@ -176,71 +100,92 @@ export default function ProfilePage({ books = [] }) {
     setProfile((current) => ({ ...current, ...data.profile }));
     setStoredAppTheme(data.profile.appTheme);
     setStoredAtmosphere(data.profile.atmosphere);
+    window.dispatchEvent(new CustomEvent('booknerd-profile-name', { detail: data.profile.displayName }));
     setNotice('Профиль сохранён.');
   };
 
-  const updatePrivacy = async (key, value) => {
-    if (!level) return;
-    const next = { ...level, [key]: value };
-    setLevelData((current) => ({ ...current, summary: next }));
-    setPrivacyBusy(true);
+  const uploadPhoto = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setPhotoSaving(true);
+    setNotice('');
     try {
-      const response = await fetch('/api/reader-levels', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ visitorKey: getVisitorKey(), publicVisible: next.publicVisible, onlineVisible: next.onlineVisible, currentBookVisible: next.currentBookVisible, plannedShelfVisible: next.plannedShelfVisible, favoriteShelfVisible: next.favoriteShelfVisible, achievementsVisible: next.achievementsVisible }) });
+      const formData = new FormData();
+      formData.set('visitorKey', getVisitorKey());
+      formData.set('photo', file);
+      const response = await fetch('/api/reader-profile-photo', { method: 'POST', body: formData });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || 'Не удалось сохранить настройки.');
-      setNotice('Настройки публичности сохранены.');
+      if (!response.ok) throw new Error(data.error || 'Не удалось загрузить фотографию.');
+      setProfile((current) => ({ ...current, ...data.photo }));
+      setNotice('Фотография профиля сохранена.');
     } catch (error) {
-      setLevelData((current) => ({ ...current, summary: level }));
       setNotice(error.message);
-    } finally { setPrivacyBusy(false); }
+    } finally {
+      setPhotoSaving(false);
+    }
+  };
+
+  const removePhoto = async () => {
+    setPhotoSaving(true);
+    setNotice('');
+    try {
+      const query = new URLSearchParams({ visitorKey: getVisitorKey() });
+      const response = await fetch(`/api/reader-profile-photo?${query.toString()}`, { method: 'DELETE' });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Не удалось удалить фотографию.');
+      setProfile((current) => ({ ...current, photoUrl: '', photoName: '' }));
+      setNotice('Фотография профиля удалена.');
+    } catch (error) {
+      setNotice(error.message);
+    } finally {
+      setPhotoSaving(false);
+    }
   };
 
   return (
-    <div className="site-shell inner-site-shell profile-page">
-      <SiteHeader active="profile" />
+    <div className="site-shell inner-site-shell profile-page shelf-page profile-modern">
+      <SiteHeader active="profile" compact />
       <main>
-        <section className={`profile-banner is-${profile.banner}`}>
-          <div className={`profile-avatar ${level ? `rank-frame-${level.rank.key}` : ''}`} style={level ? { '--rank-color': level.rank.frameColor } : undefined}>{profile.avatarUrl ? <img src={profile.avatarUrl} alt="" /> : <UserRound size={38} />}</div>
-          <div><small>КАРТОЧКА ЧИТАТЕЛЯ</small><h1>{profile.displayName}</h1><p>{level ? `Уровень ${level.level} · ${level.rank.name}` : 'Уровень загружается'}</p></div>
-          <span><Sparkles size={18} /> BOOKNERD READER</span>
-        </section>
+        <div className="profile-content">
+          <section className="profile-summary">
+            <div className="profile-summary-head">
+              <div className="profile-summary-avatar">{profile.photoUrl ? <img src={profile.photoUrl} alt="" /> : <UserRound size={36} />}</div>
+              <div><h1>{profile.displayName}</h1><span className="profile-level-badge">Уровень {level.level}</span></div>
+              <a className="shelf-control profile-edit-link" href="#profile-settings" aria-label="Настройки профиля"><Pencil size={19} /></a>
+            </div>
+            {profile.bio ? <p className="profile-bio">{profile.bio}</p> : <a className="profile-bio-link" href="#profile-settings">＋ Добавить пару слов о себе</a>}
+            <a className="shelf-control profile-comments-link" href="#profile-comments"><MessageCircle size={17} /> Мои комментарии <span>{ownComments[0]?.total || 0}</span></a>
+            <dl className="profile-facts">
+              <div><dt>Уровень</dt><dd><strong>{level.level}</strong><progress max={250} value={level.points % 250} aria-label="Опыт до следующего уровня" /><small>{level.points % 250} / 250 XP · всего {level.points} XP</small></dd></div>
+              <div><dt>Прочитано</dt><dd><strong>{stats?.chaptersRead || 0} гл.</strong><small>{formatDuration(stats?.readingSeconds)}</small></dd></div>
+              <div><dt>В библиотеке</dt><dd><strong>{enrichedLibrary.length}</strong></dd></div>
+              <div><dt>Лучшая серия чтения</dt><dd><strong>{stats?.longestStreak || 0} дн.</strong></dd></div>
+              {profile.createdAt && <div><dt>С нами с</dt><dd><strong>{new Date(profile.createdAt).toLocaleDateString('ru-RU', { timeZone: 'UTC' })}</strong></dd></div>}
+            </dl>
+            {stats?.favoriteGenres?.length > 0 && <p className="profile-summary-line"><span>Любимые жанры</span>{stats.favoriteGenres.join(' · ')}</p>}
+            <p className="profile-summary-line"><span>До уровня {level.level + 1}</span>{level.next} XP</p>
+          </section>
 
-        <section className="profile-content">
-          <div className="profile-stat-grid">
-            <article><BookOpen size={20} /><strong>{stats?.chaptersRead || 0}</strong><span>глав прочитано</span></article>
-            <article><BookHeart size={20} /><strong>{stats?.booksRead || 0}</strong><span>книг завершено</span></article>
-            <article><Clock3 size={20} /><strong>{formatDuration(stats?.readingSeconds)}</strong><span>за чтением</span></article>
-            <article><Flame size={20} /><strong>{stats?.longestStreak || 0}</strong><span>дней подряд</span></article>
-          </div>
-
-          {level ? <section className={`reader-level-card rank-surface-${level.rank.key}`} id="reader-level">
-            <div className="reader-level-card-main"><span>{level.rank.icon}</span><div><small>ВАШ КНИЖНЫЙ РАНГ</small><h2>Уровень {level.level} · {level.rank.name}</h2><p>{level.progress.currentXp.toLocaleString('ru-RU')} / {level.progress.nextLevelXp.toLocaleString('ru-RU')} XP до следующего уровня</p></div><a href="/ranking"><Trophy size={17} /> Рейтинг читателей</a></div>
-            <div className="reader-level-progress" role="progressbar" aria-label="Прогресс до следующего уровня" aria-valuemin="0" aria-valuemax="100" aria-valuenow={level.progress.percent}><span style={{ width: `${level.progress.percent}%` }} /></div>
-            <div className="reader-level-positions"><span>№{levelData.monthly?.position || '—'} в этом месяце</span><span>№{levelData.allTimePosition || '—'} за всё время</span><span>{levelData.monthly?.xp || 0} XP за месяц</span></div>
-          </section> : null}
-
-          {levelData?.previousMonth ? <section className="reader-month-summary" id="reader-month-summary">
-            <div><small>ИТОГИ {levelData.previousMonth.monthKey}</small><h2>Ваш читательский месяц</h2></div>
-            <div><article><strong>{levelData.previousMonth.xp}</strong><span>XP заработано</span></article><article><strong>{levelData.previousMonth.completedBooks}</strong><span>книг завершено</span></article><article><strong>{levelData.previousMonth.completedChapters}</strong><span>глав прочитано</span></article><article><strong>{(level.awards || []).filter((item) => item.month_key === levelData.previousMonth.monthKey).length}</strong><span>номинаций</span></article></div>
-          </section> : null}
-
-          {levelData?.rankHistory?.length ? <section className="reader-rank-history"><div><Crown size={23} /><span><small>ИСТОРИЯ РАНГОВ</small><h2>Пройденные книжные ступени</h2></span></div><div>{levelData.rankHistory.map((item) => <article key={item.rank_key}><strong>{item.rank_name}</strong><small>с уровня {item.reached_level}</small></article>)}</div></section> : null}
-
-          <section className="profile-editor">
-            <div><span className="section-number">МОЙ ПРОФИЛЬ</span><h2>Настройте свою<br /><em>читательскую полку.</em></h2></div>
+          <section id="profile-comments" className="profile-personal-list">
+            <h2>Мои комментарии</h2>
+            {ownComments.length ? <ul>{ownComments.map((comment) => <li key={comment.id}>
+              <a href={comment.chapter_id ? `/books/${comment.slug}/chapters/${comment.chapter_id}?page=last#chapter-comments` : `/books/${comment.slug}#comments-${comment.book_id}`}>
+                <strong>{comment.title}{comment.chapter_number ? ` · гл. ${comment.chapter_number}` : ''}</strong>
+                <span>{comment.is_spoiler ? 'Комментарий со спойлером' : comment.body}</span>
+              </a>
+            </li>)}</ul> : <p>Здесь появятся ваши комментарии к книгам и главам.</p>}
+          </section>
+          <section className="profile-editor" id="profile-settings">
+            <div><h2>Настройки профиля</h2></div>
             <div className="profile-fields">
-              <div className="profile-avatar-field profile-wide">
-                <span>Аватар</span>
-                <div>
-                  <div className="profile-avatar-preview">{profile.avatarUrl ? <img src={profile.avatarUrl} alt="Текущий аватар" /> : <UserRound size={30} />}</div>
-                  <div className="profile-avatar-actions">
-                    <label className="profile-avatar-upload" aria-busy={avatarBusy}>{avatarBusy ? <LoaderCircle className="spin" size={16} /> : <Camera size={16} />}{avatarBusy ? 'Подготавливаем…' : profile.avatarUrl ? 'Заменить фото' : 'Выбрать из галереи'}<input type="file" accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif,.avif" aria-label={profile.avatarUrl ? 'Заменить аватар фотографией из галереи' : 'Выбрать аватар из галереи'} onChange={chooseAvatar} disabled={avatarBusy} /></label>
-                    {profile.avatarUrl ? <button type="button" onClick={removeAvatar} disabled={avatarBusy}><Trash2 size={15} /> Удалить</button> : null}
-                    <small>Поддерживаются фотографии JPG, PNG, WEBP, HEIC, HEIF и AVIF до 25 МБ. Изображение автоматически обрезается и уменьшается.</small>
-                  </div>
-                </div>
-              </div>
               <label><span>Имя или псевдоним</span><input value={profile.displayName} onChange={(event) => setProfile({ ...profile, displayName: event.target.value })} /></label>
+              <label className="profile-wide"><span>О себе</span><textarea rows={3} maxLength={280} value={profile.bio} onChange={(event) => setProfile({ ...profile, bio: event.target.value })} /></label>
+              <div className="profile-avatar-actions profile-wide">
+                <button type="button" onClick={() => photoInputRef.current?.click()} disabled={photoSaving}>{photoSaving ? <LoaderCircle className="spin" size={15} /> : <Camera size={15} />} {profile.photoUrl ? 'Заменить фото' : 'Добавить фото'}</button>
+                {profile.photoUrl && <button type="button" onClick={removePhoto} disabled={photoSaving} aria-label="Удалить фотографию профиля"><Trash2 size={15} /></button>}
+                <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadPhoto} hidden />
+              </div>
               <label><span>Баннер профиля</span><select value={profile.banner} onChange={(event) => setProfile({ ...profile, banner: event.target.value })}><option value="books">Книжные полки</option><option value="stars">Звёздная ночь</option><option value="forest">Лесная библиотека</option><option value="archive">Старинный архив</option><option value="garden">Японский сад</option></select></label>
               <label><span>Цвет приложения</span><select value={profile.appTheme} onChange={(event) => setProfile({ ...profile, appTheme: event.target.value })}>{APP_THEME_OPTIONS.map((item) => <option value={item.id} key={item.id}>{item.label}</option>)}</select></label>
               <label><span>Сезонная атмосфера</span><select value={profile.atmosphere} onChange={(event) => setProfile({ ...profile, atmosphere: event.target.value })}><option value="auto">Автоматически</option><option value="none">Выключена</option><option value="spring">Сакура</option><option value="summer">Лето</option><option value="autumn">Осенний дождь</option><option value="winter">Снег</option></select></label>
@@ -252,22 +197,9 @@ export default function ProfilePage({ books = [] }) {
 
           <ProfileNotificationSettings />
 
-          {level ? <section className="profile-publicity">
-            <div className="profile-section-title"><EyeOff size={24} /><div><small>ПУБЛИЧНОСТЬ</small><h2>Что видят другие читатели</h2></div></div>
-            <p>Уровень и опыт продолжают начисляться при любых настройках. Электронная почта, пароль, личные заметки и технические данные никогда не публикуются.</p>
-            <div>{[
-              ['publicVisible', 'Показывать профиль в рейтинге', 'Отключите, чтобы исчезнуть с главной и из публичного рейтинга.'],
-              ['onlineVisible', 'Показывать активность', 'Другие увидят только «сегодня», «вчера» или «на этой неделе».'],
-              ['currentBookVisible', 'Показывать текущую книгу', 'Книга, которую Вы читаете сейчас.'],
-              ['plannedShelfVisible', 'Показывать полку «В планах»', 'Список запланированных книг.'],
-              ['favoriteShelfVisible', 'Показывать любимые книги', 'Публичная полка любимого.'],
-              ['achievementsVisible', 'Показывать историю достижений', 'Полученные книжные награды.'],
-            ].map(([key, title, description]) => <label key={key}><span><strong>{title}</strong><small>{description}</small></span><input type="checkbox" checked={Boolean(level[key])} onChange={(event) => updatePrivacy(key, event.target.checked)} disabled={privacyBusy} aria-label={title} /></label>)}</div>
-          </section> : null}
-
           <section className="profile-achievements">
             <div className="profile-section-title"><Award size={25} /><div><small>ДОСТИЖЕНИЯ</small><h2>Ваши книжные награды</h2></div></div>
-            <div>{achievements.map((item) => <article className={item.unlocked ? 'is-unlocked' : ''} key={item.key}><span>{item.icon}</span><strong>{item.name}</strong><small>{item.unlocked ? item.description : 'Пока закрыто'}</small>{item.unlocked ? <Check size={15} /> : null}</article>)}</div>
+            <div>{achievements.map((item) => <article className={item.unlocked ? 'is-unlocked' : ''} key={item.title}><span>{item.icon}</span><strong>{item.title}</strong><small>{item.unlocked ? 'Получено' : item.hint || 'Пока закрыто'}</small>{item.unlocked ? <Check size={15} /> : null}</article>)}</div>
           </section>
 
           <section className="profile-shelves">
@@ -275,9 +207,11 @@ export default function ProfilePage({ books = [] }) {
             <div>{favoriteBooks.slice(0, 8).map(({ book }) => <a href={`/books/${book.slug}`} key={book.id}>{book.coverUrl ? <img src={book.coverUrl} alt="" /> : <span>B</span>}<strong>{book.title}</strong></a>)}</div>
           </section>
 
-          <section className="profile-reading-history">
-            <div className="profile-section-title"><Library size={24} /><div><small>ИСТОРИЯ ЗАВЕРШЁННЫХ КНИГ</small><h2>{completedBooks.length} завершено</h2></div></div>
-            {completedBooks.length ? <div>{completedBooks.map(({ book, updatedAt }) => <a href={`/books/${book.slug}`} key={book.id}><Star size={16} /><span><strong>{book.title}</strong><small>{book.author}{book.country ? ` · ${book.country}` : ''}</small></span></a>)}</div> : <p>Первая завершённая история появится здесь.</p>}
+          <section className="profile-reading-history" id="profile-history">
+            <div className="profile-section-title"><Library size={24} /><div><h2>История чтения</h2></div></div>
+            {enrichedLibrary.some((item) => item.lastChapterId) ? <div>{enrichedLibrary.filter((item) => item.lastChapterId).map((item) =>
+              <a href={`/books/${item.book.slug}/chapters/${item.lastChapterId}?page=${Number(item.lastPage || 0) + 1}`} key={item.bookId}><Star size={16} /><span><strong>{item.book.title}</strong><small>Глава {item.chapterNumber || '—'}</small></span></a>
+            )}</div> : <p>Здесь появятся главы, которые вы открывали.</p>}
           </section>
 
           <section className="profile-memory-box">
@@ -288,7 +222,7 @@ export default function ProfilePage({ books = [] }) {
           </section>
 
           <section className="profile-genres"><h2>Статистика по вкусам</h2><div>{(stats?.favoriteGenres || []).map((genre) => <span key={genre}>{genre}</span>)}</div><p>{stats?.favoriteTropes?.length ? `Любимые тропы: ${stats.favoriteTropes.join(' · ')}` : 'Жанры и тропы появятся по мере чтения.'}</p><div className="profile-taste-facts"><article><small>Любимый автор</small><strong>{stats?.favoriteAuthors?.[0] || '—'}</strong></article><article><small>Любимая страна</small><strong>{stats?.favoriteCountries?.[0] || '—'}</strong></article><article><small>Самый читаемый день</small><strong>{stats?.mostReadDay || '—'}</strong></article><article><small>За эту неделю</small><strong>{stats?.week?.chapters || 0} глав · {formatDuration(stats?.week?.seconds)}</strong></article><article><small>За этот месяц</small><strong>{stats?.wrapped?.chapters || 0} глав · {formatDuration(stats?.wrapped?.seconds)}</strong></article></div></section>
-        </section>
+        </div>
       </main>
       <SiteFooter />
       {notice ? <div className="toast" role="status"><Check size={17} />{notice}</div> : null}

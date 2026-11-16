@@ -16,7 +16,12 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { getVisitorKey } from './site-analytics.js';
-import { useDeferredVisible } from './use-deferred-visible.js';
+
+const RELEASES = [
+  { title: 'Божественная империя', days: ['Понедельник', 'Четверг'], short: ['ПН', 'ЧТ'] },
+  { title: '24690', days: ['Вторник', 'Суббота'], short: ['ВТ', 'СБ'] },
+  { title: 'Вся эта искажённая слава', days: ['Вторник', 'Пятница'], short: ['ВТ', 'ПТ'] },
+];
 
 function formatDuration(seconds) {
   const minutes = Math.max(0, Math.round(Number(seconds || 0) / 60));
@@ -31,33 +36,38 @@ export function ContinueReading({ items = [], books = [] }) {
   const slug = item.bookSlug || book?.slug;
   if (!slug) return null;
   return (
-    <section className="continue-reading section">
-      <div className="continue-reading-card">
-        <div className="continue-reading-cover">
-          {item.coverUrl || book?.coverUrl ? <img src={item.coverUrl || book.coverUrl} alt="" /> : <span>B</span>}
-        </div>
-        <div className="continue-reading-copy">
-          <span><BookOpen size={15} /> ПРОДОЛЖИТЬ ЧТЕНИЕ</span>
-          <h2>{item.bookTitle || book?.title}</h2>
-          <p>Глава {item.chapterNumber || '—'}{item.chapterTitle ? ` · ${item.chapterTitle}` : ''}</p>
-          <div><i style={{ width: `${item.progress || 0}%` }} /></div>
-          <small>Вы остановились на {Number(item.chapterNumber || 1) === 1 ? 'первой главе' : `${item.chapterNumber || 'этой'} главе`} · прочитано {item.progress || 0}% книги</small>
-        </div>
-        <a href={`/books/${slug}/chapters/${item.lastChapterId}?page=${Number(item.lastPage || 0) + 1}`}>Продолжить <ArrowRight size={18} /></a>
+    <section className="home-continue section" id="continue-reading" aria-labelledby="home-continue-title">
+      <div className="home-section-heading">
+        <h2 id="home-continue-title">Продолжить чтение</h2>
+        <a href="/library">Библиотека <ArrowRight size={16} /></a>
       </div>
+      <a className="home-continue-row" href={`/books/${slug}/chapters/${item.lastChapterId}?page=${Number(item.lastPage || 0) + 1}`}>
+        <div className="home-continue-cover">
+          {item.coverUrl || book?.coverUrl ? <img src={item.coverUrl || book.coverUrl} alt="" /> : <BookOpen size={22} />}
+        </div>
+        <div className="home-update-copy">
+          <strong>{item.bookTitle || book?.title}</strong>
+          <small>Глава {item.chapterNumber || '—'}{item.chapterTitle ? ` · ${item.chapterTitle}` : ''}</small>
+          <progress max={100} value={item.progress || 0} aria-label="Прогресс чтения" />
+          <small>{item.progress || 0}% прочитано</small>
+        </div>
+        <ArrowRight size={18} />
+      </a>
     </section>
   );
 }
 
 export function ReleaseCalendar({ books = [], showHeading = true }) {
+  const normalizedBooks = useMemo(() => new Map(books.map((book) => [book.title.toLocaleLowerCase('ru-RU'), book])), [books]);
   const releases = useMemo(() => {
-    return books.filter((book) => (book.releaseDays || []).length).map((book) => ({
+    const configured = books.filter((book) => (book.releaseDays || []).length).map((book) => ({
       title: book.title,
       days: book.releaseDays,
       short: book.releaseDays.map((day) => day.slice(0, 2).toLocaleUpperCase('ru-RU')),
       book,
     }));
-  }, [books]);
+    return configured.length ? configured : RELEASES.map((release) => ({ ...release, book: normalizedBooks.get(release.title.toLocaleLowerCase('ru-RU')) }));
+  }, [books, normalizedBooks]);
   const dayNames = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
   const todayName = dayNames[new Date().getDay()];
   const tomorrowName = dayNames[(new Date().getDay() + 1) % 7];
@@ -72,15 +82,18 @@ export function ReleaseCalendar({ books = [], showHeading = true }) {
         <article><small>ЗАВТРА · {tomorrowName}</small><strong>{releases.filter((item) => item.days.includes(tomorrowName)).length || '—'}</strong><span>ожидаемых продолжений</span></article>
         <article><small>НЕДЕЛЯ РЕЛИЗОВ</small><strong>{releases.length}</strong><span>книг в расписании</span></article>
       </div>
-      {releases.length ? <div className="release-calendar-grid">
-        {releases.map((release) => (
+      <div className="release-calendar-grid">
+        {releases.map((release) => {
+          const book = release.book || normalizedBooks.get(release.title.toLocaleLowerCase('ru-RU'));
+          return (
             <article key={release.title}>
               <CalendarDays size={24} />
               <div><small>НОВЫЕ ГЛАВЫ</small><h3>{release.title}</h3><p>{release.days.join(' и ')}</p></div>
               <div className="release-day-badges">{release.short.map((day) => <span key={day}>{day}</span>)}</div>
             </article>
-        ))}
-      </div> : <div className="release-calendar-empty"><CalendarDays size={28} /><strong>Расписание пока пусто</strong><p>Новые книги появятся здесь, когда редакция назначит дни выхода глав.</p></div>}
+          );
+        })}
+      </div>
     </section>
   );
 }
@@ -116,7 +129,6 @@ export function ReaderStatistics() {
 }
 
 export function TranslationVoting() {
-  const [sectionRef, shouldLoad] = useDeferredVisible();
   const [candidates, setCandidates] = useState([]);
   const [suggestion, setSuggestion] = useState({ title: '', author: '' });
   const [sending, setSending] = useState(false);
@@ -128,10 +140,7 @@ export function TranslationVoting() {
       .then((response) => response.json())
       .then((data) => setCandidates(data.candidates || []));
   };
-  useEffect(() => {
-    if (!shouldLoad) return;
-    reload().catch(() => {});
-  }, [shouldLoad]);
+  useEffect(() => { reload().catch(() => {}); }, []);
 
   const send = async (payload) => {
     setSending(true);
@@ -152,7 +161,7 @@ export function TranslationVoting() {
   };
 
   return (
-    <section ref={sectionRef} className="translation-voting section">
+    <section className="translation-voting section">
       <div className="section-heading">
         <div><span className="section-number">БУДУЩИЕ ПЕРЕВОДЫ</span><h2>Что читать<br /><em>следующим.</em></h2></div>
         <p>Предлагайте книги. Команда перенесёт подходящие варианты в официальное голосование.</p>

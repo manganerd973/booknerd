@@ -1,5 +1,4 @@
 import { ensureDb } from '../../../../lib/runtime.js';
-import { sendTestNotification } from '../../../../lib/push-notifications.js';
 
 function normalizeVisitorKey(value) {
   const key = String(value || '').trim().slice(0, 120);
@@ -54,12 +53,7 @@ export async function POST(request) {
        auth = excluded.auth,
        updated_at = excluded.updated_at`
     ).bind(endpoint, visitorKey, p256dh, auth, now, now).run();
-    let testSent = false;
-    if (payload.silent !== true) {
-      const test = await sendTestNotification({ visitorKey, endpoint, requestUrl: request.url }).catch(() => ({ sent: 0 }));
-      testSent = Number(test.sent || 0) > 0;
-    }
-    return Response.json({ ok: true, subscribed: true, testSent });
+    return Response.json({ ok: true, subscribed: true });
   } catch (error) {
     return Response.json({ error: error.message || 'Не удалось включить уведомления.' }, { status: 500 });
   }

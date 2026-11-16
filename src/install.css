@@ -1,0 +1,61 @@
+.booknerd-install-banner {
+  position: fixed;
+  z-index: 64;
+  inset: auto 16px 16px auto;
+  width: min(420px, calc(100% - 32px));
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 36px;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 9px 13px 13px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  color: var(--ink);
+  background: var(--paper);
+  box-shadow: 0 8px 30px rgb(20 12 39 / .24);
+  font: 14px/1.4 Onest Variable, var(--sans);
+}
+.booknerd-install-banner img, .booknerd-profile-install img { border-radius: 10px; }
+.booknerd-install-banner p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+.booknerd-install-banner p strong, .booknerd-profile-install p strong { color: var(--accent); }
+.booknerd-install-close {
+  width: 36px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+.booknerd-install-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  min-height: 38px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  color: #fff;
+  background: #6c4ee0;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.booknerd-profile-install { max-width: 620px; margin: auto; padding: 58px 20px; text-align: center; }
+.booknerd-profile-install h1 { margin: 16px 0 10px; font-size: clamp(25px, 5vw, 38px); }
+.booknerd-profile-install p { margin: 0 auto 12px; max-width: 420px; color: var(--muted); }
+.booknerd-profile-install > a { display: block; margin-top: 20px; color: var(--accent); }
+
+html:not([data-profile-available='true']) :is(nav, .header-actions, footer) a:is([href='/profile'], [href^='/profile#']) { display: none; }
+
+@media (max-width: 800px) {
+  .booknerd-install-banner { bottom: calc(72px + env(safe-area-inset-bottom)); }
+  html:not([data-profile-available='true']) .mobile-bottom-navigation,
+  html:not([data-profile-available='true']) .mobile-quick-navigation { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
+
+@media (max-width: 700px) {
+  html:not([data-profile-available='true']) .home-bottom-nav { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}

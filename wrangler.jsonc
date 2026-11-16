@@ -1,15 +1,14 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "booknerd",
-  "compatibility_date": "2026-08-22",
+  "compatibility_date": "2026-07-16",
   "compatibility_flags": [
     "nodejs_compat"
   ],
   "main": "worker/index.js",
   "triggers": {
     "crons": [
-      "*/5 * * * *",
-      "0 1 1 * *"
+      "* * * * *"
     ]
   },
   "assets": {

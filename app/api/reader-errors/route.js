@@ -18,15 +18,16 @@ export async function POST(request) {
     const bookId = String(payload.bookId || '').trim().slice(0, 100);
     const chapterId = String(payload.chapterId || '').trim().slice(0, 100);
     const category = CATEGORIES.has(payload.category) ? payload.category : 'other';
+    const chapterReport = payload.scope === 'chapter';
     const selectedText = String(payload.selectedText || '').trim().slice(0, 1000);
     const details = String(payload.details || '').trim().slice(0, 2000);
     const paragraphIndex = Math.max(0, Math.floor(Number(payload.paragraphIndex || 0)));
     const page = Math.max(0, Math.floor(Number(payload.page || 0)));
-    if (!visitorKey || !bookId || !chapterId || !selectedText) {
-      return Response.json({ error: 'Выделите слово или предложение.' }, { status: 400 });
+    if (!visitorKey || !bookId || !chapterId || (chapterReport ? !details : !selectedText)) {
+      return Response.json({ error: chapterReport ? 'Опишите, что случилось.' : 'Выделите слово или предложение.' }, { status: 400 });
     }
     const db = await ensureDb();
-    const chapter = await db.prepare(`SELECT id FROM chapters WHERE id = ? AND book_id = ? LIMIT 1`).bind(chapterId, bookId).first();
+    const chapter = await db.prepare(`SELECT id, title, chapter_number FROM chapters WHERE id = ? AND book_id = ? LIMIT 1`).bind(chapterId, bookId).first();
     if (!chapter) return Response.json({ error: 'Глава не найдена.' }, { status: 404 });
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
@@ -34,7 +35,7 @@ export async function POST(request) {
       `INSERT INTO reader_error_reports
        (id, visitor_key, book_id, chapter_id, category, selected_text, paragraph_index, page, details, status, resolved_by, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', '', ?, ?)`
-    ).bind(id, visitorKey, bookId, chapterId, category, selectedText, paragraphIndex, page, details, now, now).run();
+    ).bind(id, visitorKey, bookId, chapterId, category, chapterReport ? `Жалоба на главу ${chapter.chapter_number}` : selectedText, paragraphIndex, page, details, now, now).run();
     return Response.json({ ok: true, id }, { status: 201 });
   } catch (error) {
     return Response.json({ error: error.message || 'Не удалось отправить сообщение об ошибке.' }, { status: 500 });

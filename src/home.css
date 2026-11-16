@@ -1,0 +1,220 @@
+.booknerd-home {
+  --home-accent: var(--accent);
+  --home-action-bg: #6c4ee0;
+  --home-action-ink: #ffffff;
+  --home-surface: color-mix(in srgb, var(--paper) 91%, var(--ink));
+  overflow: clip;
+  background: var(--paper);
+}
+
+.booknerd-home, .home-header, .home-bottom-nav { color: var(--ink); font-family: Onest Variable, var(--sans); }
+html[data-app-theme='system'] .booknerd-home { color-scheme: light dark; }
+
+.home-header {
+  position: sticky;
+  z-index: 25;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 69px;
+  padding: 8px max(5vw, calc((100vw - 1120px) / 2));
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.home-header .logo { flex-shrink: 0; color: var(--ink); }
+.home-header .desktop-nav { margin-inline: auto; gap: clamp(10px, 2vw, 27px); }
+.home-header .header-actions { display: flex; gap: 4px; margin-left: auto; }
+.home-header .icon-button, .home-menu-button {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  color: inherit;
+  border: 0;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.home-menu-button { display: none; }
+.home-header .icon-button:hover, .home-menu-button:hover { background: var(--home-surface); }
+
+.home-feature {
+  padding: 38px 20px 22px;
+  text-align: center;
+  background: radial-gradient(ellipse at 50% 20%, var(--home-surface), var(--paper) 72%);
+}
+.home-feature-shelf {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 146px) minmax(0, 205px) minmax(0, 146px);
+  grid-template-rows: auto;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(10px, 2vw, 25px);
+  width: min(100%, 547px);
+  margin-inline: auto;
+  touch-action: pan-y;
+}
+.home-feature .hero-book-cover {
+  position: relative;
+  inset: auto;
+  grid-row: 1;
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  aspect-ratio: 2 / 3;
+  border: 0;
+  border-radius: 7px;
+  overflow: hidden;
+  transform: none;
+  animation: none;
+  box-shadow: 0 14px 24px rgba(12, 29, 25, .23);
+  text-align: left;
+}
+.home-feature .hero-book-cover img { width: 100%; height: 100%; object-fit: cover; }
+.home-cover-previous { grid-column: 1; }
+.home-cover-current { grid-column: 2; }
+.home-cover-next { grid-column: 3; }
+.home-feature .home-cover-side { opacity: .76; cursor: pointer; }
+.home-feature .home-cover-side:is(:hover, :focus-visible) { opacity: 1; }
+.home-feature .hero-book-cover:not(.has-image) strong { font-size: clamp(13px, 2.3vw, 28px); overflow-wrap: anywhere; }
+
+.home-shelf-arrow {
+  display: grid;
+  place-items: center;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+}
+.home-shelf-back { right: calc(100% + 18px); }
+.home-shelf-forward { left: calc(100% + 18px); }
+.home-feature-info { margin: 23px auto 0; max-width: 560px; }
+.home-feature-info h1 { margin: 0; font: 600 clamp(29px, 5vw, 49px)/1.08 var(--serif); letter-spacing: -.035em; }
+.home-feature-info p { margin: 7px 0 14px; color: var(--muted); }
+.home-feature-info dl { display: inline-flex; margin: 0 0 16px; border-block: 1px solid var(--line); }
+.home-feature-info dl div { padding: 7px clamp(9px, 2vw, 22px); }
+.home-feature-info dl div + div { border-left: 1px solid var(--line); }
+.home-feature-info dt { color: var(--muted); font-size: 12px; }
+.home-feature-info dd { margin: 2px 0 0; font-weight: 650; font-size: 14px; }
+.home-read-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: fit-content;
+  min-height: 44px;
+  margin: auto;
+  padding: 0 22px;
+  border-radius: 7px;
+  background: var(--home-action-bg);
+  color: var(--home-action-ink);
+  font-weight: 700;
+}
+.home-slide-controls { display: flex; justify-content: center; gap: 5px; margin-top: 6px; }
+.home-slide-controls button {
+  width: 28px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.home-slide-controls button::before { content: ''; display: block; height: 3px; border-radius: 2px; background: var(--line); }
+.home-slide-controls button[aria-pressed='true']::before { background: var(--home-accent); }
+
+.booknerd-home .section { max-width: 1160px; padding: 28px 20px; }
+.booknerd-home :is(#catalog, #continue-reading) { scroll-margin-top: 90px; }
+.home-section-heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 13px; }
+.home-section-heading h2 { margin: 0; font: 700 clamp(21px, 3.3vw, 31px)/1.2 Onest Variable, var(--sans); letter-spacing: -.04em; }
+.home-section-heading a, .home-show-more { display: inline-flex; align-items: center; gap: 5px; color: var(--home-accent); font-size: 13px; font-weight: 650; }
+.home-continue-row, .home-update-list a {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 13px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.home-continue-row { border-bottom: 1px solid var(--line); }
+.home-continue-cover, .home-update-cover {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--home-surface);
+}
+.home-update-cover { width: 39px; }
+.home-continue-cover img, .home-update-cover img { width: 100%; height: 100%; object-fit: cover; }
+.home-update-copy { display: grid; min-width: 0; gap: 4px; }
+.home-update-copy :is(strong, small) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-update-copy small, .home-update-list time, .home-empty { color: var(--muted); font-size: 13px; }
+.home-update-copy progress { width: 100%; height: 5px; margin-top: 5px; accent-color: var(--home-accent); }
+.home-update-filters { display: flex; gap: 6px; margin-bottom: 11px; }
+.home-update-filters button {
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+.home-update-filters button[aria-pressed='true'] { border-color: var(--line); color: var(--ink); background: var(--home-surface); }
+.home-update-list { margin: 0; padding: 0; list-style: none; border-bottom: 1px solid var(--line); }
+.home-update-list a { grid-template-columns: auto minmax(0, 1fr) auto auto; }
+.home-update-list a:hover strong, .home-continue-row:hover strong { text-decoration: underline; }
+.home-update-list time { white-space: nowrap; }
+.home-show-more { margin-top: 12px; padding: 8px 0; background: transparent; border: 0; cursor: pointer; }
+.home-bottom-nav { display: none; }
+
+@media (max-width: 900px) {
+  .home-header .desktop-nav { display: none; }
+  .home-menu-button { display: grid; }
+}
+
+@media (max-width: 700px) {
+  .booknerd-home { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+  .home-header { min-height: 59px; gap: 5px; padding: 5px 10px; }
+  .home-header .header-actions { gap: 0; }
+  .home-header .icon-button, .home-menu-button { width: 37px; }
+  .home-header .logo { gap: 6px; }
+  .home-header .logo-name { font-size: 13px; }
+  .home-header .logo-mark { width: 30px; height: 30px; }
+  .home-feature { padding: 24px 12px 8px; }
+  .home-feature-shelf { grid-template-columns: minmax(0, 1fr) minmax(0, 1.33fr) minmax(0, 1fr); gap: clamp(8px, 3vw, 18px); width: min(100%, 450px); }
+  .home-feature .hero-book-cover { padding: 9px; }
+  .home-feature .hero-book-cover.has-image { padding: 0; }
+  .home-shelf-arrow { display: none; }
+  .home-feature-info { margin-top: 17px; }
+  .booknerd-home .section { padding: 20px 16px; }
+  .home-update-list a { gap: 9px; }
+  .home-bottom-nav {
+    position: fixed;
+    inset: auto 0 0;
+    z-index: 58;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    padding: 5px 4px max(5px, env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line);
+    background: var(--paper);
+  }
+  .home-bottom-nav a { min-height: 48px; display: grid; align-content: center; justify-items: center; gap: 3px; color: var(--muted); font-size: clamp(9px, 2.8vw, 12px); }
+  .home-bottom-nav a[aria-current='page'] { color: var(--accent); font-weight: 750; }
+}
+
+.home-drawer { overflow-y: auto; }
+.home-drawer nav { margin-top: 22px; }
+.home-drawer nav a { padding-block: 12px; font: 600 18px/1.4 Onest Variable, var(--sans); }

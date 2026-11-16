@@ -3,15 +3,11 @@ import '../src/styles.css';
 import '../src/admin.css';
 import '../src/editorial.css';
 import '../src/pages.css';
-import '../src/catalog-v55.css';
-import '../src/information-pages.css';
-import '../src/pwa-install-reminder.css';
+import '../src/home.css';
+import '../src/shelves.css';
+import '../src/install.css';
 import PwaRegister from '../src/pwa-register.jsx';
-import PwaInstallReminder from '../src/pwa-install-reminder.jsx';
 import AppPreferences from '../src/app-preferences.jsx';
-import ReaderLevelNotice from '../src/reader-level-notice.jsx';
-import ReaderLevelErrorBoundary from '../src/reader-level-error-boundary.jsx';
-import '../src/reader-levels.css';
 
 export const metadata = {
   title: 'BOOKNERD — переводы, в которые влюбляются',
@@ -39,60 +35,13 @@ export const metadata = {
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
-  viewportFit: 'cover',
-  themeColor: '#123c35',
+  themeColor: '#6c4ee0',
 };
-
-const recoveryScript = `(() => {
-  const key = 'booknerd-shell-recovery-v1';
-  let recovering = false;
-  const wasRecovered = () => { try { return sessionStorage.getItem(key) === '1'; } catch { return false; } };
-  const markRecovered = () => { try { sessionStorage.setItem(key, '1'); } catch {} };
-  const messageOf = (value) => String(value?.message || value?.reason?.message || value?.reason || value || '');
-  const isBrokenAsset = (value) => /ChunkLoadError|Loading (?:CSS )?chunk|dynamically imported module|Importing a module script failed|Failed to fetch dynamically imported module/i.test(messageOf(value));
-  const recover = async () => {
-    if (recovering || wasRecovered()) return;
-    recovering = true;
-    markRecovered();
-    try {
-      if ('caches' in window) {
-        const names = await caches.keys();
-        await Promise.all(names.filter((name) => name.startsWith('booknerd-shell-')).map((name) => caches.delete(name)));
-      }
-      const registration = await navigator.serviceWorker?.getRegistration?.();
-      await registration?.update?.();
-    } catch {}
-    location.reload();
-  };
-  addEventListener('error', (event) => {
-    const target = event.target;
-    if (isBrokenAsset(event) || target?.tagName === 'SCRIPT' || (target?.tagName === 'LINK' && target.rel === 'stylesheet')) recover();
-  }, true);
-  addEventListener('unhandledrejection', (event) => { if (isBrokenAsset(event)) recover(); });
-  setTimeout(() => { try { sessionStorage.removeItem(key); } catch {} }, 12000);
-})();`;
-
-const themeScript = `(() => {
-  try {
-    const saved = localStorage.getItem('booknerd-app-theme-v1') || 'original';
-    const theme = ['original', 'white', 'black', 'system'].includes(saved) ? saved : 'original';
-    document.documentElement.dataset.appTheme = theme;
-    document.documentElement.style.colorScheme = theme === 'black' ? 'dark' : theme === 'white' ? 'light' : '';
-  } catch {}
-})();`;
-
-const pwaModeScript = `(() => {
-  try {
-    const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-    document.documentElement.dataset.pwaMode = standalone ? 'standalone' : 'browser';
-  } catch { document.documentElement.dataset.pwaMode = 'browser'; }
-})();`;
 
 export default function RootLayout({ children }) {
   return (
     <html lang="ru">
-      <head><script dangerouslySetInnerHTML={{ __html: themeScript }} /><script dangerouslySetInnerHTML={{ __html: pwaModeScript }} /><script dangerouslySetInnerHTML={{ __html: recoveryScript }} /></head>
-      <body><PwaRegister /><ReaderLevelErrorBoundary><PwaInstallReminder /></ReaderLevelErrorBoundary><AppPreferences />{children}<ReaderLevelErrorBoundary><ReaderLevelNotice /></ReaderLevelErrorBoundary></body>
+      <body><PwaRegister><AppPreferences />{children}</PwaRegister></body>
     </html>
   );
 }

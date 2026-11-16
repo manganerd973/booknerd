@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   Bell,
   BookOpen,
-  CalendarX,
   Check,
   ChevronRight,
   Eye,
@@ -15,17 +14,17 @@ import {
   LoaderCircle,
   LogOut,
   Menu,
+  MapPinned,
   MessageCircle,
+  Music2,
   Plus,
   Quote,
-  RefreshCw,
   Save,
   Search,
   Send,
   Settings2,
   Smartphone,
   Trash2,
-  Trophy,
   UploadCloud,
   Users,
   Wifi,
@@ -33,10 +32,9 @@ import {
 } from 'lucide-react';
 import RichChapterEditor from './rich-chapter-editor.jsx';
 import AdminBookGlossary from './admin-book-glossary.jsx';
-import AdminBookMap from './admin-book-map.jsx';
 import AdminSeriesOrder from './admin-series-order.jsx';
 import AdminReaderNotes from './admin-reader-notes.jsx';
-import { BOOK_TRANSLATION_STATUSES } from '../lib/book-status.js';
+import { BOOK_AGE_RATINGS, BOOK_TYPES, BOOK_TRANSLATION_STATUSES } from '../lib/book-status.js';
 import {
   AdminErrorReports,
   AdminRetention,
@@ -44,8 +42,6 @@ import {
   ChapterHistory,
   ChapterPreview,
 } from './admin-platform-features.jsx';
-import { BackupCenter, BookCompleteness } from './admin-v27-features.jsx';
-import AdminLevels from './admin-levels.jsx';
 
 const blankBook = {
   id: null,
@@ -67,6 +63,7 @@ const blankBook = {
   translator: '',
   editor: '',
   proofreader: '',
+  playlistUrl: '',
   teamPick: false,
   quoteOfDay: '',
   searchAliases: [],
@@ -74,9 +71,6 @@ const blankBook = {
   dedication: '',
   triggerWarnings: [],
   triggerWarningsText: '',
-  suitabilityProfile: { romance: '', angst: '', pace: '', spice: '', triggers: '' },
-  ageRating: '',
-  ageReason: '',
   hasHotScenes: false,
   hotSceneChapters: '',
   synopsis: '',
@@ -89,6 +83,11 @@ const blankBook = {
   progress: 0,
   coverKey: null,
   coverUrl: null,
+  worldMapKey: null,
+  worldMapName: '',
+  worldMapContentType: '',
+  worldMapSizeBytes: 0,
+  worldMapUrl: null,
   published: false,
 };
 
@@ -108,6 +107,12 @@ const blankChapter = {
   workflowStatus: 'draft',
   scheduledAt: '',
   lastEditedBy: '',
+  musicUrl: null,
+  musicTitle: '',
+  musicArtist: '',
+  musicFileName: '',
+  musicContentType: '',
+  musicSizeBytes: 0,
 };
 
 const WORKFLOW_LABELS = {
@@ -263,13 +268,12 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [publishingAllChapters, setPublishingAllChapters] = useState(false);
-  const [calendarDisconnecting, setCalendarDisconnecting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [artworkUploading, setArtworkUploading] = useState(false);
+  const [musicUploading, setMusicUploading] = useState(false);
+  const [mapUploading, setMapUploading] = useState(false);
   const [notice, setNotice] = useState(null);
   const [audience, setAudience] = useState(null);
-  const [audienceLoading, setAudienceLoading] = useState(false);
   const [chapterPreviewOpen, setChapterPreviewOpen] = useState(false);
   const [adminAppInstalled, setAdminAppInstalled] = useState(false);
   const chapterBodyRef = useRef(null);
@@ -347,19 +351,21 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
   }, [flash]);
 
   const loadAudience = useCallback(async () => {
-    if (currentUser.role !== 'owner' || audienceLoading) return;
-    setAudienceLoading(true);
+    if (currentUser.role !== 'owner') return;
     try {
       setAudience(await api('/api/admin/analytics'));
-    } catch (error) {
+    } catch {
       setAudience(null);
-      flash(error.message || 'Не удалось загрузить статистику.', 'error');
-    } finally {
-      setAudienceLoading(false);
     }
-  }, [audienceLoading, currentUser.role, flash]);
+  }, [currentUser.role]);
 
   useEffect(() => { loadBooks(); }, [loadBooks]);
+  useEffect(() => {
+    if (currentUser.role !== 'owner') return undefined;
+    loadAudience();
+    const timer = window.setInterval(loadAudience, 30000);
+    return () => window.clearInterval(timer);
+  }, [currentUser.role, loadAudience]);
 
   const filteredBooks = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -466,23 +472,6 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
     }
   };
 
-  const disconnectBookFromCalendar = async () => {
-    if (!bookForm.id || !(bookForm.releaseDays || []).length) return;
-    if (!window.confirm(`Убрать «${bookForm.title}» из календаря глав? Книга, главы и история чтения останутся на месте.`)) return;
-    setCalendarDisconnecting(true);
-    try {
-      await api(`/api/admin/books/${bookForm.id}/calendar`, { method: 'DELETE' });
-      setBookForm((current) => ({ ...current, releaseDays: [] }));
-      setBooks((current) => current.map((book) => book.id === bookForm.id ? { ...book, releaseDays: [] } : book));
-      flash('Книга отключена от календаря. Книга, главы и история сохранены.');
-      await loadBooks();
-    } catch (error) {
-      flash(error.message, 'error');
-    } finally {
-      setCalendarDisconnecting(false);
-    }
-  };
-
   const uploadCover = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -525,6 +514,55 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
     } finally {
       setArtworkUploading(false);
       event.target.value = '';
+    }
+  };
+
+  const uploadWorldMap = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!bookForm.id) {
+      flash('Сначала сохраните книгу, затем добавьте карту.', 'error');
+      event.target.value = '';
+      return;
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      flash('Изображение карты должно быть не больше 15 МБ.', 'error');
+      event.target.value = '';
+      return;
+    }
+    setMapUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('map', file, file.name);
+      const data = await api(`/api/admin/books/${bookForm.id}/world-map`, { method: 'POST', body: formData });
+      setBookForm((current) => ({ ...current, ...data.map }));
+      flash(bookForm.worldMapUrl ? 'Карта мира заменена.' : 'Карта мира добавлена к книге.');
+    } catch (error) {
+      flash(error.message, 'error');
+    } finally {
+      setMapUploading(false);
+      event.target.value = '';
+    }
+  };
+
+  const deleteWorldMap = async () => {
+    if (!bookForm.id || !bookForm.worldMapUrl || !window.confirm('Удалить карту мира у этой книги?')) return;
+    setMapUploading(true);
+    try {
+      await api(`/api/admin/books/${bookForm.id}/world-map`, { method: 'DELETE' });
+      setBookForm((current) => ({
+        ...current,
+        worldMapKey: null,
+        worldMapName: '',
+        worldMapContentType: '',
+        worldMapSizeBytes: 0,
+        worldMapUrl: null,
+      }));
+      flash('Карта мира удалена.');
+    } catch (error) {
+      flash(error.message, 'error');
+    } finally {
+      setMapUploading(false);
     }
   };
 
@@ -686,6 +724,73 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
     }
   };
 
+  const applyChapterMusic = (music) => {
+    setChapterForm((current) => ({ ...current, ...music }));
+    setChapters((current) => current.map((item) => item.id === chapterForm.id ? { ...item, ...music } : item));
+  };
+
+  const uploadChapterMusic = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!chapterForm.id) {
+      flash('Сначала сохраните главу, затем выберите музыку.', 'error');
+      event.target.value = '';
+      return;
+    }
+    if (file.size > 25 * 1024 * 1024) {
+      flash('Музыкальный файл должен быть не больше 25 МБ.', 'error');
+      event.target.value = '';
+      return;
+    }
+    setMusicUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('music', file, file.name);
+      formData.append('title', chapterForm.musicTitle || '');
+      formData.append('artist', chapterForm.musicArtist || '');
+      const data = await api(`/api/admin/chapters/${chapterForm.id}/music`, { method: 'POST', body: formData });
+      applyChapterMusic(data.music);
+      flash(chapterForm.musicUrl ? 'Музыка главы заменена.' : 'Музыка добавлена к главе.');
+    } catch (error) {
+      flash(error.message, 'error');
+    } finally {
+      setMusicUploading(false);
+      event.target.value = '';
+    }
+  };
+
+  const saveChapterMusicDetails = async () => {
+    if (!chapterForm.id || !chapterForm.musicUrl) return;
+    setMusicUploading(true);
+    try {
+      const data = await api(`/api/admin/chapters/${chapterForm.id}/music`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: chapterForm.musicTitle, artist: chapterForm.musicArtist }),
+      });
+      applyChapterMusic(data.music);
+      flash('Название музыки и исполнитель сохранены.');
+    } catch (error) {
+      flash(error.message, 'error');
+    } finally {
+      setMusicUploading(false);
+    }
+  };
+
+  const deleteChapterMusic = async () => {
+    if (!chapterForm.id || !chapterForm.musicUrl || !window.confirm('Убрать музыку из этой главы?')) return;
+    setMusicUploading(true);
+    try {
+      await api(`/api/admin/chapters/${chapterForm.id}/music`, { method: 'DELETE' });
+      applyChapterMusic({ musicUrl: null, musicTitle: '', musicArtist: '', musicFileName: '', musicContentType: '', musicSizeBytes: 0 });
+      flash('Музыка удалена из главы.');
+    } catch (error) {
+      flash(error.message, 'error');
+    } finally {
+      setMusicUploading(false);
+    }
+  };
+
   const deleteChapter = async () => {
     if (!chapterForm.id || !window.confirm('Удалить эту главу?')) return;
     try {
@@ -706,45 +811,6 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
       await loadBooks();
     } catch (error) {
       flash(error.message, 'error');
-    }
-  };
-
-  const publishAllChapters = async () => {
-    if (!bookForm.id) return;
-    const unpublishedCount = chapters.filter((chapter) => chapter.status !== 'published').length;
-    if (!unpublishedCount) {
-      flash('Все главы этой книги уже опубликованы.');
-      return;
-    }
-    const confirmed = window.confirm(
-      `Опубликовать все неопубликованные главы (${unpublishedCount}) книги «${bookForm.title}»? Будут опубликованы сохранённые версии глав, а читатели получат одно общее push-уведомление.`,
-    );
-    if (!confirmed) return;
-
-    setPublishingAllChapters(true);
-    try {
-      const data = await api(`/api/admin/books/${bookForm.id}/chapters/publish-all`, { method: 'POST' });
-      const publishedIds = new Set(data.chapterIds || []);
-      setChapters((current) => current.map((chapter) => publishedIds.has(chapter.id)
-        ? { ...chapter, status: 'published', workflowStatus: 'published', scheduledAt: null }
-        : chapter));
-      setChapterForm((current) => publishedIds.has(current.id)
-        ? { ...current, status: 'published', workflowStatus: 'published', scheduledAt: '' }
-        : current);
-      setBookForm((current) => ({
-        ...current,
-        progress: Number(data.progress ?? current.progress ?? 0),
-        publishedChapterCount: Number(data.publishedChapterCount ?? current.publishedChapterCount ?? 0),
-        plannedChapterCount: Number(data.plannedChapterCount ?? current.plannedChapterCount ?? 0),
-      }));
-      await loadBooks();
-      flash(data.publishedCount
-        ? `Все главы опубликованы. Опубликовано глав: ${data.publishedCount}.`
-        : 'Все главы этой книги уже были опубликованы.');
-    } catch (error) {
-      flash(error.message, 'error');
-    } finally {
-      setPublishingAllChapters(false);
     }
   };
 
@@ -871,15 +937,11 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
             <Bell size={19} /> Голосование
           </button>
           {currentUser.role === 'owner' && (
-            <button className={view === 'levels' ? 'is-active' : ''} onClick={() => navigate('levels')}>
-              <Trophy size={19} /> Уровни и рейтинг
-            </button>
-          )}
-          {currentUser.role === 'owner' && (
             <button className={view === 'team' ? 'is-active' : ''} onClick={() => navigate('team')}>
               <Users size={19} /> Команда
             </button>
           )}
+          {currentUser.role === 'owner' && <a className="admin-support-link" href="/admin/support">Поддержка команды</a>}
         </nav>
         <div className="admin-sidebar-note">
           <span>✦</span>
@@ -899,7 +961,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
           <button className="admin-menu-toggle" onClick={() => setMenuOpen(true)}><Menu size={21} /></button>
           <div>
             <span>BOOKNERD · ПАНЕЛЬ КОМАНДЫ</span>
-            <strong>{view === 'book' ? (bookForm.id ? 'Редактирование книги' : 'Новая книга') : view === 'team' ? 'Доступ команды' : view === 'comments' ? 'Комментарии и отзывы' : view === 'quotes' ? 'Цитата дня' : view === 'errors' ? 'Ошибки в тексте' : view === 'voting' ? 'Будущие переводы' : view === 'levels' ? 'Уровни и рейтинг' : 'Управление библиотекой'}</strong>
+            <strong>{view === 'book' ? (bookForm.id ? 'Редактирование книги' : 'Новая книга') : view === 'team' ? 'Доступ команды' : view === 'comments' ? 'Комментарии и отзывы' : view === 'quotes' ? 'Цитата дня' : view === 'errors' ? 'Ошибки в тексте' : view === 'voting' ? 'Будущие переводы' : 'Управление библиотекой'}</strong>
           </div>
           {currentUser.role === 'owner' ? <button className="admin-install-button" type="button" onClick={installAdminApp}><Smartphone size={17} /><span>{adminAppInstalled ? 'На телефоне' : 'Установить'}</span></button> : null}
           <a href="/" target="_blank">Открыть сайт <ChevronRight size={17} /></a>
@@ -922,20 +984,11 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
               <article><span>03</span><strong>{stats.chapters}</strong><p>глав добавлено</p></article>
               <article><span>04</span><strong>{stats.drafts}</strong><p>черновиков</p></article>
             </div>
-            {view === 'dashboard' && currentUser.role === 'owner' ? <BackupCenter onNotice={flash} /> : null}
 
-            {view === 'dashboard' && currentUser.role === 'owner' ? (
+            {currentUser.role === 'owner' ? (
               <>
                 <section className="admin-audience">
-                  <div>
-                    <span>СТАТИСТИКА ПО ЗАПРОСУ</span>
-                    <h2>Читатели BOOKNERD</h2>
-                    <p>Чтобы беречь бесплатный лимит D1, полный отчёт загружается только по вашему нажатию.</p>
-                    <button className="admin-audience-refresh" type="button" onClick={loadAudience} disabled={audienceLoading}>
-                      {audienceLoading ? <LoaderCircle className="spin" size={16} /> : <RefreshCw size={16} />}
-                      {audienceLoading ? 'Загружаем…' : audience ? 'Обновить статистику' : 'Загрузить статистику'}
-                    </button>
-                  </div>
+                  <div><span>ЖИВАЯ СТАТИСТИКА</span><h2>Читатели BOOKNERD</h2><p>Количество читателей обновляется примерно раз в 30 секунд.</p></div>
                   <div className="admin-audience-grid">
                     <article><Wifi size={23} /><strong>{audience?.onlineReaders ?? '—'}</strong><p>сейчас читают</p></article>
                     <article><Smartphone size={23} /><strong>{audience?.installs ?? '—'}</strong><p>установили на телефон</p></article>
@@ -1010,8 +1063,6 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
           </section>
         )}
 
-        {view === 'levels' && currentUser.role === 'owner' ? <AdminLevels onNotice={flash} /> : null}
-
         {view === 'book' && (
           <section className="admin-content admin-editor-page">
             <button className="admin-back" onClick={() => navigate('books')}><ArrowLeft size={18} /> Ко всем книгам</button>
@@ -1019,7 +1070,6 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
               <div><span className="admin-kicker">{bookForm.id ? 'РЕДАКТИРОВАНИЕ' : 'НОВАЯ ИСТОРИЯ'}</span><h1>{bookForm.title || 'Новая книга'}</h1></div>
               {bookForm.id && currentUser.role === 'owner' && <button className="admin-danger" onClick={deleteBook}><Trash2 size={17} /> Удалить книгу</button>}
             </div>
-            {bookForm.id ? <BookCompleteness book={bookForm} chapters={chapters} artworks={artworks} /> : null}
 
             <form className="admin-book-form" onSubmit={saveBook}>
               <div className="admin-form-main">
@@ -1029,6 +1079,8 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                     <label><span>Название книги *</span><input value={bookForm.title} onChange={(event) => setBookForm({ ...bookForm, title: event.target.value })} placeholder="Например, Плетёное королевство" /></label>
                     <label><span>Автор *</span><input value={bookForm.author} onChange={(event) => setBookForm({ ...bookForm, author: event.target.value })} placeholder="Имя автора" /></label>
                     <label><span>Страна книги</span><input value={bookForm.country || ''} onChange={(event) => setBookForm({ ...bookForm, country: event.target.value })} placeholder="Например, Сирия / США" /></label>
+                    <label><span>Тип книги</span><select value={bookForm.bookType || ''} onChange={(event) => setBookForm({ ...bookForm, bookType: event.target.value })}><option value="">Не указан</option>{BOOK_TYPES.map((type) => <option key={type}>{type}</option>)}</select></label>
+                    <label><span>Возрастной рейтинг</span><select value={bookForm.ageRating ?? ''} onChange={(event) => setBookForm({ ...bookForm, ageRating: event.target.value === '' ? null : Number(event.target.value) })}><option value="">Не указан</option>{BOOK_AGE_RATINGS.map((rating) => <option value={rating} key={rating}>{rating}+</option>)}</select></label>
                     <label><span>Год выхода</span><input type="number" min="1" max="9999" value={bookForm.publicationYear || ''} onChange={(event) => setBookForm({ ...bookForm, publicationYear: event.target.value ? Number(event.target.value) : '' })} /></label>
                     <label><span>Длина книги, страниц</span><input type="number" min="0" value={bookForm.pageCount || ''} onChange={(event) => setBookForm({ ...bookForm, pageCount: Number(event.target.value || 0) })} /></label>
                     <label><span>Всего глав в книге</span><input type="number" min="0" value={bookForm.plannedChapterCount || ''} onChange={(event) => setBookForm({ ...bookForm, plannedChapterCount: Number(event.target.value || 0) })} placeholder="Например, 40" /><small>Укажите один раз — дальше процент готовности считается сам.</small></label>
@@ -1039,18 +1091,11 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                     <label><span>Название серии</span><input value={bookForm.seriesTitle || ''} onChange={(event) => setBookForm({ ...bookForm, seriesTitle: event.target.value })} placeholder="Например, Хроники Севера" /></label>
                     <label><span>Номер книги в серии</span><input type="number" min="1" value={bookForm.seriesNumber || ''} onChange={(event) => setBookForm({ ...bookForm, seriesNumber: event.target.value ? Number(event.target.value) : '' })} placeholder="1" /></label>
                     <label className="admin-drive-field"><span>Файл книги в Google Drive</span><input type="url" value={bookForm.driveUrl || ''} onChange={(event) => setBookForm({ ...bookForm, driveUrl: event.target.value })} placeholder="https://drive.google.com/…" /></label>
+                    <label className="admin-drive-field"><span>Плейлист книги</span><input type="url" value={bookForm.playlistUrl || ''} onChange={(event) => setBookForm({ ...bookForm, playlistUrl: event.target.value })} placeholder="Spotify, YouTube Music или другой плейлист" /></label>
                   </div>
                   <div className="admin-release-days">
-                    <div className="admin-release-days-heading">
-                      <span>Дни выхода новых глав</span>
-                      {bookForm.id && (bookForm.releaseDays || []).length ? (
-                        <button type="button" onClick={disconnectBookFromCalendar} disabled={calendarDisconnecting}>
-                          {calendarDisconnecting ? <LoaderCircle className="spin" size={16} /> : <CalendarX size={16} />}
-                          {calendarDisconnecting ? 'Удаляем…' : 'Убрать из календаря'}
-                        </button>
-                      ) : null}
-                    </div>
-                    <div className="admin-release-day-list">{RELEASE_DAYS.map((day) => (
+                    <span>Дни выхода новых глав</span>
+                    <div>{RELEASE_DAYS.map((day) => (
                       <label className={(bookForm.releaseDays || []).includes(day) ? 'is-active' : ''} key={day}>
                         <input
                           type="checkbox"
@@ -1065,20 +1110,13 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                         <span>{day}</span>
                       </label>
                     ))}</div>
-                    {bookForm.id && !(bookForm.releaseDays || []).length ? <small className="admin-calendar-status">Книга не подключена к календарю.</small> : null}
                   </div>
                   <AdminSeriesOrder value={bookForm.seriesReadingOrder || []} onChange={(seriesReadingOrder) => setBookForm({ ...bookForm, seriesReadingOrder })} />
                   <label className="admin-full-field"><span>Аннотация</span><textarea value={bookForm.synopsis} onChange={(event) => setBookForm({ ...bookForm, synopsis: event.target.value })} placeholder="Расскажите читателю, о чём эта история…" rows={7} /><small>{bookForm.synopsis.length} / 12 000</small></label>
                   <label className="admin-full-field"><span>Кому посвящена книга</span><textarea value={bookForm.dedication || ''} onChange={(event) => setBookForm({ ...bookForm, dedication: event.target.value })} placeholder="Например: Всем девушкам, которые однажды выбрали себя…" rows={3} /><small>Посвящение появится на главной странице книги.</small></label>
                   <label className="admin-full-field"><span>Предупреждения о триггерах</span><textarea value={bookForm.triggerWarningsText || ''} onChange={(event) => setBookForm({ ...bookForm, triggerWarningsText: event.target.value, triggerWarnings: splitBookTags(event.target.value, 40) })} placeholder="Например: насилие, утрата близкого, панические атаки" rows={3} /><small>Разделяйте предупреждения запятыми. Они появятся только на странице книги.</small></label>
-                  <div className="admin-age-rating-editor">
-                    <div className="admin-fields two-columns">
-                      <label><span>Возрастное ограничение</span><input value={bookForm.ageRating || ''} onChange={(event) => setBookForm({ ...bookForm, ageRating: event.target.value })} placeholder="Например: 16+" /></label>
-                    </div>
-                    <label className="admin-full-field"><span>Причина возрастного ограничения</span><textarea value={bookForm.ageReason || ''} onChange={(event) => setBookForm({ ...bookForm, ageReason: event.target.value })} placeholder="Например: сцены насилия, тяжёлые темы и откровенные эпизоды." rows={3} /><small>Напишите законченное и грамматически правильное объяснение — оно будет показано читателям без изменений.</small></label>
-                  </div>
                   <div className="admin-glossary-shortcut"><BookOpen size={20} /><div><strong>Слова и их значения</strong><small>{bookForm.id ? 'Добавляйте слова в простом словаре ниже на этой странице.' : 'Сначала сохраните книгу — после этого появится простой словарь «слово — значение».'}</small></div>{bookForm.id ? <a href="#admin-book-glossary">Открыть словарь</a> : null}</div>
-                  <label className="admin-full-field"><span>Цитаты дня</span><textarea value={bookForm.quoteOfDay || ''} onChange={(event) => setBookForm({ ...bookForm, quoteOfDay: event.target.value })} placeholder="Добавляйте каждую цитату с новой строки — они будут меняться по дням" rows={4} /></label>
+                  <label className="admin-full-field"><span>Любимая цитата дня</span><textarea value={bookForm.quoteOfDay || ''} onChange={(event) => setBookForm({ ...bookForm, quoteOfDay: event.target.value })} placeholder="Цитата из книги для главной страницы" rows={2} /></label>
                   <div className="admin-fields three-columns">
                     <label><span>Переводчик</span><input value={bookForm.translator || ''} onChange={(event) => setBookForm({ ...bookForm, translator: event.target.value })} /></label>
                     <label><span>Редактор</span><input value={bookForm.editor || ''} onChange={(event) => setBookForm({ ...bookForm, editor: event.target.value })} /></label>
@@ -1111,6 +1149,13 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                     {bookForm.coverUrl ? <img src={bookForm.coverUrl} alt="Обложка книги" /> : <><ImagePlus size={38} /><strong>{bookForm.title || 'Обложка книги'}</strong><small>BOOKNERD EDITION</small></>}
                   </div>
                   <label className="admin-upload-button">{uploading ? <LoaderCircle className="spin" size={18} /> : <UploadCloud size={18} />} {uploading ? 'Загрузка…' : 'Загрузить обложку'}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadCover} disabled={uploading} /></label>
+                </section>
+                <section className="admin-form-card admin-world-map-card">
+                  <div className="admin-card-title compact"><span>03</span><div><h2>Карта мира</h2><p>Она откроется в читалке по небольшой кнопке и не будет закрывать текст.</p></div></div>
+                  {bookForm.worldMapUrl ? <div className="admin-world-map-preview"><img src={bookForm.worldMapUrl} alt="Карта мира книги" /><small>{bookForm.worldMapName || 'Карта мира'}{bookForm.worldMapSizeBytes ? ` · ${(bookForm.worldMapSizeBytes / 1024 / 1024).toFixed(1)} МБ` : ''}</small></div> : <div className="admin-world-map-empty"><MapPinned size={32} /><span>{bookForm.id ? 'Карта ещё не добавлена' : 'Сначала сохраните книгу'}</span></div>}
+                  <label className="admin-upload-button">{mapUploading ? <LoaderCircle className="spin" size={18} /> : <UploadCloud size={18} />} {mapUploading ? 'Загружаем…' : bookForm.worldMapUrl ? 'Заменить карту' : 'Добавить карту'}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadWorldMap} disabled={mapUploading || !bookForm.id} /></label>
+                  {bookForm.worldMapUrl ? <button className="admin-secondary admin-world-map-delete" type="button" onClick={deleteWorldMap} disabled={mapUploading}><Trash2 size={16} /> Удалить карту</button> : null}
+                  <small className="admin-world-map-hint">JPG, PNG или WEBP, до 15 МБ.</small>
                 </section>
                 <button className="admin-primary admin-save-book" type="submit" disabled={saving}>{saving ? <LoaderCircle className="spin" size={18} /> : <Save size={18} />} {saving ? 'Сохраняем…' : 'Сохранить книгу'}</button>
               </aside>
@@ -1148,18 +1193,10 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
               )}
             </section>
 
-            {bookForm.id ? <AdminBookMap bookId={bookForm.id} onNotice={flash} /> : null}
-
             <section className={`admin-chapter-section ${!bookForm.id ? 'is-disabled' : ''}`}>
               <div className="admin-list-head">
-                <div><span>05 / ГЛАВЫ</span><h2>Текст перевода</h2><p>Добавляйте главы, храните черновики и публикуйте готовый текст.</p></div>
-                <div className="admin-list-actions">
-                  <button className="admin-primary" type="button" onClick={publishAllChapters} disabled={!bookForm.id || publishingAllChapters || !chapters.some((chapter) => chapter.status !== 'published')}>
-                    {publishingAllChapters ? <LoaderCircle className="spin" size={18} /> : <Send size={18} />}
-                    {publishingAllChapters ? 'Публикуем…' : 'Опубликовать все главы'}
-                  </button>
-                  <button className="admin-secondary" type="button" onClick={startNewChapter} disabled={!bookForm.id}><Plus size={18} /> Новая глава</button>
-                </div>
+                <div><span>04 / ГЛАВЫ</span><h2>Текст перевода</h2><p>Добавляйте главы, храните черновики и публикуйте готовый текст.</p></div>
+                <button className="admin-secondary" onClick={startNewChapter} disabled={!bookForm.id}><Plus size={18} /> Новая глава</button>
               </div>
               {!bookForm.id ? (
                 <EmptyState title="Сначала сохраните книгу" text="После сохранения здесь появится редактор глав." />
@@ -1214,6 +1251,33 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                         ) : <p className="admin-footnote-empty">Сносок пока нет.</p>}
                     </section>
                     <label className="admin-chapter-drive"><span>Файл главы в Google Drive</span><input type="url" value={chapterForm.driveUrl || ''} onChange={(event) => setChapterForm({ ...chapterForm, driveUrl: event.target.value })} placeholder="https://drive.google.com/…" /></label>
+                    <section className="admin-chapter-music">
+                      <header><span><Music2 size={19} /></span><div><strong>Музыка этой главы</strong><small>Выберите отдельный трек, который читатель сможет включить во время чтения.</small></div></header>
+                      {chapterForm.id ? (
+                        <>
+                          <div className="admin-chapter-music-fields">
+                            <label><span>Название трека</span><input value={chapterForm.musicTitle || ''} onChange={(event) => setChapterForm((current) => ({ ...current, musicTitle: event.target.value }))} placeholder="Например, Midnight Letters" maxLength="180" /></label>
+                            <label><span>Исполнитель</span><input value={chapterForm.musicArtist || ''} onChange={(event) => setChapterForm((current) => ({ ...current, musicArtist: event.target.value }))} placeholder="Необязательно" maxLength="180" /></label>
+                          </div>
+                          {chapterForm.musicUrl ? (
+                            <div className="admin-chapter-music-current">
+                              <audio controls preload="metadata" src={chapterForm.musicUrl}>Ваш браузер не поддерживает аудио.</audio>
+                              <small>{chapterForm.musicFileName || 'Музыкальный файл'}{chapterForm.musicSizeBytes ? ` · ${(chapterForm.musicSizeBytes / 1024 / 1024).toFixed(1)} МБ` : ''}</small>
+                            </div>
+                          ) : <p>Музыка к этой главе пока не выбрана.</p>}
+                          <div className="admin-chapter-music-actions">
+                            <label className="admin-secondary">
+                              {musicUploading ? <LoaderCircle className="spin" size={17} /> : <UploadCloud size={17} />}
+                              {chapterForm.musicUrl ? 'Заменить файл' : 'Выбрать музыку'}
+                              <input type="file" accept="audio/mpeg,audio/mp4,audio/aac,audio/ogg,audio/opus,audio/webm,audio/wav,.mp3,.m4a,.aac,.ogg,.opus,.webm,.wav" onChange={uploadChapterMusic} disabled={musicUploading} />
+                            </label>
+                            {chapterForm.musicUrl ? <button type="button" className="admin-secondary" onClick={saveChapterMusicDetails} disabled={musicUploading}><Save size={17} /> Сохранить подпись</button> : null}
+                            {chapterForm.musicUrl ? <button type="button" className="admin-danger" onClick={deleteChapterMusic} disabled={musicUploading}><Trash2 size={17} /> Убрать музыку</button> : null}
+                          </div>
+                          <small className="admin-chapter-music-hint">MP3, M4A, AAC, OGG, OPUS, WEBM или WAV, до 25 МБ. Музыка не запускается автоматически.</small>
+                        </>
+                      ) : <p>Сначала сохраните главу — после этого здесь можно будет выбрать музыку.</p>}
+                    </section>
                     <label className="admin-chapter-team-note"><span>Заметка команды под главой</span><textarea rows="4" maxLength="4000" value={chapterForm.teamNote || ''} onChange={(event) => setChapterForm({ ...chapterForm, teamNote: event.target.value })} placeholder="Новости, пояснение переводчика, благодарность или вопрос читателям…" /><small>Появится после текста главы и перед комментариями.</small></label>
                     <div className="admin-chapter-actions">
                       {chapterForm.id && <button type="button" className="admin-danger" onClick={deleteChapter}><Trash2 size={17} /> Удалить</button>}
@@ -1256,12 +1320,11 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                     <div className="admin-comment-meta">
                       <span>{comment.status === 'approved' ? 'Опубликован' : 'Скрыт'}</span>
                       {comment.kind === 'review' ? <b>Отзыв · {comment.rating}/10</b> : null}
-                      {comment.kind === 'comment' && comment.context === 'discussion' ? <b>Обсуждение</b> : null}
                       {comment.isSpoiler ? <b className="admin-comment-spoiler">Спойлер</b> : null}
                       {(comment.reports || []).length ? <b>Жалоб: {comment.reports.length}</b> : null}
                       <time dateTime={comment.createdAt}>{formatAdminDate(comment.createdAt)}</time>
                     </div>
-                    <h3>{comment.authorName}{comment.authorRole === 'admin' ? ' · Администратор' : ''}</h3>
+                    <h3>{comment.authorName}</h3>
                     <p>{comment.body}</p>
                     {(comment.reports || []).length ? (
                       <div className="admin-comment-reports">
@@ -1273,8 +1336,8 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                     ) : null}
                     <div className="admin-comment-source">
                       <BookOpen size={15} />
-                      <a href={comment.chapterId ? `/books/${comment.bookSlug}/chapters/${comment.chapterId}#comment-${comment.id}` : comment.context === 'discussion' ? `/books/${comment.bookSlug}#discussion-comment-${comment.id}` : `/books/${comment.bookSlug}#comment-${comment.id}`} target="_blank" rel="noreferrer">
-                        {comment.bookTitle}{comment.chapterTitle ? ` · глава ${comment.chapterNumber}: ${comment.chapterTitle}` : comment.context === 'discussion' ? ' · обсуждение' : ' · страница книги'}
+                      <a href={comment.chapterId ? `/books/${comment.bookSlug}/chapters/${comment.chapterId}` : `/books/${comment.bookSlug}`} target="_blank" rel="noreferrer">
+                        {comment.bookTitle}{comment.chapterTitle ? ` · глава ${comment.chapterNumber}: ${comment.chapterTitle}` : ' · страница книги'}
                       </a>
                     </div>
                     <div className="admin-comment-actions">

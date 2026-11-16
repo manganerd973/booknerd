@@ -1,16 +1,9 @@
 import { ensureDb } from '../../../../lib/runtime.js';
 
-export async function GET(request, { params }) {
+export async function GET(_request, { params }) {
   const values = await params;
   const key = Array.isArray(values.key) ? values.key.join('/') : String(values.key || '');
   if (!key) return new Response('Not found', { status: 404 });
-
-  const edgeCache = globalThis.caches?.default || null;
-  const cacheRequest = new Request(request.url, { method: 'GET' });
-  if (edgeCache) {
-    const cached = await edgeCache.match(cacheRequest).catch(() => null);
-    if (cached) return cached;
-  }
 
   let cover;
   try {
@@ -33,7 +26,5 @@ export async function GET(request, { params }) {
   headers.set('etag', `"${key}"`);
   headers.set('cache-control', 'public, max-age=31536000, immutable');
   headers.set('x-content-type-options', 'nosniff');
-  const response = new Response(body, { headers });
-  if (edgeCache) await edgeCache.put(cacheRequest, response.clone()).catch(() => {});
-  return response;
+  return new Response(body, { headers });
 }

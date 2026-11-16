@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { BookOpen, Eye, EyeOff, LoaderCircle, MessageCircle, Reply, Send, ShieldCheck, X } from 'lucide-react';
+import { Eye, EyeOff, LoaderCircle, Reply, Send, X } from 'lucide-react';
 import CommentVotes from './comment-votes.jsx';
 import CommentReport from './comment-report.jsx';
 import { getVisitorKey } from './site-analytics.js';
@@ -58,8 +58,9 @@ function CommentBody({ comment }) {
   );
 }
 
-export default function CommentsSection({ bookId, chapterId = null, scope = 'comments', includeChapterComments = false }) {
+export default function CommentsSection({ bookId, chapterId = null, onCountChange }) {
   const [comments, setComments] = useState([]);
+  const [total, setTotal] = useState(0);
   const [authorName, setAuthorName] = useState('');
   const [savedAuthorName, setSavedAuthorName] = useState('');
   const [body, setBody] = useState('');
@@ -70,32 +71,35 @@ export default function CommentsSection({ bookId, chapterId = null, scope = 'com
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [replyingTo, setReplyingTo] = useState(null);
-  const [canReplyAsAdmin, setCanReplyAsAdmin] = useState(false);
-  const [commentRole, setCommentRole] = useState('reader');
-  const threads = buildThreads(comments);
-  const context = chapterId ? 'comments' : scope === 'discussion' ? 'discussion' : 'comments';
-  const anchorPrefix = context === 'discussion' ? 'discussion-comment' : 'comment';
-  const sectionId = `${context}-comments-${chapterId || bookId}`;
-  const formId = `${context}-comment-form-${chapterId || bookId}`;
+  const [order, setOrder] = useState('new');
+  const ordered = [...comments].sort((a, b) => {
+    const newest = String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
+    if (order === 'old') return -newest;
+    if (order === 'best') return (Number(b.upVotes || 0) - Number(b.downVotes || 0)) -
+      (Number(a.upVotes || 0) - Number(a.downVotes || 0)) || newest;
+    return newest;
+  });
+  const threads = buildThreads(ordered);
+  const sectionId = `comments-${chapterId || bookId}`;
+  const formId = `comment-form-${chapterId || bookId}`;
 
   const loadComments = useCallback(async () => {
     setLoading(true);
     try {
       const query = new URLSearchParams({ bookId });
       if (chapterId) query.set('chapterId', chapterId);
-      query.set('context', context);
-      if (includeChapterComments && !chapterId && context === 'comments') query.set('includeChapters', '1');
       const data = await commentsApi(`/api/comments?${query.toString()}`);
       setComments(data.comments || []);
-      setCanReplyAsAdmin(Boolean(data.canReplyAsAdmin));
-      if (!data.canReplyAsAdmin) setCommentRole('reader');
+      const count = Number(data.total ?? data.comments?.length ?? 0);
+      setTotal(count);
+      onCountChange?.(count);
       setError('');
     } catch (loadError) {
       setError(loadError.message);
     } finally {
       setLoading(false);
     }
-  }, [bookId, chapterId, context, includeChapterComments]);
+  }, [bookId, chapterId, onCountChange]);
 
   useEffect(() => {
     try {
@@ -107,19 +111,6 @@ export default function CommentsSection({ bookId, chapterId = null, scope = 'com
     } catch { /* optional */ }
     loadComments();
   }, [loadComments]);
-
-  useEffect(() => {
-    if (loading || !comments.length || typeof window === 'undefined') return;
-    const id = decodeURIComponent(window.location.hash || '').replace(/^#/, '');
-    if (!id.startsWith(`${anchorPrefix}-`)) return;
-    const target = document.getElementById(id);
-    if (!target) return;
-    requestAnimationFrame(() => {
-      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      target.classList.add('is-notification-target');
-      window.setTimeout(() => target.classList.remove('is-notification-target'), 3200);
-    });
-  }, [anchorPrefix, comments, loading]);
 
   const rememberAuthor = (value = authorName) => {
     const normalizedName = String(value || '').trim().replace(/\s+/g, ' ').slice(0, 60);
@@ -146,15 +137,13 @@ export default function CommentsSection({ bookId, chapterId = null, scope = 'com
       await commentsApi('/api/comments', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ bookId, chapterId: replyingTo?.chapterId || chapterId, context, parentId: replyingTo?.id || null, visitorKey: getVisitorKey(), authorRole: commentRole, authorName, body, isSpoiler, website }),
+        body: JSON.stringify({ bookId, chapterId, parentId: replyingTo?.id || null, visitorKey: getVisitorKey(), authorName, body, isSpoiler, website }),
       });
-      if (commentRole === 'reader') rememberAuthor(authorName);
+      rememberAuthor(authorName);
       setBody('');
       setIsSpoiler(false);
       setWebsite('');
-      setNotice(replyingTo
-        ? `${commentRole === 'admin' ? 'Официальный ответ' : 'Ответ'} опубликован. Читатель получит уведомление, если включил его.`
-        : `${commentRole === 'admin' ? 'Официальный комментарий' : 'Комментарий'} опубликован. Он уже виден другим читателям.`);
+      setNotice(replyingTo ? 'Ответ опубликован. Читатель получит уведомление, если включил его.' : 'Комментарий опубликован. Он уже виден другим читателям.');
       setReplyingTo(null);
       await loadComments();
     } catch (submitError) {
@@ -177,16 +166,9 @@ export default function CommentsSection({ bookId, chapterId = null, scope = 'com
     const replies = threads.get(comment.id) || [];
     return (
       <div className={`reader-comment-thread ${depth ? 'is-reply-thread' : ''}`} key={comment.id}>
-        <article id={`${anchorPrefix}-${comment.id}`} className={`reader-comment ${depth ? 'is-reply' : ''} ${comment.authorRole === 'admin' ? 'is-admin' : ''}`}>
+        <article className={`reader-comment ${depth ? 'is-reply' : ''}`}>
           <header className="reader-comment-header">
-            <div className="reader-comment-avatar">{comment.avatarUrl ? <img src={comment.avatarUrl} alt="" loading="lazy" /> : <span>{String(comment.authorName || 'B').slice(0, 1).toUpperCase()}</span>}</div>
-            <div className="reader-comment-header-copy">
-              <div className="reader-comment-author-line">
-                <strong>{comment.authorName}</strong>
-                {comment.authorRole === 'admin' ? <span className="reader-comment-admin-badge"><ShieldCheck size={12} /> Администратор</span> : null}
-              </div>
-              {includeChapterComments && comment.chapterId ? <span>Глава {comment.chapterNumber}{comment.chapterTitle ? ` · ${comment.chapterTitle}` : ''}</span> : null}
-            </div>
+            <strong>{comment.authorName}</strong>
           </header>
           <CommentBody comment={comment} />
           <div className="reader-comment-actions">
@@ -204,55 +186,45 @@ export default function CommentsSection({ bookId, chapterId = null, scope = 'com
   return (
     <section className="reader-comments" aria-labelledby={sectionId}>
       <div className="reader-comments-heading">
-        <span className="editorial-section-number">{chapterId ? 'КОММЕНТАРИИ К ГЛАВЕ' : context === 'discussion' ? 'ОБСУЖДЕНИЕ ЧИТАТЕЛЕЙ' : includeChapterComments ? 'ВСЕ КОММЕНТАРИИ К КНИГЕ И ГЛАВАМ' : 'КОММЕНТАРИИ К КНИГЕ'}</span>
-        <h2 id={sectionId}>{context === 'discussion' ? 'Поговорим об истории' : 'Обсуждение'}</h2>
-        <p>{context === 'discussion' ? 'Отвечайте друг другу, ставьте плюс или минус и отправляйте жалобу, если комментарий нарушает правила.' : includeChapterComments ? 'Здесь собраны комментарии со страницы книги и из всех опубликованных глав. Спойлеры остаются скрытыми.' : 'Комментарии публикуются сразу. Если в тексте есть важная деталь сюжета, отметьте её как спойлер.'}</p>
+        <h2 id={sectionId}>Комментарии <small>{total}</small></h2>
       </div>
-
+      <div className="reader-comment-sort" role="group" aria-label="Сортировка комментариев">
+        {[['best', 'Лучшие'], ['new', 'Новые'], ['old', 'Старые']].map(([key, label]) =>
+          <button type="button" key={key} aria-pressed={order === key} onClick={() => setOrder(key)}>{label}</button>
+        )}
+      </div>
       <div className="reader-comments-layout">
-        <div className="reader-comment-list" aria-live="polite">
-          {loading ? (
-            <div className="reader-comments-empty"><LoaderCircle className="spin" size={22} /> Загружаем комментарии…</div>
-          ) : comments.length ? (threads.get(null) || []).map((comment) => renderComment(comment)) : (
-            <div className="reader-comments-empty"><MessageCircle size={25} /><span>Пока комментариев нет. Можно быть первой.</span></div>
-          )}
-        </div>
-
         <form className="reader-comment-form" id={formId} onSubmit={submit}>
-          <h3>{replyingTo ? `Ответ для ${replyingTo.authorName}` : 'Оставить комментарий'}</h3>
+          {replyingTo && <h3>Ответ для {replyingTo.authorName}</h3>}
           {replyingTo ? <div className="reader-comment-replying"><Reply size={15} /><span>“{replyingTo.body.slice(0, 120)}{replyingTo.body.length > 120 ? '…' : ''}”</span><button type="button" onClick={() => setReplyingTo(null)} aria-label="Отменить ответ"><X size={15} /></button></div> : null}
-          {canReplyAsAdmin ? (
-            <fieldset className="reader-comment-role-picker">
-              <legend>Ответить как</legend>
-              <button type="button" className={commentRole === 'reader' ? 'is-active' : ''} aria-pressed={commentRole === 'reader'} onClick={() => setCommentRole('reader')}><BookOpen size={16} /> Читатель</button>
-              <button type="button" className={commentRole === 'admin' ? 'is-active' : ''} aria-pressed={commentRole === 'admin'} onClick={() => setCommentRole('admin')}><ShieldCheck size={16} /> Администратор</button>
-            </fieldset>
-          ) : null}
-          {commentRole === 'admin' && canReplyAsAdmin ? (
-            <div className="reader-comment-identity is-admin"><ShieldCheck size={19} /><span>Вы отвечаете как <strong>Администратор BOOKNERD</strong></span></div>
-          ) : savedAuthorName ? (
+          {savedAuthorName ? (
             <div className="reader-comment-identity">
               <span>Вы комментируете как <strong>{savedAuthorName}</strong></span>
               <button type="button" onClick={changeAuthor}>Сменить</button>
             </div>
           ) : (
             <>
-              <label><span>Имя или псевдоним</span><input value={authorName} onChange={(event) => setAuthorName(event.target.value)} onBlur={() => rememberAuthor(authorName)} maxLength={60} minLength={2} required={commentRole === 'reader'} /></label>
+              <label><span>Имя или псевдоним</span><input value={authorName} onChange={(event) => setAuthorName(event.target.value)} onBlur={() => rememberAuthor(authorName)} maxLength={60} minLength={2} required /></label>
               <p className="reader-comment-name-help">Введите один раз — сайт запомнит псевдоним на этом устройстве.</p>
             </>
           )}
-          <label><span>Комментарий</span><textarea value={body} onChange={(event) => setBody(event.target.value)} maxLength={2000} rows={6} required /></label>
+          <label><span className="visually-hidden">Комментарий</span><textarea placeholder="Напишите комментарий…" value={body} onChange={(event) => setBody(event.target.value)} maxLength={2000} rows={6} required /></label>
           <label className="reader-comment-spoiler-toggle">
             <input type="checkbox" checked={isSpoiler} onChange={(event) => setIsSpoiler(event.target.checked)} />
             <Eye size={20} />
-            <span><strong>В комментарии есть спойлер</strong><small>Текст будет скрыт, пока читатель сам его не откроет.</small></span>
+            <span>Спойлер</span>
           </label>
           <label className="reader-comment-honeypot" aria-hidden="true"><span>Сайт</span><input value={website} onChange={(event) => setWebsite(event.target.value)} tabIndex={-1} autoComplete="off" /></label>
           <small>{body.length} / 2000</small>
           {notice && <p className="reader-comment-notice">{notice}</p>}
           {error && <p className="reader-comment-error">{error}</p>}
-          <button type="submit" disabled={sending}>{sending ? <LoaderCircle className="spin" size={17} /> : <Send size={17} />} {sending ? 'Публикуем…' : 'Опубликовать комментарий'}</button>
+          <div className="reader-comment-submit"><span>Будьте уважительны</span><button type="submit" disabled={sending}>{sending ? <LoaderCircle className="spin" size={17} /> : <Send size={17} />} {sending ? 'Публикуем…' : 'Отправить'}</button></div>
         </form>
+        <div className="reader-comment-list" aria-live="polite">
+          {loading ? <div className="reader-comments-empty"><LoaderCircle className="spin" size={22} /> Загружаем комментарии…</div>
+            : comments.length ? (threads.get(null) || []).map((comment) => renderComment(comment))
+            : <p className="reader-comments-empty">{chapterId ? 'Что думаете об этой главе?' : 'Что думаете об этой книге?'}</p>}
+        </div>
       </div>
     </section>
   );

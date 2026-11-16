@@ -1,27 +1,19 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, ArrowUpDown, Bookmark, BookOpen, Check, Clock3, Download, Grid3X3, Heart, Library, List, LoaderCircle, Search, WifiOff, XCircle } from 'lucide-react';
+import { ArrowRight, Bookmark, BookOpen, Check, Grid3X3, Heart, Library, List, LoaderCircle, XCircle, Search, FolderPlus } from 'lucide-react';
 import { ReaderStatistics } from './home-reader-features.jsx';
 import { LIBRARY_STATUS, loadReaderLibrary, updateReaderLibrary } from './reader-library.jsx';
 import { SiteFooter, SiteHeader } from './page-chrome.jsx';
+import { ShelfBook } from './book-shelves.jsx';
 
 const LIBRARY_TABS = [
   ['all', 'Все'],
   ['reading', 'Читаю'],
-  ['saved', 'В планах'],
-  ['dropped', 'Брошено'],
   ['finished', 'Прочитано'],
+  ['saved', 'В планах'],
   ['favorite', 'Любимые'],
-  ['offline', 'Офлайн'],
-  ['history', 'История'],
-];
-
-const SORT_OPTIONS = [
-  ['updated', 'По обновлению главы'],
-  ['recent', 'По последнему чтению'],
-  ['added', 'По дате добавления'],
-  ['title', 'По названию'],
+  ['dropped', 'Брошено'],
 ];
 
 const STATUS_ICON = {
@@ -32,56 +24,28 @@ const STATUS_ICON = {
   dropped: XCircle,
 };
 
-function chapterWord(value) {
-  const count = Math.abs(Number(value || 0));
-  const lastTwo = count % 100;
-  const last = count % 10;
-  if (lastTwo >= 11 && lastTwo <= 14) return 'глав';
-  if (last === 1) return 'глава';
-  if (last >= 2 && last <= 4) return 'главы';
-  return 'глав';
-}
-
-function formatLastOpened(value) {
-  if (!value) return '';
-  try {
-    return new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value));
-  } catch {
-    return '';
-  }
-}
-
-function LibraryCover({ book }) {
-  const chapterCount = Number(book.publishedChapterCount ?? book.chapterCount ?? 0);
-  const completed = book.status === 'Завершено';
-  return (
-    <div className={`library-page-cover cover-${book.cover || 'garden'} ${book.coverUrl ? 'has-image' : ''}`}>
-      {book.coverUrl ? <img src={book.coverUrl} alt={`Обложка книги «${book.title}»`} /> : <><span>BOOKNERD</span><strong>{book.title}</strong><small>{book.author}</small></>}
-      <div className="library-cover-meta"><strong>{chapterCount} {chapterWord(chapterCount)}</strong><small>{completed ? 'Завершено' : 'Онгоинг'}</small></div>
-    </div>
-  );
-}
-
-function LibraryBookCard({ book, item, onStatusChange, offline = false }) {
-  const Icon = offline ? Download : STATUS_ICON[item.status] || Bookmark;
-  const openHref = item.offlineHref || `/books/${book.slug}`;
+function LibraryBookCard({ book, item, onStatusChange, folders, folderId, onFolderChange }) {
+  const Icon = STATUS_ICON[item.status] || Bookmark;
+  const start = `/books/${book.slug}`;
+  const resume = item.lastChapterId ? `${start}/chapters/${item.lastChapterId}?page=${Number(item.lastPage || 0) + 1}` : start;
   return (
     <article className="library-page-card">
-      <a href={openHref} className="library-page-cover-link"><LibraryCover book={book} /></a>
+      <ShelfBook book={book} overlay badge={LIBRARY_STATUS[item.status]?.label} />
       <div className="library-page-card-copy">
-        <span><Icon size={14} /> {offline ? 'Сохранено офлайн' : LIBRARY_STATUS[item.status]?.label || 'В планах'}</span>
-        <h2><a href={openHref}>{book.title}</a></h2>
-        <p>{book.author}</p>
-        {item.chapterNumber != null ? (
-          <div className="library-reading-history"><Clock3 size={13} /><span>Остановились: глава {item.chapterNumber}{item.lastPage > 0 ? ` · страница ${item.lastPage + 1}` : ''}</span>{item.lastOpenedAt ? <time>{formatLastOpened(item.lastOpenedAt)}</time> : null}</div>
-        ) : null}
-        {!offline ? <label>
+        <a className="library-page-open" href={resume}><Icon size={15} />{item.lastChapterId ? `Продолжить · гл. ${item.chapterNumber || '—'}` : 'Начать читать'}</a>
+        <label>
           <span>Раздел библиотеки</span>
-          <select value={item.status} onChange={(event) => onStatusChange(item, event.target.value)}>
+          <select aria-label="Раздел библиотеки" value={item.status} onChange={(event) => onStatusChange(item, event.target.value)}>
             {Object.entries(LIBRARY_STATUS).map(([value, option]) => <option value={value} key={value}>{option.short}</option>)}
           </select>
-        </label> : <div className="library-offline-note"><WifiOff size={14} /> Книга и опубликованные главы доступны без интернета.</div>}
-        <a className="library-page-open" href={openHref}>Открыть книгу <ArrowRight size={17} /></a>
+        </label>
+        {folders.length > 0 && <label>
+          <span>Папка</span>
+          <select aria-label={`Папка для книги «${book.title}»`} value={folderId || ''} onChange={(event) => onFolderChange(book.id, event.target.value)}>
+            <option value="">Без папки</option>
+            {folders.map((folder) => <option value={folder.id} key={folder.id}>{folder.name}</option>)}
+          </select>
+        </label>}
       </div>
     </article>
   );
@@ -89,86 +53,59 @@ function LibraryBookCard({ book, item, onStatusChange, offline = false }) {
 
 export default function LibraryPage({ initialBooks = [] }) {
   const [items, setItems] = useState([]);
-  const [offlineItems, setOfflineItems] = useState([]);
   const [activeTab, setActiveTab] = useState('all');
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState('');
-  const [viewMode, setViewMode] = useState('list');
+  const [viewMode, setViewMode] = useState('grid');
   const [query, setQuery] = useState('');
-  const [sortMode, setSortMode] = useState('updated');
-  const booksById = useMemo(() => {
-    const result = new Map(initialBooks.map((book) => [book.id, book]));
-    offlineItems.forEach((item) => {
-      if (!result.has(item.bookId)) result.set(item.bookId, item.book);
-    });
-    return result;
-  }, [initialBooks, offlineItems]);
+  const [sort, setSort] = useState('updated');
+  const [folders, setFolders] = useState([]);
+  const [assignments, setAssignments] = useState({});
+  const [activeFolder, setActiveFolder] = useState('');
+  const [folderName, setFolderName] = useState('');
+  const [addingFolder, setAddingFolder] = useState(false);
+  const booksById = useMemo(() => new Map(initialBooks.map((book) => [book.id, book])), [initialBooks]);
   const visibleItems = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase('ru-RU');
-    const sourceItems = activeTab === 'offline' ? offlineItems : items;
-    return sourceItems
-      .filter((item) => {
-        const book = booksById.get(item.bookId);
-        if (!book) return false;
-        const inTab = activeTab === 'offline' || activeTab === 'all' || (activeTab === 'history' ? Boolean(item.lastChapterId) : item.status === activeTab);
-        const inSearch = !normalized || `${book.title} ${book.author} ${book.seriesTitle || ''}`.toLocaleLowerCase('ru-RU').includes(normalized);
-        return inTab && inSearch;
-      })
-      .sort((left, right) => {
-        const leftBook = booksById.get(left.bookId);
-        const rightBook = booksById.get(right.bookId);
-        if (sortMode === 'title') return String(leftBook?.title || '').localeCompare(String(rightBook?.title || ''), 'ru-RU');
-        if (sortMode === 'recent') return new Date(right.lastOpenedAt || 0) - new Date(left.lastOpenedAt || 0);
-        if (sortMode === 'added') return new Date(right.createdAt || 0) - new Date(left.createdAt || 0);
-        return new Date(rightBook?.updatedAt || right.updatedAt || 0) - new Date(leftBook?.updatedAt || left.updatedAt || 0);
-      });
-  }, [activeTab, booksById, items, offlineItems, query, sortMode]);
+    const text = query.trim().toLocaleLowerCase('ru');
+    const results = items.filter((item) => {
+      const book = booksById.get(item.bookId);
+      return book && (activeTab === 'all' || item.status === activeTab) &&
+        (!activeFolder || assignments[item.bookId] === activeFolder) &&
+        `${book.title} ${book.author}`.toLocaleLowerCase('ru').includes(text);
+    });
+    if (sort === 'title') results.sort((a, b) => booksById.get(a.bookId).title.localeCompare(booksById.get(b.bookId).title, 'ru'));
+    if (sort === 'updated') results.sort((a, b) => String(booksById.get(b.bookId).lastPublishedAt || '').localeCompare(String(booksById.get(a.bookId).lastPublishedAt || '')));
+    return results;
+  }, [activeFolder, activeTab, assignments, booksById, items, query, sort]);
 
-  const tabCount = (value) => {
-    const available = items.filter((item) => booksById.has(item.bookId));
-    if (value === 'offline') return offlineItems.length;
-    if (value === 'all') return available.length;
-    if (value === 'history') return available.filter((item) => item.lastChapterId).length;
-    return available.filter((item) => item.status === value).length;
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('booknerd:library-folders') || '{}');
+      setFolders(saved.folders || []);
+      setAssignments(saved.assignments || {});
+    } catch { /* Use empty folders if browser storage is unavailable. */ }
+  }, []);
+
+  const saveFolders = (nextFolders, nextAssignments) => {
+    setFolders(nextFolders);
+    setAssignments(nextAssignments);
+    try {
+      localStorage.setItem('booknerd:library-folders', JSON.stringify({ folders: nextFolders, assignments: nextAssignments }));
+    } catch { setNotice('Папки не удалось сохранить в этом браузере.'); }
   };
 
-  useEffect(() => {
-    const requestedTab = new URLSearchParams(window.location.search).get('tab');
-    if (LIBRARY_TABS.some(([value]) => value === requestedTab)) setActiveTab(requestedTab);
-  }, []);
-
-  useEffect(() => {
-    const loadOfflineItems = () => {
-      try {
-        const saved = JSON.parse(localStorage.getItem('booknerd-offline-books-v1') || '{}');
-        const next = Object.entries(saved).map(([bookId, entry]) => {
-          const firstChapter = Array.isArray(entry.chapterItems) ? entry.chapterItems[0] : null;
-          return {
-            bookId,
-            status: 'offline',
-            savedAt: entry.savedAt || '',
-            updatedAt: entry.savedAt || '',
-            offlineHref: firstChapter?.id ? `/books/${entry.slug}/chapters/${firstChapter.id}` : `/books/${entry.slug}`,
-            book: {
-              id: bookId,
-              slug: entry.slug,
-              title: entry.title || 'Сохранённая книга',
-              author: entry.author || 'BOOKNERD',
-              coverUrl: entry.coverUrl || '',
-              status: entry.status || '',
-              chapterCount: Number(entry.chapters || 0),
-              publishedChapterCount: Number(entry.chapters || 0),
-              updatedAt: entry.savedAt || '',
-            },
-          };
-        });
-        setOfflineItems(next);
-      } catch { setOfflineItems([]); }
-    };
-    loadOfflineItems();
-    window.addEventListener('storage', loadOfflineItems);
-    return () => window.removeEventListener('storage', loadOfflineItems);
-  }, []);
+  const createFolder = (event) => {
+    event.preventDefault();
+    const name = folderName.trim();
+    if (!name) return;
+    if (folders.some((folder) => folder.name.toLocaleLowerCase('ru') === name.toLocaleLowerCase('ru'))) {
+      setNotice('Папка с таким названием уже есть.');
+      return;
+    }
+    saveFolders([...folders, { id: crypto.randomUUID(), name }], assignments);
+    setAddingFolder(false);
+    setFolderName('');
+  };
 
   useEffect(() => {
     let active = true;
@@ -184,7 +121,7 @@ export default function LibraryPage({ initialBooks = [] }) {
       const savedView = window.localStorage.getItem('booknerd:library-view');
       if (savedView === 'grid' || savedView === 'list') setViewMode(savedView);
     } catch {
-      // The default list view still works when browser storage is unavailable.
+      // The default grid view still works when browser storage is unavailable.
     }
   }, []);
 
@@ -212,62 +149,47 @@ export default function LibraryPage({ initialBooks = [] }) {
     try { window.localStorage.setItem('booknerd:library-view', nextView); } catch { /* Preference remains active for this visit. */ }
   };
 
-  const changeTab = (nextTab) => {
-    setActiveTab(nextTab);
-    const url = new URL(window.location.href);
-    if (nextTab === 'all') url.searchParams.delete('tab');
-    else url.searchParams.set('tab', nextTab);
-    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
-  };
-
   return (
-    <div className="site-shell inner-site-shell library-page">
-      <SiteHeader active="library" />
+    <div className="site-shell inner-site-shell library-page shelf-page">
+      <SiteHeader active="library" compact />
       <main>
-        <section className="inner-hero library-hero">
-          <span className="section-number">02 / ЗАКЛАДКИ</span>
-          <div><h1>Моя библиотека</h1><p>Все сохранённые истории, прогресс чтения и история — в одном месте.</p></div>
-        </section>
-
-        <section className="library-page-content">
-          <div className="library-page-tabs" role="tablist" aria-label="Разделы моей библиотеки">
+        <section className="shelf-content">
+          <div className="shelf-page-heading"><h1>Моя библиотека</h1></div>
+          <div className="shelf-tabs" role="group" aria-label="Разделы моей библиотеки">
             {LIBRARY_TABS.map(([value, label]) => (
-              <button type="button" role="tab" aria-selected={activeTab === value} className={activeTab === value ? 'is-active' : ''} onClick={() => changeTab(value)} key={value}>
-                {label}<span>{tabCount(value)}</span>
-              </button>
+              <button type="button" aria-pressed={activeTab === value} onClick={() => setActiveTab(value)} key={value}>{label}</button>
             ))}
           </div>
-
-          <div className="library-page-tools">
-            <label className="library-page-search">
-              <span className="sr-only">Найти в библиотеке</span>
-              <Search size={20} />
-              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Найти в библиотеке…" />
-            </label>
-            <label className="library-page-sort">
-              <span><ArrowUpDown size={16} /> Сортировка</span>
-              <select value={sortMode} onChange={(event) => setSortMode(event.target.value)}>
-                {SORT_OPTIONS.map(([value, label]) => <option value={value} key={value}>{label}</option>)}
-              </select>
-            </label>
-            <div className="library-view-controls" role="group" aria-label="Вид книжной полки">
-              <button type="button" className={viewMode === 'list' ? 'is-active' : ''} onClick={() => changeView('list')} aria-pressed={viewMode === 'list'} aria-label="Показать списком">
-                <List size={17} /><span>Список</span>
-              </button>
-              <button type="button" className={viewMode === 'grid' ? 'is-active' : ''} onClick={() => changeView('grid')} aria-pressed={viewMode === 'grid'} aria-label="Показать плиткой">
-                <Grid3X3 size={17} /><span>Плитка</span>
-              </button>
+          <label className="shelf-search"><Search size={18} /><input aria-label="Найти в библиотеке" placeholder="Найти в библиотеке" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
+          <div className="shelf-library-controls">
+            <select aria-label="Порядок книг" value={sort} onChange={(event) => setSort(event.target.value)}>
+              <option value="updated">По обновлению главы</option><option value="recent">По последнему чтению</option><option value="title">По названию</option>
+            </select>
+            <div role="group" aria-label="Вид книжной полки">
+              <button className="shelf-control" type="button" aria-pressed={viewMode === 'list'} onClick={() => changeView('list')} aria-label="Список"><List size={17} /></button>
+              <button className="shelf-control" type="button" aria-pressed={viewMode === 'grid'} onClick={() => changeView('grid')} aria-label="Плитка"><Grid3X3 size={17} /></button>
             </div>
           </div>
+          <div className="shelf-library-controls">
+            <select aria-label="Папки" value={activeFolder} onChange={(event) => setActiveFolder(event.target.value)}>
+              <option value="">Все папки</option>{folders.map((folder) => <option key={folder.id} value={folder.id}>{folder.name}</option>)}
+            </select>
+            <button className="shelf-control" type="button" aria-expanded={addingFolder} onClick={() => setAddingFolder(!addingFolder)}><FolderPlus size={16} /> Новая папка</button>
+          </div>
+          {addingFolder && <form className="shelf-library-controls" onSubmit={createFolder}>
+            <input className="shelf-control" aria-label="Название папки" placeholder="Название папки" maxLength={50} required value={folderName} onChange={(event) => setFolderName(event.target.value)} />
+            <button className="shelf-control" type="submit">Создать</button>
+          </form>}
 
           {loading ? <div className="library-page-loading"><LoaderCircle className="spin" size={25} /> Открываем ваши полки…</div> : visibleItems.length ? (
             <div className={`library-page-grid is-${viewMode}`}>
-              {visibleItems.map((item) => <LibraryBookCard book={booksById.get(item.bookId)} item={item} onStatusChange={changeStatus} offline={activeTab === 'offline'} key={item.bookId} />)}
+              {visibleItems.map((item) => <LibraryBookCard book={booksById.get(item.bookId)} item={item} onStatusChange={changeStatus}
+                folders={folders} folderId={assignments[item.bookId]} onFolderChange={(bookId, folderId) => saveFolders(folders, { ...assignments, [bookId]: folderId })} key={item.bookId} />)}
             </div>
           ) : (
             <div className="library-page-empty">
               <Library size={38} />
-              <div><strong>{query ? 'По вашему запросу ничего не найдено' : activeTab === 'offline' ? 'Офлайн-книг пока нет' : items.length ? 'В этом разделе пока пусто' : 'Ваши закладки ждут первую книгу'}</strong><p>{query ? 'Попробуйте другое название или имя автора.' : activeTab === 'offline' ? 'Откройте страницу книги при подключённом интернете и нажмите «Скачать для офлайн-чтения».' : 'Откройте каталог и добавьте историю на нужную полку.'}</p></div>
+              <div><strong>{items.length ? 'Книги не найдены' : 'Ваша библиотека ждёт первую книгу'}</strong><p>Откройте переводы и добавьте историю на нужную полку.</p></div>
               <a href="/translations">Выбрать книгу <ArrowRight size={17} /></a>
             </div>
           )}

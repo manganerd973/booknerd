@@ -11,6 +11,10 @@ import {
   Bookmark,
   BookmarkCheck,
   Check,
+  Cat,
+  Clock3,
+  Flag,
+  Heart,
   ChevronRight,
   ExternalLink,
   Highlighter,
@@ -18,10 +22,11 @@ import {
   Lock,
   Menu,
   MessageCircle,
-  MapPinned,
   Minus,
   Moon,
+  Pause,
   Palette,
+  Play,
   Plus,
   RotateCcw,
   Search,
@@ -32,18 +37,20 @@ import {
   Sun,
   Trash2,
   Type,
-  Volume2,
   BookMarked,
   Film,
+  Map as MapIcon,
+  Music2,
+  Volume2,
+  VolumeX,
   X,
 } from 'lucide-react';
 import CommentsSection from './comments-section.jsx';
-import BookWorldMap from './book-world-map.jsx';
+import { ShelfBook } from './book-shelves.jsx';
 import { CompletionReviewForm } from './book-reviews.jsx';
 import { richDocumentFor } from '../lib/rich-document.js';
 import { getVisitorKey, trackReaderPresence } from './site-analytics.js';
 import { updateReaderLibrary } from './reader-library.jsx';
-import { sendReadingProgress } from './reader-level-client.js';
 import {
   APP_THEME_OPTIONS,
   getStoredAppTheme,
@@ -62,7 +69,6 @@ import {
 const SETTINGS_KEY = 'booknerd-reader-settings-v2';
 const ANNOTATIONS_KEY_PREFIX = 'booknerd-reader-annotations-v1';
 const CHAPTER_EMOTIONS = ['😂', '😭', '😍', '😡', '😱', '🤍'];
-const READING_WORDS_PER_MINUTE = 220;
 
 const BOOKMARK_CATEGORIES = [
   { id: 'favorite', label: 'Любимый момент', symbol: '♡', color: '#ec8dad' },
@@ -80,7 +86,8 @@ const ERROR_CATEGORIES = [
 
 const DEFAULT_SETTINGS = {
   theme: 'paper',
-  motion: 'slide',
+  motion: 'scroll',
+  motionChosen: false,
   fontSize: 20,
   fontFamily: 'Georgia',
   lineHeight: 1.72,
@@ -93,7 +100,7 @@ const READING_MODE_OPTIONS = [
   { id: 'slide', name: 'Сдвиг', description: 'Страницы плавно двигаются в сторону' },
   { id: 'curl', name: 'Перелистывание', description: 'Эффект переворачивания бумажной страницы' },
   { id: 'fade', name: 'Быстрое затухание', description: 'Новая страница появляется без движения' },
-  { id: 'scroll', name: 'Прокрутка', description: 'Непрерывный текст сверху вниз' },
+  { id: 'scroll', name: 'Целая глава', description: 'Вся глава на одной прокручиваемой странице' },
 ];
 
 const THEME_OPTIONS = [
@@ -106,7 +113,6 @@ const THEME_OPTIONS = [
 ];
 
 const FONT_OPTIONS = [
-  { id: 'OpenDyslexic, Verdana', name: 'Для дислексии' },
   { id: 'Georgia', name: 'Georgia' },
   { id: 'Times New Roman', name: 'Times New Roman' },
   { id: 'Palatino', name: 'Palatino' },
@@ -145,27 +151,15 @@ function blocksFor(chapter) {
   return documentValue.blocks.length ? documentValue.blocks : [{ type: 'paragraph', runs: [{ text: 'Текст этой главы готовится к публикации.' }] }];
 }
 
-function wordCountForChapter(chapter) {
-  if (!chapter.body && !chapter.bodyRich && Number.isFinite(Number(chapter.wordCount))) {
-    return Math.max(0, Number(chapter.wordCount));
-  }
-  const documentValue = richDocumentFor(chapter.bodyRich, chapter.body);
-  const text = documentValue.blocks.flatMap((block) => block.runs || []).map((run) => run.text || '').join(' ');
-  return text.match(/[\p{L}\p{N}]+(?:[’'\-][\p{L}\p{N}]+)*/gu)?.length || 0;
-}
-
-function formatReadingTime(minutes) {
-  const value = Math.max(1, Math.ceil(minutes));
-  const hours = Math.floor(value / 60);
-  const rest = value % 60;
-  if (!hours) return `${value} мин`;
-  return rest ? `${hours} ч ${rest} мин` : `${hours} ч`;
-}
+const wordForms = { one: 'слово', few: 'слова', many: 'слов', other: 'слов' };
+const wordPlural = new Intl.PluralRules('ru');
 
 function ChapterFlow({
   book,
   chapter,
   showDriveLink = false,
+  commentCount = null,
+  onOpenComments,
   measuring = false,
   annotations = [],
   onOpenAnnotation,
@@ -173,13 +167,22 @@ function ChapterFlow({
   onSelectionEnd,
 }) {
   const blocks = useMemo(() => blocksFor(chapter), [chapter.body, chapter.bodyRich]);
+  const wordCount = useMemo(() => {
+    const document = richDocumentFor(chapter.bodyRich, chapter.body);
+    return document.blocks.reduce((total, block) => {
+      const text = block.runs.map((run) => run.text).join('');
+      return total + (text.match(/[\p{L}\p{N}][\p{L}\p{M}\p{N}]*(?:[-’'][\p{L}\p{M}\p{N}]+)*/gu)?.length || 0);
+    }, 0);
+  }, [chapter.body, chapter.bodyRich]);
+  const minutes = Math.ceil(wordCount / 200);
+  const CommentControl = onOpenComments ? 'button' : 'span';
   const chapterTitle = manualChapterTitle(chapter);
 
   return (
     <article className="reader-flow-chapter">
       <header className="reader-flow-intro">
         <span>{book.title}</span>
-        {chapterTitle ? <h1>{chapterTitle}</h1> : null}
+        <h1>{chapterTitle || `Глава ${chapter.chapterNumber}`}</h1>
         {chapter.pointOfView ? <p className="reader-chapter-pov">От лица {chapter.pointOfView}</p> : null}
         {showDriveLink && chapter.driveUrl ? measuring ? (
           <span className="reader-flow-drive">Файл главы <ExternalLink size={14} /></span>
@@ -188,24 +191,16 @@ function ChapterFlow({
             Файл главы <ExternalLink size={14} />
           </a>
         ) : null}
-        <div className="reader-flow-rule"><i />✦<i /></div>
+        <div className="reader-chapter-meta" aria-label="Сведения о главе">
+          <span aria-label={`Примерное время чтения: ${minutes} мин`}><Clock3 size={15} aria-hidden="true" /> {minutes} мин</span>
+          <span><BookOpen size={15} aria-hidden="true" /> {wordCount} {wordForms[wordPlural.select(wordCount)]}</span>
+          <CommentControl {...(onOpenComments ? { type: 'button', onClick: onOpenComments, 'aria-label': `Открыть комментарии к главе${commentCount === null ? '' : `: ${commentCount}`}` } : {})}><MessageCircle size={15} aria-hidden="true" /> {commentCount ?? '—'}</CommentControl>
+          {book.ageRating != null && <span className="reader-chapter-age" aria-label={`Возрастной рейтинг ${book.ageRating}+`}>{book.ageRating}+</span>}
+        </div>
+        <p className="reader-error-hint"><strong>Нашли ошибку?</strong> Выделите фрагмент текста и нажмите «Предложить правку».</p>
       </header>
       <div className="reader-flow-copy">
         {blocks.map((block, index) => {
-          if (block.type === 'image') {
-            return (
-              <figure className={`reader-chapter-image is-${block.size} align-${block.align}`} key={`image-${block.src}-${index}`}>
-                <img
-                  src={block.src}
-                  alt={block.alt || ''}
-                  width={block.width || undefined}
-                  height={block.height || undefined}
-                  loading="lazy"
-                  decoding="async"
-                />
-              </figure>
-            );
-          }
           const text = block.runs.map((run) => run.text).join('');
           const element = block.chatSide ? 'p' : block.type === 'heading' ? 'h2' : block.type === 'subheading' ? 'h3' : block.type === 'blockquote' ? 'blockquote' : 'p';
           const listMarker = block.type === 'list-item' ? block.listType === 'number' ? `${block.listIndex || index + 1}.` : '•' : '';
@@ -266,10 +261,8 @@ function ReadingModeIcon({ mode, size = 22 }) {
   return <ArrowRight size={size} />;
 }
 
-export default function ReaderView({ book, chapter, chapters = [], previous, next }) {
-  const chapterList = useMemo(() => chapters.length
-    ? chapters.map((item) => item.id === chapter.id ? { ...item, ...chapter } : item)
-    : [chapter], [chapters, chapter]);
+export default function ReaderView({ book, chapter, chapters = [], previous, next, recommendations = [], similar = [], supportLinks = [], supportCard = '', initialCommentCount = null }) {
+  const chapterList = useMemo(() => chapters.length ? chapters : [chapter], [chapters, chapter]);
   const chapterIndex = Math.max(0, chapterList.findIndex((item) => item.id === chapter.id));
   const translationCompleted = book.status === 'Завершено';
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
@@ -280,9 +273,6 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
   const [measurementReady, setMeasurementReady] = useState(false);
   const [panel, setPanel] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchError, setSearchError] = useState('');
   const [bookmarks, setBookmarks] = useState([]);
   const [bookmarkDraft, setBookmarkDraft] = useState(null);
   const [errorDraft, setErrorDraft] = useState(null);
@@ -291,19 +281,26 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
   const [orientationLocked, setOrientationLocked] = useState(false);
   const [chromeHidden, setChromeHidden] = useState(false);
   const [showCompletion, setShowCompletion] = useState(false);
+  const [commentCount, setCommentCount] = useState(initialCommentCount);
+  const [supportDismissed, setSupportDismissed] = useState(false);
+  const [chapterLike, setChapterLike] = useState({ liked: false, total: 0 });
+  const [likeReady, setLikeReady] = useState(false);
+  const [likeSaving, setLikeSaving] = useState(false);
   const [annotations, setAnnotations] = useState([]);
   const [annotationsReady, setAnnotationsReady] = useState(false);
   const [textSelection, setTextSelection] = useState(null);
-  const [readerHub, setReaderHub] = useState({ reactions: [], emotionTotals: [], myEmotions: [] });
-  const [bookGlossary, setBookGlossary] = useState({ entries: [], total: 0, unlockedChapter: 0 });
-  const [glossaryQuery, setGlossaryQuery] = useState('');
+  const [readerHub, setReaderHub] = useState({ dictionary: [], reactions: [], emotionTotals: [], myEmotions: [] });
+  const [dictionaryDraft, setDictionaryDraft] = useState(null);
+  const [ambientSound, setAmbientSound] = useState('');
+  const [chapterMusicPlaying, setChapterMusicPlaying] = useState(false);
+  const [chapterMusicVolume, setChapterMusicVolume] = useState(.65);
 
   useEffect(() => {
     const ping = () => {
       if (document.visibilityState !== 'hidden') trackReaderPresence(book.id, chapter.id);
     };
     ping();
-    const timer = window.setInterval(ping, 120000);
+    const timer = window.setInterval(ping, 30000);
     document.addEventListener('visibilitychange', ping);
     return () => {
       window.clearInterval(timer);
@@ -339,6 +336,8 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
   const initialPositionApplied = useRef(false);
   const touchStart = useRef(null);
   const readerTap = useRef({ tracking: false, x: 0, y: 0, last: 0 });
+  const ambientAudioRef = useRef(null);
+  const chapterAudioRef = useRef(null);
 
   const annotationStorageKey = `${ANNOTATIONS_KEY_PREFIX}:${book.id}`;
   const chapterAnnotations = useMemo(
@@ -349,7 +348,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
   const annotationVersion = annotations.map((annotation) => `${annotation.id}:${annotation.updatedAt || annotation.createdAt}:${annotation.color}:${annotation.sticker}:${annotation.note}`).join('|');
 
   const updateSetting = useCallback((key, value) => {
-    setSettings((current) => ({ ...current, [key]: value }));
+    setSettings((current) => ({ ...current, [key]: value, motionChosen: key === 'motion' || current.motionChosen }));
   }, []);
 
   const updateReaderTheme = useCallback((theme) => {
@@ -374,7 +373,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
         ...saved,
         fontFamily: fontExists ? saved.fontFamily : DEFAULT_SETTINGS.fontFamily,
         theme: followsAppTheme ? readerThemeForApp(getStoredAppTheme()) : themeExists ? saved.theme : DEFAULT_SETTINGS.theme,
-        motion: motionExists ? saved.motion : DEFAULT_SETTINGS.motion,
+        motion: motionExists && saved.motionChosen ? saved.motion : DEFAULT_SETTINGS.motion,
         fontSize: clamp(Number(saved.fontSize) || DEFAULT_SETTINGS.fontSize, 16, 30),
         lineHeight: clamp(Number(saved.lineHeight) || DEFAULT_SETTINGS.lineHeight, 1.35, 2.1),
         brightness: clamp(Number(saved.brightness) || DEFAULT_SETTINGS.brightness, 35, 100),
@@ -431,6 +430,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
     return fetch(`/api/reader-hub?${query.toString()}`, { cache: 'no-store' })
       .then((response) => response.json())
       .then((data) => setReaderHub({
+        dictionary: Array.isArray(data.dictionary) ? data.dictionary : [],
         reactions: Array.isArray(data.reactions) ? data.reactions : [],
         emotionTotals: Array.isArray(data.emotionTotals) ? data.emotionTotals : [],
         myEmotions: Array.isArray(data.myEmotions) ? data.myEmotions : [],
@@ -440,13 +440,32 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
 
   useEffect(() => { refreshReaderHub(); }, [refreshReaderHub]);
 
+  useEffect(() => () => {
+    if (ambientAudioRef.current) {
+      ambientAudioRef.current.close?.().catch?.(() => {});
+      ambientAudioRef.current = null;
+    }
+    chapterAudioRef.current?.pause?.();
+  }, []);
+
   useEffect(() => {
-    const query = new URLSearchParams({ visitorKey: getVisitorKey(), chapterId: chapter.id });
-    fetch(`/api/books/${book.id}/glossary?${query.toString()}`, { cache: 'no-store' })
-      .then((response) => response.json())
-      .then((data) => setBookGlossary(data.entries ? data : { entries: [], total: 0, unlockedChapter: 0 }))
-      .catch(() => setBookGlossary({ entries: [], total: 0, unlockedChapter: 0 }));
-  }, [book.id, chapter.id]);
+    try {
+      const saved = Number(localStorage.getItem('booknerd-chapter-music-volume-v1'));
+      if (Number.isFinite(saved)) setChapterMusicVolume(clamp(saved, 0, 1));
+    } catch { /* device storage is optional */ }
+  }, []);
+
+  useEffect(() => {
+    if (chapterAudioRef.current) chapterAudioRef.current.volume = chapterMusicVolume;
+    try { localStorage.setItem('booknerd-chapter-music-volume-v1', String(chapterMusicVolume)); } catch { /* device storage is optional */ }
+  }, [chapterMusicVolume]);
+
+  useEffect(() => {
+    const audio = chapterAudioRef.current;
+    audio?.pause?.();
+    if (audio) audio.currentTime = 0;
+    setChapterMusicPlaying(false);
+  }, [chapter.id]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -481,12 +500,11 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
 
     const measure = () => {
       if (cancelled) return;
-      const node = measureRefs.current.get(chapter.id);
-      const currentCount = node ? Math.max(1, Math.ceil((node.scrollWidth - 1) / dimensions.width)) : 1;
-      const currentWords = Math.max(1, wordCountForChapter(chapter));
-      const counts = chapterList.map((item) => item.id === chapter.id
-        ? currentCount
-        : Math.max(1, Math.round((wordCountForChapter(item) / currentWords) * currentCount)));
+      const counts = chapterList.map((item) => {
+        const node = measureRefs.current.get(item.id);
+        if (!node) return 1;
+        return Math.max(1, Math.ceil((node.scrollWidth - 1) / dimensions.width));
+      });
       setPageCounts((current) => current.join(',') === counts.join(',') ? current : counts);
       setMeasurementReady(true);
     };
@@ -504,7 +522,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       window.cancelAnimationFrame(firstFrame);
       window.cancelAnimationFrame(secondFrame);
     };
-  }, [annotationVersion, chapter, chapterList, dimensions, settings.align, settings.bold, settings.fontFamily, settings.fontSize, settings.lineHeight, settingsReady]);
+  }, [annotationVersion, chapterList, dimensions, settings.align, settings.bold, settings.fontFamily, settings.fontSize, settings.lineHeight, settingsReady]);
 
   const currentChapterPages = pageCounts[chapterIndex] || 1;
 
@@ -537,7 +555,15 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
   useEffect(() => {
     if (!initialPositionApplied.current) return;
     try { localStorage.setItem(`booknerd-reader-position:${book.id}:${chapter.id}`, String(page)); } catch { /* optional */ }
-  }, [book.id, chapter.id, page]);
+    updateReaderLibrary({
+      bookId: book.id,
+      status: 'reading',
+      lastChapterId: chapter.id,
+      lastPage: page,
+      progress: Math.max(1, Math.round(((chapterIndex + (page + 1) / Math.max(1, currentChapterPages)) / Math.max(1, chapterList.length)) * 100)),
+      preserveFinished: true,
+    }).catch(() => {});
+  }, [book.id, chapter.id, chapterIndex, chapterList.length, currentChapterPages, page]);
 
   const bookPageOffset = useMemo(
     () => pageCounts.slice(0, chapterIndex).reduce((total, count) => total + count, 0),
@@ -546,14 +572,8 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
   const totalBookPages = Math.max(1, pageCounts.reduce((total, count) => total + count, 0));
   const currentBookPage = clamp(bookPageOffset + page + 1, 1, totalBookPages);
   const percent = Math.round((currentBookPage / totalBookPages) * 100);
-  const chapterWordCounts = useMemo(() => chapterList.map(wordCountForChapter), [chapterList]);
-  const remainingWordCount = useMemo(() => {
-    const currentWords = chapterWordCounts[chapterIndex] || 0;
-    const currentChapterFraction = clamp((currentChapterPages - page) / Math.max(1, currentChapterPages), 0, 1);
-    const laterWords = chapterWordCounts.slice(chapterIndex + 1).reduce((total, count) => total + count, 0);
-    return Math.max(0, Math.ceil(currentWords * currentChapterFraction) + laterWords);
-  }, [chapterIndex, chapterWordCounts, currentChapterPages, page]);
-  const readingMinutesLeft = Math.max(1, Math.ceil(remainingWordCount / READING_WORDS_PER_MINUTE));
+  const pagesLeftInChapter = Math.max(0, currentChapterPages - page - 1);
+  const estimatedMinutesLeft = Math.max(1, Math.ceil((totalBookPages - currentBookPage) * 1.8));
   const chapterBlockCount = Math.max(1, blocksFor(chapter).length);
   const currentChapterEmotionTotals = readerHub.emotionTotals.filter((item) => item.chapter_id === chapter.id);
   const myChapterEmotion = readerHub.myEmotions.find((item) => item.chapter_id === chapter.id)?.emoji || '';
@@ -567,19 +587,36 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
   }, [chapterProgress, page, percent]);
 
   useEffect(() => {
+    if (!initialPositionApplied.current) return;
+    fetch('/api/reading-progress', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        visitorKey: getVisitorKey(),
+        bookId: book.id,
+        chapterId: chapter.id,
+        seconds: 0,
+        chapterProgress,
+        bookProgress: percent,
+        page,
+        completed: chapterProgress >= 100,
+      }),
+      keepalive: true,
+    }).catch(() => {});
+  }, [book.id, chapter.id, chapterProgress, page, percent]);
+
+  useEffect(() => {
     let stopped = false;
-    let lastMilestone = -1;
     const notificationReturn = (() => {
       try { return new URLSearchParams(window.location.search).get('notification') === '1'; } catch { return false; }
     })();
     const record = (seconds = 0, completed = false) => {
       if (stopped && !completed) return;
-      if (!completed && document.visibilityState === 'hidden') return;
       const currentReadingState = readingStateRef.current;
-      const milestone = Math.floor(currentReadingState.chapterProgress / 10);
-      if (!completed && seconds === 0 && milestone === lastMilestone) return;
-      lastMilestone = Math.max(lastMilestone, milestone);
-      sendReadingProgress({
+      fetch('/api/reading-progress', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
           visitorKey: getVisitorKey(),
           bookId: book.id,
           chapterId: chapter.id,
@@ -589,31 +626,23 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
           page: currentReadingState.page,
           completed,
           notificationReturn,
-        }).catch(() => {});
+        }),
+        keepalive: true,
+      }).catch(() => {});
     };
-    const timer = window.setInterval(() => record(120, false), 120000);
+    record(0, false);
+    const timer = window.setInterval(() => record(30, false), 30000);
     return () => {
       stopped = true;
       window.clearInterval(timer);
     };
   }, [book.id, chapter.id, next?.id, translationCompleted]);
 
-  useEffect(() => {
-    if (!initialPositionApplied.current) return;
-    const timer = window.setTimeout(() => {
-      const currentReadingState = readingStateRef.current;
-      sendReadingProgress({
-        visitorKey: getVisitorKey(), bookId: book.id, chapterId: chapter.id, seconds: 0,
-        chapterProgress: currentReadingState.chapterProgress, bookProgress: currentReadingState.percent,
-        page: currentReadingState.page, completed: false,
-      }).catch(() => {});
-    }, 500);
-    return () => window.clearTimeout(timer);
-  }, [book.id, chapter.id, Math.floor(chapterProgress / 10)]);
-
-  useEffect(() => {
-    if (!showCompletion) return;
-    sendReadingProgress({
+  const markChapterComplete = useCallback(() => {
+    fetch('/api/reading-progress', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
         visitorKey: getVisitorKey(),
         bookId: book.id,
         chapterId: chapter.id,
@@ -622,8 +651,52 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
         bookProgress: next || !translationCompleted ? percent : 100,
         page,
         completed: true,
-      }).catch(() => {});
-  }, [book.id, chapter.id, next, page, percent, showCompletion, translationCompleted]);
+      }),
+      keepalive: true,
+    }).catch(() => {});
+  }, [book.id, chapter.id, next, page, percent, translationCompleted]);
+
+  useEffect(() => {
+    if (showCompletion) markChapterComplete();
+  }, [markChapterComplete, showCompletion]);
+
+  const goToNextChapter = (markComplete = true) => {
+    if (!next) {
+      setShowCompletion(true);
+      return;
+    }
+    if (markComplete) markChapterComplete();
+    window.location.href = `/books/${book.slug}/chapters/${next.id}`;
+  };
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setLikeReady(false);
+    const query = new URLSearchParams({ chapterId: chapter.id, visitorKey: getVisitorKey() });
+    fetch(`/api/chapter-likes?${query}`, { signal: controller.signal })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => { if (data) { setChapterLike(data); setLikeReady(true); } })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [chapter.id]);
+
+  const toggleChapterLike = async () => {
+    if (!likeReady || likeSaving) return;
+    setLikeSaving(true);
+    try {
+      const response = await fetch('/api/chapter-likes', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ chapterId: chapter.id, visitorKey: getVisitorKey(), liked: !chapterLike.liked }),
+      });
+      if (!response.ok) throw new Error();
+      setChapterLike(await response.json());
+    } catch {
+      setToast('Не удалось изменить отметку главы.');
+    } finally {
+      setLikeSaving(false);
+    }
+  };
 
   const goBackward = useCallback(() => {
     if (settings.motion === 'scroll') {
@@ -951,6 +1024,49 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
     }
   }, [book.id, chapter.id, clearTextSelection, refreshReaderHub, textSelection]);
 
+  const openDictionaryDraft = useCallback(() => {
+    if (!textSelection?.text) return;
+    setDictionaryDraft({ word: textSelection.text.slice(0, 240), meaning: '', quote: textSelection.text });
+    clearTextSelection();
+    setPanel('dictionary-edit');
+  }, [clearTextSelection, textSelection]);
+
+  const saveDictionaryEntry = useCallback(async () => {
+    if (!dictionaryDraft?.word?.trim()) return;
+    setExtraSaving(true);
+    try {
+      const response = await fetch('/api/reader-hub', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          action: 'dictionary',
+          visitorKey: getVisitorKey(),
+          bookId: book.id,
+          chapterId: chapter.id,
+          ...dictionaryDraft,
+        }),
+      });
+      if (!response.ok) throw new Error('Не удалось сохранить слово.');
+      setDictionaryDraft(null);
+      await refreshReaderHub();
+      setPanel('dictionary');
+      setToast('Слово добавлено в личный словарь');
+    } catch (error) {
+      setToast(error.message);
+    } finally {
+      setExtraSaving(false);
+    }
+  }, [book.id, chapter.id, dictionaryDraft, refreshReaderHub]);
+
+  const deleteDictionaryEntry = useCallback(async (id) => {
+    await fetch('/api/reader-hub', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ action: 'deleteDictionary', visitorKey: getVisitorKey(), id }),
+    }).catch(() => {});
+    refreshReaderHub();
+  }, [refreshReaderHub]);
+
   const saveChapterEmotion = useCallback(async (emoji) => {
     try {
       const response = await fetch('/api/reader-hub', {
@@ -966,12 +1082,77 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
     }
   }, [book.id, chapter.id, refreshReaderHub]);
 
+  const stopAmbientSound = useCallback(() => {
+    const context = ambientAudioRef.current;
+    ambientAudioRef.current = null;
+    setAmbientSound('');
+    context?.close?.().catch?.(() => {});
+  }, []);
+
+  const stopChapterMusic = useCallback(() => {
+    chapterAudioRef.current?.pause?.();
+    setChapterMusicPlaying(false);
+  }, []);
+
+  const toggleChapterMusic = useCallback(async () => {
+    const audio = chapterAudioRef.current;
+    if (!audio || !chapter.musicUrl) return;
+    if (!audio.paused) {
+      stopChapterMusic();
+      return;
+    }
+    stopAmbientSound();
+    try {
+      audio.volume = chapterMusicVolume;
+      await audio.play();
+      setChapterMusicPlaying(true);
+    } catch {
+      setChapterMusicPlaying(false);
+      setToast('Не удалось включить музыку. Проверьте подключение и попробуйте ещё раз.');
+    }
+  }, [chapter.musicUrl, chapterMusicVolume, stopAmbientSound, stopChapterMusic]);
+
+  const toggleAmbientSound = useCallback((kind) => {
+    if (ambientSound === kind) {
+      stopAmbientSound();
+      return;
+    }
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) {
+      setToast('Этот браузер не поддерживает фоновые звуки.');
+      return;
+    }
+    stopChapterMusic();
+    const previous = ambientAudioRef.current;
+    previous?.close?.().catch?.(() => {});
+    const context = new AudioContext();
+    const duration = 3;
+    const buffer = context.createBuffer(1, context.sampleRate * duration, context.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let index = 0; index < data.length; index += 1) {
+      const noise = Math.random() * 2 - 1;
+      data[index] = kind === 'fire' ? noise * (Math.random() > .985 ? .9 : .12) : noise;
+    }
+    const source = context.createBufferSource();
+    const filter = context.createBiquadFilter();
+    const gain = context.createGain();
+    source.buffer = buffer;
+    source.loop = true;
+    filter.type = kind === 'rain' ? 'highpass' : 'lowpass';
+    filter.frequency.value = kind === 'rain' ? 1200 : kind === 'forest' ? 900 : 520;
+    gain.gain.value = kind === 'rain' ? .035 : kind === 'forest' ? .018 : .045;
+    source.connect(filter).connect(gain).connect(context.destination);
+    source.start();
+    ambientAudioRef.current = context;
+    setAmbientSound(kind);
+  }, [ambientSound, stopAmbientSound, stopChapterMusic]);
+
   useEffect(() => {
     const node = viewportRef.current;
     if (!node || !measurementReady) return undefined;
     const frame = window.requestAnimationFrame(() => {
       if (settings.motion === 'scroll') {
-        const maximum = Math.max(0, node.scrollHeight - node.clientHeight);
+        const maximum = Math.max(0, (node.firstElementChild?.offsetHeight ?? node.scrollHeight) - node.clientHeight);
         node.scrollTop = currentChapterPages > 1 ? (page / (currentChapterPages - 1)) * maximum : 0;
       } else {
         node.scrollTop = 0;
@@ -983,8 +1164,8 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
   const handleReaderScroll = useCallback((event) => {
     if (settings.motion !== 'scroll') return;
     const node = event.currentTarget;
-    const maximum = node.scrollHeight - node.clientHeight;
-    const ratio = maximum > 0 ? node.scrollTop / maximum : 0;
+    const maximum = (node.firstElementChild?.offsetHeight ?? node.scrollHeight) - node.clientHeight;
+    const ratio = maximum > 0 ? Math.min(1, node.scrollTop / maximum) : node.scrollTop > 0 ? 1 : 0;
     const visiblePage = Math.round(ratio * Math.max(0, currentChapterPages - 1));
     setPage((current) => current === visiblePage ? current : visiblePage);
   }, [currentChapterPages, settings.motion]);
@@ -1095,7 +1276,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       if (!response.ok) throw new Error(data.error || 'Не удалось отправить сообщение.');
       setErrorDraft(null);
       setPanel(null);
-      setToast('Спасибо! Фрагмент и место уже видны команде.');
+      setToast(errorDraft.scope === 'chapter' ? 'Жалоба отправлена команде Booknerd.' : 'Спасибо! Предложение отправлено команде Booknerd.');
     } catch (error) {
       setToast(error.message);
     } finally {
@@ -1104,11 +1285,12 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
   };
 
   const sharePage = async () => {
-    const shareData = { title: `${book.title} — ${chapter.title}`, text: `Читаю «${book.title}» на BOOKNERD`, url: window.location.href };
+    const chapterUrl = new URL(window.location.pathname, window.location.origin).href;
+    const shareData = { title: `${book.title} — ${chapter.title}`, text: `Читаю «${book.title}» на BOOKNERD`, url: chapterUrl };
     try {
       if (navigator.share) await navigator.share(shareData);
       else {
-        await navigator.clipboard.writeText(window.location.href);
+        await navigator.clipboard.writeText(chapterUrl);
         setToast('Ссылка скопирована');
       }
     } catch (error) {
@@ -1136,52 +1318,25 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
 
   const openComments = () => {
     setPanel(null);
-    window.setTimeout(() => document.getElementById('chapter-comments')?.scrollIntoView({ behavior: 'smooth' }), 80);
+    if (settings.motion !== 'scroll') setPage(Math.max(0, currentChapterPages - 1));
+    window.setTimeout(() => document.getElementById(`comments-${chapter.id}`)?.scrollIntoView({ behavior: 'smooth' }), 80);
   };
 
-  useEffect(() => {
-    const normalized = searchQuery.trim();
-    if (panel !== 'search' || normalized.length < 2) {
-      setSearchResults([]);
-      setSearchLoading(false);
-      setSearchError('');
-      return undefined;
-    }
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => {
-      setSearchLoading(true);
-      setSearchError('');
-      const query = new URLSearchParams({
-        q: normalized,
-        chapterId: chapter.id,
-      });
-      fetch(`/api/books/${book.id}/chapter-search?${query.toString()}`, { cache: 'no-store', signal: controller.signal })
-        .then(async (response) => {
-          const data = await response.json().catch(() => ({}));
-          if (!response.ok) throw new Error(data.error || 'Поиск временно недоступен.');
-          setSearchResults(Array.isArray(data.results) ? data.results : []);
-        })
-        .catch((error) => {
-          if (error.name !== 'AbortError') {
-            setSearchResults([]);
-            setSearchError(error.message || 'Поиск временно недоступен.');
-          }
-        })
-        .finally(() => {
-          if (!controller.signal.aborted) setSearchLoading(false);
-        });
-    }, 420);
-    return () => {
-      window.clearTimeout(timer);
-      controller.abort();
-    };
-  }, [book.id, chapter.chapterNumber, panel, searchQuery]);
-
-  const visibleGlossaryEntries = useMemo(() => {
-    const needle = glossaryQuery.trim().toLocaleLowerCase('ru-RU');
-    if (!needle) return bookGlossary.entries;
-    return bookGlossary.entries.filter((entry) => `${entry.name} ${entry.description} ${entry.category || ''} ${entry.connections || ''}`.toLocaleLowerCase('ru-RU').includes(needle));
-  }, [bookGlossary.entries, glossaryQuery]);
+  const searchResults = useMemo(() => {
+    const needle = searchQuery.trim().toLocaleLowerCase('ru-RU');
+    if (needle.length < 2) return [];
+    return chapterList.flatMap((item) => {
+      const body = String(item.body || '');
+      const haystack = `${item.title}\n${body}`.toLocaleLowerCase('ru-RU');
+      const foundAt = haystack.indexOf(needle);
+      if (foundAt < 0) return [];
+      const bodyPosition = Math.max(0, body.toLocaleLowerCase('ru-RU').indexOf(needle));
+      const start = Math.max(0, bodyPosition - 70);
+      const end = Math.min(body.length, bodyPosition + needle.length + 120);
+      const snippet = `${start > 0 ? '…' : ''}${body.slice(start, end).replace(/\s+/g, ' ')}${end < body.length ? '…' : ''}`;
+      return [{ ...item, snippet: snippet || item.title }];
+    }).slice(0, 30);
+  }, [chapterList, searchQuery]);
 
   const fontStyle = {
     '--reader-font-size': `${settings.fontSize}px`,
@@ -1203,6 +1358,51 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
     ? `${chapter.id}-${settings.motion}-${page}`
     : `${chapter.id}-${settings.motion}`;
 
+  const chapterComments = (
+    <section id="chapter-comments" className="reader-discussion-wrap">
+      <div className="reader-chapter-end-content">
+        {!supportDismissed && (supportCard || supportLinks.length > 0) && <section className="reader-chapter-support">
+          <button type="button" className="reader-support-close" aria-label="Скрыть блок поддержки" onClick={() => setSupportDismissed(true)}><X size={19} /></button>
+          <div className="reader-support-message"><p>Мур! Если хотите порадовать нас или поблагодарить</p><Cat size={43} aria-hidden="true" /></div>
+          <h2>Подкормите котика переводчиков</h2>
+          {supportCard && <details className="reader-support-card"><summary>Перевод на карту</summary><p>{supportCard.replace(/(.{4})(?=.)/g, '$1 ')}</p>
+            <button type="button" onClick={async () => { try { await navigator.clipboard.writeText(supportCard); setToast('Номер карты скопирован'); } catch { setToast('Выделите номер и скопируйте его вручную.'); } }}>Скопировать номер</button>
+          </details>}
+          <div>{supportLinks.map(({ label, url }) => <a key={label} href={url} target="_blank" rel="noreferrer">{label}</a>)}</div>
+        </section>}
+        <nav className="reader-chapter-end" aria-label="Переход между главами">
+          {previous && <a href={`/books/${book.slug}/chapters/${previous.id}`}><small><ArrowLeft size={15} /> Назад</small><strong>Глава {previous.chapterNumber}</strong></a>}
+          {next
+            ? <button type="button" onClick={() => goToNextChapter()}><small>Дальше <ArrowRight size={15} /></small><strong>Глава {next.chapterNumber}</strong></button>
+            : <button type="button" onClick={() => goToNextChapter()}><strong>Завершить чтение</strong></button>}
+        </nav>
+        <div className="reader-chapter-actions">
+          <button className="reader-chapter-like" type="button" aria-label="Нравится глава" aria-pressed={chapterLike.liked} disabled={!likeReady || likeSaving} onClick={toggleChapterLike}><Heart size={19} fill={chapterLike.liked ? 'currentColor' : 'none'} /> {chapterLike.total}</button>
+          <button type="button" onClick={openComments}><MessageCircle size={19} /> Комментарии{commentCount !== null && ` · ${commentCount}`}</button>
+          <button type="button" className="reader-chapter-report" onClick={() => { setErrorDraft({ scope: 'chapter', category: 'other', page, details: '' }); setPanel('report-error'); }}><Flag size={17} /> Пожаловаться</button>
+        </div>
+        <div className="reader-chapter-shortcuts">
+          <a href={`/books/${book.slug}`}><BookOpen size={20} /> К книге</a>
+          <button type="button" onClick={sharePage}><Share2 size={20} /> Поделиться</button>
+        </div>
+        {[['Рекомендуем вам', recommendations], ['Похожие по жанрам', similar]].map(([title, items]) => items.length > 0 &&
+          <section className="reader-chapter-recommendations" key={title}>
+            <h2>{title}</h2><div className="shelf-row" tabIndex={0} role="region" aria-label={title}>
+              {items.map((item) => <ShelfBook key={item.id} book={item} badge={item.ageRating === 18 ? '18+' : undefined} />)}
+            </div>
+          </section>
+        )}
+      </div>
+      {chapter.teamNote && (
+        <aside className="chapter-team-note">
+          <span>✦</span>
+          <div><small>ЗАМЕТКА КОМАНДЫ</small><p>{chapter.teamNote}</p></div>
+        </aside>
+      )}
+      <CommentsSection bookId={book.id} chapterId={chapter.id} onCountChange={setCommentCount} key={chapter.id} />
+    </section>
+  );
+
   return (
     <main className="reader-page reader-modern" data-reader-theme={settings.theme} data-reader-chrome={chromeHidden ? 'hidden' : 'visible'} style={fontStyle}>
       <section
@@ -1214,33 +1414,20 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
         onPointerCancel={() => { readerTap.current.tracking = false; }}
         onDoubleClick={(event) => event.preventDefault()}
       >
-        <header className="reader-book-header">
-          <a className="reader-book-brand" href="/"><span>B</span><strong>BOOKNERD</strong></a>
-          <div className="reader-book-progress" aria-label={`Прочитано ${percent}%`}>
-            <div><i style={{ width: `${percent}%` }} /></div><span>{percent}%</span>
-          </div>
+        <header className="reader-compact-header">
+          <div className="reader-compact-progress" role="progressbar" aria-label="Прогресс чтения книги" aria-valuenow={percent}><i style={{ width: `${percent}%` }} /></div>
+          <a href={`/books/${book.slug}`} aria-label="К странице книги"><ArrowLeft size={21} /></a>
+          <div className="reader-compact-title"><strong>{book.title}</strong><small>Глава {chapter.chapterNumber}</small></div>
+          {chapter.musicUrl && <button type="button" onClick={toggleChapterMusic} aria-label={chapterMusicPlaying ? 'Пауза' : 'Музыка главы'}>{chapterMusicPlaying ? <Pause size={18} /> : <Play size={18} />}</button>}
+          <button type="button" onClick={() => updateReaderTheme(settings.theme === 'night' ? 'paper' : 'night')} aria-label="Переключить тему">{settings.theme === 'night' ? <Sun size={18} /> : <Moon size={18} />}</button>
+          <button type="button" onClick={() => setPanel('settings')} aria-label="Настройки чтения">Аа</button>
+          <button type="button" onClick={() => setPanel('menu')} aria-label="Меню читалки"><Menu size={19} /></button>
         </header>
-
-        <nav className="reader-quickbar" aria-label="Быстрые настройки чтения">
-          <button type="button" onClick={() => updateSetting('fontSize', clamp(settings.fontSize - 1, 16, 30))} aria-label="Уменьшить текст">A−</button>
-          <button type="button" onClick={() => updateSetting('fontSize', clamp(settings.fontSize + 1, 16, 30))} aria-label="Увеличить текст">A+</button>
-          <button type="button" onClick={() => updateReaderTheme(settings.theme === 'night' ? 'paper' : 'night')} aria-label="Светлая или ночная тема">
-            {settings.theme === 'night' ? <Sun size={19} /> : <Moon size={19} />}
-          </button>
-          <button type="button" className="reader-reading-mode-quick" onClick={() => setPanel('reading-mode')} aria-label="Выбрать способ чтения">
-            <ReadingModeIcon mode={settings.motion} size={18} /><span>Режим</span>
-          </button>
-          <button type="button" className="reader-dictionary-quick" onClick={() => setPanel('dictionary')} aria-label="Открыть словарь книги">
-            <BookMarked size={17} /><span>Словарь</span>
-          </button>
-          {book.worldMap ? <button type="button" className="reader-map-quick" onClick={() => setPanel('world-map')} aria-label="Открыть карту мира книги"><MapPinned size={17} /><span>Карта</span></button> : null}
-          <a href={`/books/${book.slug}`} aria-label="Открыть страницу книги"><BookOpen size={17} /><span>О книге</span></a>
-          <button type="button" className="reader-menu-button" onClick={() => setPanel('menu')} aria-label="Меню читалки"><Menu size={21} /></button>
-        </nav>
+        {chapter.musicUrl ? <audio ref={chapterAudioRef} src={chapter.musicUrl} preload="metadata" onPlay={() => setChapterMusicPlaying(true)} onPause={() => setChapterMusicPlaying(false)} onEnded={() => setChapterMusicPlaying(false)} /> : null}
 
         <div className="reader-stage">
-          <div className="reader-pages-left" aria-live="polite" title={`Расчёт по фактическому объёму текста при ${READING_WORDS_PER_MINUTE} словах в минуту`}>
-            {!measurementReady ? 'Считаем оставшееся время…' : `${formatReadingTime(readingMinutesLeft)} до конца ${translationCompleted ? 'книги' : 'опубликованного текста'} · ${remainingWordCount.toLocaleString('ru-RU')} слов`}
+          <div className="reader-pages-left" aria-live="polite">
+            {!measurementReady ? 'Считаем страницы…' : pagesLeftInChapter > 0 ? `Осталось ${pagesLeftInChapter} стр. · около ${estimatedMinutesLeft >= 60 ? `${Math.floor(estimatedMinutesLeft / 60)} ч ${estimatedMinutesLeft % 60} мин` : `${estimatedMinutesLeft} мин`} до конца книги` : 'Последняя страница главы'}
           </div>
           <button type="button" className="reader-page-arrow reader-page-arrow-left" onClick={goBackward} disabled={!previous && page === 0} aria-label="Предыдущая страница"><ArrowLeft size={22} /></button>
           <div
@@ -1263,6 +1450,8 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
                   book={book}
                   chapter={chapter}
                   showDriveLink
+                  commentCount={commentCount}
+                  onOpenComments={openComments}
                   annotations={chapterAnnotations}
                   onOpenAnnotation={openAnnotation}
                   onOpenFootnote={openFootnote}
@@ -1270,23 +1459,23 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
                 />
               </div>
             </div>
+            {settings.motion === 'scroll' ? chapterComments : null}
           </div>
           <button type="button" className="reader-page-arrow reader-page-arrow-right" onClick={goForward} aria-label="Следующая страница"><ArrowRight size={22} /></button>
         </div>
 
-        <footer className="reader-page-footer">
-          <button type="button" onClick={goBackward} disabled={!previous && page === 0}><ArrowLeft size={18} /><span>Предыдущая</span></button>
-          <div>
-            <strong aria-live="polite">{measurementReady ? `${currentBookPage} из ${totalBookPages}` : '— из —'}</strong>
-            <button type="button" onClick={openComments}><MessageCircle size={16} /> Комментарии</button>
-          </div>
-          <button type="button" onClick={goForward}><span>Следующая</span><ArrowRight size={18} /></button>
+        <footer className="reader-page-footer reader-chapter-toolbar">
+          <button type="button" onClick={settings.motion === 'scroll' && previous ? () => { window.location.href = `/books/${book.slug}/chapters/${previous.id}`; } : goBackward} disabled={!previous && (settings.motion === 'scroll' || page === 0)}><ArrowLeft size={19} /><span>Назад</span></button>
+          <button type="button" onClick={() => setPanel('contents')}><List size={19} /><span>Главы</span></button>
+          <button type="button" aria-pressed={chapterLike.liked} disabled={!likeReady || likeSaving} onClick={toggleChapterLike}><Heart size={19} fill={chapterLike.liked ? 'currentColor' : 'none'} /><span>Нравится</span></button>
+          <button type="button" onClick={openComments}><MessageCircle size={19} /><span>Комментарии</span></button>
+          <button type="button" onClick={settings.motion === 'scroll' && next ? () => goToNextChapter(page >= currentChapterPages - 1 && measurementReady) : goForward}><ArrowRight size={19} /><span>Далее</span></button>
         </footer>
         <div className="reader-dimmer" aria-hidden="true" style={{ opacity: ((100 - settings.brightness) / 100) * .58 }} />
       </section>
 
       <div className="reader-measure-layer" aria-hidden="true">
-        {dimensions.width && dimensions.height ? [chapter].map((item) => (
+        {dimensions.width && dimensions.height ? chapterList.map((item) => (
           <div
             className="reader-column-flow reader-measure-flow"
             key={item.id}
@@ -1301,21 +1490,14 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
               chapter={item}
               showDriveLink
               measuring
+              commentCount={item.id === chapter.id ? commentCount : null}
               annotations={annotations.filter((annotation) => annotation.chapterId === item.id)}
             />
           </div>
         )) : null}
       </div>
 
-      <section id="chapter-comments" className="reader-discussion-wrap">
-        {chapter.teamNote ? (
-          <aside className="chapter-team-note">
-            <span>✦</span>
-            <div><small>ЗАМЕТКА КОМАНДЫ</small><p>{chapter.teamNote}</p></div>
-          </aside>
-        ) : null}
-        <CommentsSection bookId={book.id} chapterId={chapter.id} />
-      </section>
+      {settings.motion !== 'scroll' && page >= currentChapterPages - 1 && measurementReady ? chapterComments : null}
 
       <SelectionAnnotationBar
         selection={textSelection}
@@ -1323,6 +1505,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
         onNote={openNewNote}
         onSticker={(sticker) => addAnnotation(textSelection, { color: '#fff1a8', sticker })}
         onReaction={reactToSelection}
+        onDictionary={openDictionaryDraft}
         onBookmark={() => openBookmarkDraft(textSelection)}
         onReport={openErrorDraft}
         onTranslate={translateSelectedText}
@@ -1348,10 +1531,11 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
             <button type="button" onClick={() => setPanel('contents')}><List size={22} /><span><strong>Содержание</strong><small>Все главы книги</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('search')}><Search size={22} /><span><strong>Поиск по книге</strong><small>Найти слово во всех главах</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('annotations')}><Highlighter size={22} /><span><strong>Мои пометки</strong><small>{annotations.length ? `${annotations.length} сохранено` : 'Выделения, заметки и стикеры'}</small></span><ChevronRight size={18} /></button>
-            <button type="button" onClick={() => setPanel('chapter-map')}><Highlighter size={22} /><span><strong>Метки главы</strong><small>Все пометки и эмоции по ходу текста</small></span><ChevronRight size={18} /></button>
-            <button type="button" onClick={() => setPanel('dictionary')}><BookMarked size={22} /><span><strong>Словарь книги</strong><small>{bookGlossary.total ? `${bookGlossary.entries.length} из ${bookGlossary.total} записей доступно` : 'Пояснения от команды перевода'}</small></span><ChevronRight size={18} /></button>
-            {book.worldMap ? <button type="button" onClick={() => setPanel('world-map')}><MapPinned size={22} /><span><strong>Карта мира</strong><small>Локации без спойлеров во время чтения</small></span><ChevronRight size={18} /></button> : null}
+            {book.worldMapUrl ? <button type="button" onClick={() => setPanel('world-map')}><MapIcon size={22} /><span><strong>Карта мира</strong><small>Открыть поверх чтения и закрыть одним нажатием</small></span><ChevronRight size={18} /></button> : null}
+            <button type="button" onClick={() => setPanel('chapter-map')}><MapIcon size={22} /><span><strong>Мини‑карта главы</strong><small>Все пометки и эмоции по ходу текста</small></span><ChevronRight size={18} /></button>
+            <button type="button" onClick={() => setPanel('dictionary')}><BookMarked size={22} /><span><strong>Личный словарь</strong><small>{readerHub.dictionary.length ? `${readerHub.dictionary.length} слов` : 'Незнакомые слова и пояснения'}</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('bookmarks')}><Bookmark size={22} /><span><strong>Мои закладки</strong><small>{bookmarks.length ? `${bookmarks.length} сохранено` : 'Любимое, важное и смешное'}</small></span><ChevronRight size={18} /></button>
+            <button type="button" onClick={() => setPanel('atmosphere')}><Music2 size={22} /><span><strong>Атмосфера чтения</strong><small>Музыка, дождь, лес или камин</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => { setPanel(null); setChromeHidden(true); }}><Film size={22} /><span><strong>Режим кино</strong><small>Оставить на экране только текст</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('reading-mode')}><ReadingModeIcon mode={settings.motion} size={22} /><span><strong>Способ чтения</strong><small>{READING_MODE_OPTIONS.find((mode) => mode.id === settings.motion)?.name}</small></span><ChevronRight size={18} /></button>
             <button type="button" onClick={() => setPanel('settings')}><SlidersHorizontal size={22} /><span><strong>Темы и настройки</strong><small>Шрифт, размер, фон и яркость</small></span><ChevronRight size={18} /></button>
@@ -1389,11 +1573,9 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       {panel === 'search' ? (
         <ReaderSheet title="Поиск по книге" eyebrow={book.title} onClose={() => setPanel(null)} wide>
           <label className="reader-search-field"><Search size={21} /><input autoFocus value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Введите слово или фразу" /></label>
-          {searchQuery.trim().length < 2 ? <p className="reader-search-hint">Введите хотя бы две буквы. Поиск пройдёт только по уже доступным Вам главам.</p> : null}
+          {searchQuery.trim().length < 2 ? <p className="reader-search-hint">Введите хотя бы две буквы. Поиск пройдёт по всем опубликованным главам.</p> : null}
           <div className="reader-search-results">
-            {searchLoading ? <p>Ищем по прочитанным главам…</p> : null}
-            {searchError ? <p role="alert">{searchError}</p> : null}
-            {searchQuery.trim().length >= 2 && !searchLoading && !searchError && !searchResults.length ? <p>Ничего не найдено.</p> : searchResults.map((result) => (
+            {searchQuery.trim().length >= 2 && !searchResults.length ? <p>Ничего не найдено.</p> : searchResults.map((result) => (
               <a href={`/books/${book.slug}/chapters/${result.id}`} key={result.id}>
                 <strong>{readerChapterTitle(result)}</strong><span>{result.snippet}</span>
               </a>
@@ -1402,17 +1584,17 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
         </ReaderSheet>
       ) : null}
 
-      {panel === 'world-map' && book.worldMap ? (
-        <ReaderSheet title="Карта мира" eyebrow={`${book.title} · прочитано до главы ${chapter.chapterNumber}`} onClose={() => setPanel(null)} wide>
-          <div className="reader-world-map-sheet">
-            <p>Открытые локации соответствуют вашему текущему месту в книге. Будущие точки остаются скрытыми от спойлеров.</p>
-            <BookWorldMap worldMap={book.worldMap} currentChapter={Number(chapter.chapterNumber || 0)} />
+      {panel === 'world-map' && book.worldMapUrl ? (
+        <ReaderSheet title="Карта мира" eyebrow={book.title} onClose={() => setPanel(null)} wide>
+          <div className="reader-world-map-viewer">
+            <img src={book.worldMapUrl} alt={`Карта мира книги «${book.title}»`} />
+            <div><MapIcon size={18} /><span><strong>{book.worldMapName || 'Карта мира книги'}</strong><small>На телефоне карту можно приблизить жестом. Закройте окно, чтобы сразу вернуться к тексту.</small></span></div>
           </div>
         </ReaderSheet>
       ) : null}
 
       {panel === 'chapter-map' ? (
-        <ReaderSheet title="Метки главы" eyebrow={readerChapterTitle(chapter)} onClose={() => setPanel('menu')} wide>
+        <ReaderSheet title="Мини‑карта главы" eyebrow={readerChapterTitle(chapter)} onClose={() => setPanel('menu')} wide>
           <div className="reader-mini-map">
             <div className="reader-mini-map-track" aria-hidden="true">
               {[...chapterAnnotations, ...readerHub.reactions.map((reaction) => ({
@@ -1442,25 +1624,52 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       ) : null}
 
       {panel === 'dictionary' ? (
-        <ReaderSheet title="Словарь книги" eyebrow={`${bookGlossary.entries.length} из ${bookGlossary.total} доступно`} onClose={() => setPanel('menu')} wide>
-          {bookGlossary.total ? <label className="reader-book-glossary-search"><Search size={19} /><input value={glossaryQuery} onChange={(event) => setGlossaryQuery(event.target.value)} placeholder="Найти слово или имя…" /></label> : null}
-          {!bookGlossary.total ? (
-            <div className="reader-annotation-empty"><BookMarked size={31} /><strong>Словарь книги пока пуст</strong><span>Здесь появятся пояснения от команды перевода.</span></div>
-          ) : !visibleGlossaryEntries.length ? (
-            <div className="reader-annotation-empty"><Search size={31} /><strong>Ничего не найдено</strong><span>Попробуйте другое слово или имя.</span></div>
+        <ReaderSheet title="Личный словарь" eyebrow={`${readerHub.dictionary.length} сохранено`} onClose={() => setPanel('menu')} wide>
+          {!readerHub.dictionary.length ? (
+            <div className="reader-annotation-empty"><BookMarked size={31} /><strong>Словарь пока пуст</strong><span>Выделите слово или фразу и выберите «В словарь».</span></div>
           ) : (
-            <div className="reader-book-glossary-list">
-              {visibleGlossaryEntries.map((entry) => (
+            <div className="reader-dictionary-list">
+              {readerHub.dictionary.map((entry) => (
                 <article key={entry.id}>
-                  <small>{entry.category || 'Словарь'}{entry.pronunciation ? ` · ${entry.pronunciation}` : ''}</small>
-                  <strong>{entry.name}</strong>
-                  <p>{entry.description}</p>
-                  {entry.connections ? <span>{entry.connections}</span> : null}
+                  <div><small>{entry.chapter_title || readerChapterTitle(chapter)}</small><strong>{entry.word}</strong><p>{entry.meaning || 'Пояснение можно добавить позже.'}</p>{entry.quote ? <blockquote>“{entry.quote}”</blockquote> : null}</div>
+                  <button type="button" onClick={() => deleteDictionaryEntry(entry.id)} aria-label="Удалить из словаря"><Trash2 size={17} /></button>
                 </article>
               ))}
             </div>
           )}
-          {bookGlossary.total > bookGlossary.entries.length ? <p className="reader-book-glossary-lock">Ещё {bookGlossary.total - bookGlossary.entries.length} записей откроются по мере чтения — без спойлеров.</p> : null}
+        </ReaderSheet>
+      ) : null}
+
+      {panel === 'dictionary-edit' && dictionaryDraft ? (
+        <ReaderSheet title="Добавить в словарь" eyebrow="Личная запись" onClose={() => { setDictionaryDraft(null); setPanel(null); }}>
+          <div className="reader-dictionary-editor">
+            <label><span>Слово или выражение</span><input value={dictionaryDraft.word} onChange={(event) => setDictionaryDraft((current) => ({ ...current, word: event.target.value }))} /></label>
+            <label><span>Значение</span><textarea rows="5" value={dictionaryDraft.meaning} onChange={(event) => setDictionaryDraft((current) => ({ ...current, meaning: event.target.value }))} placeholder="Запишите перевод или объяснение своими словами…" /></label>
+            <button className="reader-sheet-primary" type="button" disabled={extraSaving} onClick={saveDictionaryEntry}>{extraSaving ? 'Сохраняем…' : 'Сохранить в словарь'}</button>
+          </div>
+        </ReaderSheet>
+      ) : null}
+
+      {panel === 'atmosphere' ? (
+        <ReaderSheet title="Атмосфера чтения" eyebrow="Звук можно выключить в любой момент" onClose={() => setPanel('menu')}>
+          <div className="reader-atmosphere-panel">
+            {chapter.musicUrl ? (
+              <section className="reader-chapter-music-card">
+                <button type="button" className={chapterMusicPlaying ? 'is-playing' : ''} onClick={toggleChapterMusic} aria-label={chapterMusicPlaying ? 'Поставить на паузу' : 'Включить музыку главы'}>
+                  {chapterMusicPlaying ? <Pause size={21} /> : <Play size={21} />}
+                </button>
+                <div><span>МУЗЫКА ГЛАВЫ</span><strong>{chapter.musicTitle || chapter.musicFileName || 'Без названия'}</strong><small>{chapter.musicArtist || book.title}</small></div>
+                <label><Volume2 size={17} /><input type="range" min="0" max="1" step="0.05" value={chapterMusicVolume} onChange={(event) => setChapterMusicVolume(Number(event.target.value))} aria-label="Громкость музыки главы" /></label>
+              </section>
+            ) : null}
+            {book.playlistUrl ? <a href={book.playlistUrl} target="_blank" rel="noreferrer"><Music2 size={22} /><span><strong>Плейлист книги</strong><small>Открыть музыкальную подборку команды</small></span><ExternalLink size={17} /></a> : null}
+            {[['rain', 'Дождь', 'Мягкий шум за окном'], ['forest', 'Лес', 'Тихая природная атмосфера'], ['fire', 'Камин', 'Тёплое потрескивание']].map(([id, title, description]) => (
+              <button type="button" className={ambientSound === id ? 'is-active' : ''} onClick={() => toggleAmbientSound(id)} key={id}>
+                {ambientSound === id ? <VolumeX size={22} /> : <Volume2 size={22} />}
+                <span><strong>{title}</strong><small>{ambientSound === id ? 'Нажмите, чтобы выключить' : description}</small></span>
+              </button>
+            ))}
+          </div>
         </ReaderSheet>
       ) : null}
 
@@ -1509,10 +1718,10 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       ) : null}
 
       {panel === 'report-error' && errorDraft ? (
-        <ReaderSheet title="Сообщить об ошибке" eyebrow={`${readerChapterTitle(chapter)} · страница ${errorDraft.page + 1}`} onClose={() => { setErrorDraft(null); setPanel(null); }} wide>
+        <ReaderSheet title={errorDraft.scope === 'chapter' ? 'Пожаловаться на главу' : 'Предложить правку'} eyebrow={`${readerChapterTitle(chapter)} · страница ${errorDraft.page + 1}`} onClose={() => { setErrorDraft(null); setPanel(null); }} wide>
           <div className="reader-error-report">
-            <blockquote>“{errorDraft.selectedText}”</blockquote>
-            <p>Команда сразу увидит книгу, главу, страницу и точный фрагмент.</p>
+            {errorDraft.selectedText && <blockquote>“{errorDraft.selectedText}”</blockquote>}
+            <p>{errorDraft.scope === 'chapter' ? 'Опишите проблему, и команда Booknerd получит сообщение.' : 'Команда сразу увидит книгу, главу, страницу и точный фрагмент.'}</p>
             <div>
               {ERROR_CATEGORIES.map((category) => (
                 <label className={errorDraft.category === category.id ? 'is-active' : ''} key={category.id}>
@@ -1521,8 +1730,8 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
                 </label>
               ))}
             </div>
-            <label><span>Комментарий, если нужно</span><textarea rows="4" maxLength="2000" value={errorDraft.details} onChange={(event) => setErrorDraft({ ...errorDraft, details: event.target.value })} placeholder="Например: здесь герой говорит о себе в женском роде…" /></label>
-            <button className="reader-sheet-primary" type="button" onClick={submitErrorReport} disabled={extraSaving}>{extraSaving ? 'Отправляем…' : 'Отправить команде'}</button>
+            <label><span>{errorDraft.scope === 'chapter' ? 'Причина жалобы' : 'Комментарий к правке'}</span><textarea rows="4" maxLength="2000" value={errorDraft.details} onChange={(event) => setErrorDraft({ ...errorDraft, details: event.target.value })} placeholder={errorDraft.scope === 'chapter' ? 'Что случилось?' : 'Напишите правильный вариант или объясните, что нужно исправить…'} /></label>
+            <button className="reader-sheet-primary" type="button" onClick={submitErrorReport} disabled={extraSaving || (errorDraft.scope === 'chapter' && !errorDraft.details.trim())}>{extraSaving ? 'Отправляем…' : errorDraft.scope === 'chapter' ? 'Отправить жалобу' : 'Отправить правку'}</button>
           </div>
         </ReaderSheet>
       ) : null}
@@ -1599,6 +1808,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
               {activeAnnotation.sticker ? (
                 <div className="reader-annotation-sticker-card">
                   <ReaderSticker stickerId={activeAnnotation.sticker} size={76} />
+                  <span><small>Эмоция</small><strong>{stickerById(activeAnnotation.sticker)?.name}</strong></span>
                 </div>
               ) : null}
               <section className="reader-annotation-note-card">
@@ -1716,7 +1926,6 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
           <section className="reader-settings-block reader-font-settings">
             <button type="button" onClick={() => setPanel('fonts')}><Type size={22} /><span><small>Шрифт</small><strong>{FONT_OPTIONS.find((font) => font.id === settings.fontFamily)?.name}</strong></span><ChevronRight size={19} /></button>
             <button type="button" className={settings.bold ? 'is-active' : ''} onClick={() => updateSetting('bold', !settings.bold)}><BoldIcon size={22} /><span><small>Начертание</small><strong>Жирный текст</strong></span><i aria-hidden="true" /></button>
-            <button type="button" onClick={readAloud}><Volume2 size={22} /><span><small>Доступность</small><strong>Читать главу вслух</strong></span><ChevronRight size={19} /></button>
           </section>
           <button className="reader-reset-button" type="button" onClick={() => setSettings(DEFAULT_SETTINGS)}><RotateCcw size={19} /> Сбросить настройки</button>
         </ReaderSheet>
@@ -1795,13 +2004,3 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
     </main>
   );
 }
-  const readAloud = () => {
-    if (!('speechSynthesis' in window)) { setToast('Чтение вслух не поддерживается этим браузером.'); return; }
-    window.speechSynthesis.cancel();
-    const text = blocksFor(chapter).flatMap((block) => block.runs || []).map((run) => run.text || '').join(' ');
-    const speech = new SpeechSynthesisUtterance(text.slice(0, 30000));
-    speech.lang = 'ru-RU';
-    speech.rate = .95;
-    window.speechSynthesis.speak(speech);
-    setToast('Чтение вслух запущено. Повторное открытие главы остановит озвучивание.');
-  };

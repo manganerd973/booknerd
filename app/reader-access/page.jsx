@@ -43,7 +43,6 @@ export default async function ReaderAccessPage({ searchParams }) {
         </form>
 
         <p className="reader-access-note">Нет пароля? Обратитесь к команде BOOKNERD.</p>
-        <nav className="reader-access-legal" aria-label="Правовая информация"><a href="/terms">Соглашение</a><a href="/privacy">Конфиденциальность</a></nav>
       </section>
     </main>
   );

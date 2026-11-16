@@ -63,12 +63,12 @@ export function AdminErrorReports({ onNotice }) {
   };
   useEffect(() => { reload(); }, []);
 
-  const updateStatus = async (report, status) => {
+  const toggle = async (report) => {
     try {
       await api('/api/admin/reader-errors', {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ id: report.id, status }),
+        body: JSON.stringify({ id: report.id, status: report.status === 'new' ? 'resolved' : 'new' }),
       });
       await reload();
     } catch (error) {
@@ -85,12 +85,12 @@ export function AdminErrorReports({ onNotice }) {
       {loading ? <div className="admin-loading"><LoaderCircle className="spin" /> Загружаем сообщения…</div> : (
         <div className="admin-error-list">
           {reports.length ? reports.map((report) => (
-            <article className={report.status !== 'new' ? 'is-resolved' : ''} key={report.id}>
+            <article className={report.status === 'resolved' ? 'is-resolved' : ''} key={report.id}>
               <header><span>{ERROR_LABELS[report.category] || ERROR_LABELS.other}</span><time>{formatDate(report.createdAt)}</time></header>
               <blockquote>“{report.selectedText}”</blockquote>
               {report.details ? <p>{report.details}</p> : null}
               <div><small>«{report.bookTitle}» · глава {report.chapterNumber} · страница {report.page + 1}</small><a href={`/books/${report.bookSlug}/chapters/${report.chapterId}?page=${report.page + 1}`} target="_blank" rel="noreferrer">Открыть место <ArrowRight size={14} /></a></div>
-              <div className="admin-error-actions"><button className="admin-primary" onClick={() => updateStatus(report, 'resolved')}><Check size={16} /> Исправлено</button><button className="admin-secondary" onClick={() => updateStatus(report, 'not_error')}><X size={16} /> Не является ошибкой</button>{report.status !== 'new' ? <button className="admin-secondary" onClick={() => updateStatus(report, 'new')}><RotateCcw size={16} /> Вернуть</button> : null}</div>
+              <button className={report.status === 'resolved' ? 'admin-secondary' : 'admin-primary'} onClick={() => toggle(report)}>{report.status === 'resolved' ? <RotateCcw size={16} /> : <Check size={16} />}{report.status === 'resolved' ? 'Вернуть в работу' : 'Исправлено'}</button>
             </article>
           )) : <div className="admin-empty"><Check size={36} /><h3>Новых ошибок нет</h3><p>Все сообщения читателей обработаны.</p></div>}
         </div>
@@ -272,9 +272,6 @@ export function ChapterPreview({ book, chapter, onClose }) {
             <h1>Глава {chapter.chapterNumber}<span>{chapter.title}</span></h1>
             {chapter.pointOfView ? <em>От лица {chapter.pointOfView}</em> : null}
             <div>{documentValue.blocks.map((block, index) => {
-              if (block.type === 'image') {
-                return <figure className={`preview-chapter-image is-${block.size} align-${block.align}`} key={`image-${block.src}-${index}`}><img src={block.src} alt={block.alt || ''} width={block.width || undefined} height={block.height || undefined} /></figure>;
-              }
               const Tag = block.type === 'heading' ? 'h2' : block.type === 'blockquote' ? 'blockquote' : 'p';
               return <Tag className={block.chatSide ? `preview-chat is-${block.chatSide}` : ''} key={index}>{block.chatSender ? <small>{block.chatSender}</small> : null}<PreviewRuns runs={block.runs} /></Tag>;
             })}</div>

@@ -3,7 +3,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { LoaderCircle, Quote, Send, Star } from 'lucide-react';
 import { getCommentVoterKey } from './comment-votes.jsx';
-import { getVisitorKey } from './site-analytics.js';
 import { RatingStars } from './book-rating.jsx';
 
 async function reviewsApi(url, options) {
@@ -67,13 +66,12 @@ function ReviewForm({ bookId, initialReview = null, onPublished, completion = fa
       const data = await reviewsApi(`/api/books/${bookId}/reviews`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ voterKey: getVisitorKey(), legacyVoterKey: getCommentVoterKey(), authorName, body, rating, website }),
+        body: JSON.stringify({ voterKey: getCommentVoterKey(), authorName, body, rating, website }),
       });
       rememberAuthor(authorName);
       setWebsite('');
       setNotice('Спасибо! Отзыв уже опубликован на странице книги.');
       window.dispatchEvent(new CustomEvent('booknerd:rating-updated', { detail: { bookId } }));
-      if (data.levelEvent) window.dispatchEvent(new CustomEvent('booknerd:level-up', { detail: data.levelEvent }));
       onPublished?.(data.review);
     } catch (submitError) {
       setError(submitError.message);
@@ -119,7 +117,7 @@ export default function BookReviews({ bookId }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await reviewsApi(`/api/books/${bookId}/reviews?voterKey=${encodeURIComponent(getVisitorKey())}&legacyVoterKey=${encodeURIComponent(getCommentVoterKey())}`);
+      const data = await reviewsApi(`/api/books/${bookId}/reviews?voterKey=${encodeURIComponent(getCommentVoterKey())}`);
       setReviews(data.reviews || []);
       setCurrentReview(data.currentReview || null);
       setError('');

@@ -1,15 +1,11 @@
 import { blob, index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
-export const appSchema = sqliteTable('app_schema', {
-  id: text('id').primaryKey(),
-  version: integer('version').notNull(),
-  updatedAt: text('updated_at').notNull(),
-});
-
 export const books = sqliteTable('books', {
   id: text('id').primaryKey(),
   slug: text('slug').notNull(),
   title: text('title').notNull(),
+  bookType: text('book_type').notNull().default(''),
+  ageRating: integer('age_rating'),
   originalTitle: text('original_title').notNull().default(''),
   seriesTitle: text('series_title').notNull().default(''),
   seriesNumber: integer('series_number'),
@@ -31,9 +27,6 @@ export const books = sqliteTable('books', {
   searchAliases: text('search_aliases').notNull().default('[]'),
   dedication: text('dedication').notNull().default(''),
   triggerWarnings: text('trigger_warnings').notNull().default('[]'),
-  suitabilityProfile: text('suitability_profile').notNull().default('{}'),
-  ageRating: text('age_rating').notNull().default(''),
-  ageReason: text('age_reason').notNull().default(''),
   hasHotScenes: integer('has_hot_scenes', { mode: 'boolean' }).notNull().default(false),
   hotSceneChapters: text('hot_scene_chapters').notNull().default(''),
   synopsis: text('synopsis').notNull().default(''),
@@ -47,7 +40,6 @@ export const books = sqliteTable('books', {
   worldMapName: text('world_map_name').notNull().default(''),
   worldMapContentType: text('world_map_content_type').notNull().default(''),
   worldMapSizeBytes: integer('world_map_size_bytes').notNull().default(0),
-  worldMapMarkers: text('world_map_markers').notNull().default('[]'),
   published: integer('published', { mode: 'boolean' }).notNull().default(false),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
@@ -77,7 +69,6 @@ export const chapters = sqliteTable('chapters', {
   updatedAt: text('updated_at').notNull(),
 }, (table) => [
   uniqueIndex('chapters_book_number_unique').on(table.bookId, table.chapterNumber),
-  index('chapters_workflow_scheduled_idx').on(table.workflowStatus, table.scheduledAt),
 ]);
 
 export const chapterMusic = sqliteTable('chapter_music', {
@@ -123,10 +114,8 @@ export const comments = sqliteTable('comments', {
   id: text('id').primaryKey(),
   bookId: text('book_id').notNull().references(() => books.id, { onDelete: 'cascade' }),
   chapterId: text('chapter_id').references(() => chapters.id, { onDelete: 'cascade' }),
-  context: text('context').notNull().default('comments'),
   parentId: text('parent_id'),
   visitorKey: text('visitor_key').notNull().default(''),
-  authorRole: text('author_role').notNull().default('reader'),
   authorName: text('author_name').notNull(),
   body: text('body').notNull(),
   isSpoiler: integer('is_spoiler', { mode: 'boolean' }).notNull().default(false),
@@ -178,7 +167,6 @@ export const bookReviews = sqliteTable('book_reviews', {
   updatedAt: text('updated_at').notNull(),
 }, (table) => [
   uniqueIndex('book_reviews_book_voter_unique').on(table.bookId, table.voterKey),
-  index('book_reviews_voter_status_created_idx').on(table.voterKey, table.status, table.createdAt),
 ]);
 
 export const readerPresence = sqliteTable('reader_presence', {
@@ -222,7 +210,6 @@ export const readerLibrary = sqliteTable('reader_library', {
 }, (table) => [
   primaryKey({ columns: [table.visitorKey, table.bookId] }),
   index('reader_library_visitor_updated_idx').on(table.visitorKey, table.updatedAt),
-  index('reader_library_book_status_idx').on(table.bookId, table.status, table.visitorKey),
 ]);
 
 export const pushSubscriptions = sqliteTable('push_subscriptions', {
@@ -263,28 +250,6 @@ export const notificationPreferences = sqliteTable('notification_preferences', {
   index('notification_preferences_book_idx').on(table.bookKey, table.newChapter),
 ]);
 
-export const readerNotifications = sqliteTable('reader_notifications', {
-  id: text('id').primaryKey(),
-  visitorKey: text('visitor_key').notNull(),
-  eventKey: text('event_key').notNull(),
-  type: text('type').notNull(),
-  bookId: text('book_id').references(() => books.id, { onDelete: 'cascade' }),
-  chapterId: text('chapter_id').references(() => chapters.id, { onDelete: 'cascade' }),
-  commentId: text('comment_id').references(() => comments.id, { onDelete: 'cascade' }),
-  actorName: text('actor_name').notNull().default(''),
-  title: text('title').notNull(),
-  body: text('body').notNull(),
-  url: text('url').notNull(),
-  readAt: text('read_at'),
-  hiddenAt: text('hidden_at'),
-  createdAt: text('created_at').notNull(),
-}, (table) => [
-  uniqueIndex('reader_notifications_visitor_event_unique').on(table.visitorKey, table.eventKey),
-  index('reader_notifications_visitor_created_idx').on(table.visitorKey, table.createdAt),
-  index('reader_notifications_visitor_read_idx').on(table.visitorKey, table.readAt, table.createdAt),
-  index('reader_notifications_visitor_unread_idx').on(table.visitorKey, table.readAt, table.hiddenAt),
-]);
-
 export const readerErrorReports = sqliteTable('reader_error_reports', {
   id: text('id').primaryKey(),
   visitorKey: text('visitor_key').notNull(),
@@ -302,7 +267,6 @@ export const readerErrorReports = sqliteTable('reader_error_reports', {
 }, (table) => [
   index('reader_error_reports_status_created_idx').on(table.status, table.createdAt),
   index('reader_error_reports_chapter_idx').on(table.chapterId, table.paragraphIndex),
-  index('reader_error_reports_visitor_status_updated_idx').on(table.visitorKey, table.status, table.updatedAt),
 ]);
 
 export const bookGlossary = sqliteTable('book_glossary', {
@@ -357,8 +321,6 @@ export const readerPublicNotes = sqliteTable('reader_public_notes', {
   index('reader_public_notes_status_created_idx').on(table.status, table.createdAt),
   index('reader_public_notes_pinned_updated_idx').on(table.isPinned, table.updatedAt),
   index('reader_public_notes_book_chapter_idx').on(table.bookId, table.chapterId),
-  index('reader_public_notes_rotation_idx').on(table.status, table.isSpoiler, table.isPinned, table.approvedAt, table.id),
-  index('reader_public_notes_visitor_status_created_idx').on(table.visitorKey, table.status, table.createdAt),
 ]);
 
 export const chapterVersions = sqliteTable('chapter_versions', {
@@ -405,7 +367,6 @@ export const readingSessions = sqliteTable('reading_sessions', {
   primaryKey({ columns: [table.visitorKey, table.chapterId, table.readingDate] }),
   index('reading_sessions_book_chapter_idx').on(table.bookId, table.chapterId),
   index('reading_sessions_visitor_date_idx').on(table.visitorKey, table.readingDate),
-  index('reading_sessions_visitor_completed_chapter_idx').on(table.visitorKey, table.completed, table.chapterId, table.bookId),
 ]);
 
 export const translationCandidates = sqliteTable('translation_candidates', {
@@ -428,6 +389,7 @@ export const translationVotes = sqliteTable('translation_votes', {
 
 export const readerProfiles = sqliteTable('reader_profiles', {
   visitorKey: text('visitor_key').primaryKey(),
+  bio: text('bio').notNull().default(''),
   displayName: text('display_name').notNull().default('Читатель BOOKNERD'),
   photoKey: text('photo_key'),
   photoName: text('photo_name').notNull().default(''),
@@ -440,120 +402,6 @@ export const readerProfiles = sqliteTable('reader_profiles', {
   atmosphere: text('atmosphere').notNull().default('auto'),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
-});
-
-export const readerLevelStats = sqliteTable('reader_level_stats', {
-  visitorKey: text('visitor_key').primaryKey(),
-  publicId: text('public_id').notNull(),
-  totalXp: integer('total_xp').notNull().default(0),
-  level: integer('level').notNull().default(1),
-  rankKey: text('rank_key').notNull().default('newcomer'),
-  completedChapters: integer('completed_chapters').notNull().default(0),
-  completedBooks: integer('completed_books').notNull().default(0),
-  completedSeries: integer('completed_series').notNull().default(0),
-  approvedReviews: integer('approved_reviews').notNull().default(0),
-  confirmedErrors: integer('confirmed_errors').notNull().default(0),
-  savedQuotes: integer('saved_quotes').notNull().default(0),
-  uniqueReadingDays: integer('unique_reading_days').notNull().default(0),
-  completedBookKeys: text('completed_book_keys').notNull().default('[]'),
-  completedSeriesKeys: text('completed_series_keys').notNull().default('[]'),
-  favoriteGenres: text('favorite_genres').notNull().default('[]'),
-  favoriteTropes: text('favorite_tropes').notNull().default('[]'),
-  publicVisible: integer('public_visible', { mode: 'boolean' }).notNull().default(true),
-  onlineVisible: integer('online_visible', { mode: 'boolean' }).notNull().default(true),
-  currentBookVisible: integer('current_book_visible', { mode: 'boolean' }).notNull().default(true),
-  plannedShelfVisible: integer('planned_shelf_visible', { mode: 'boolean' }).notNull().default(true),
-  favoriteShelfVisible: integer('favorite_shelf_visible', { mode: 'boolean' }).notNull().default(true),
-  achievementsVisible: integer('achievements_visible', { mode: 'boolean' }).notNull().default(true),
-  ratingStatus: text('rating_status').notNull().default('active'),
-  suspiciousReason: text('suspicious_reason').notNull().default(''),
-  firstCountedAt: text('first_counted_at'),
-  lastCountedAt: text('last_counted_at'),
-  recalculatedAt: text('recalculated_at'),
-  createdAt: text('created_at').notNull(),
-  updatedAt: text('updated_at').notNull(),
-}, (table) => [
-  uniqueIndex('reader_level_stats_public_id_unique').on(table.publicId),
-  index('reader_level_stats_public_rank_idx').on(table.publicVisible, table.ratingStatus, table.totalXp),
-]);
-
-export const readerMonthlyStats = sqliteTable('reader_monthly_stats', {
-  visitorKey: text('visitor_key').notNull(),
-  monthKey: text('month_key').notNull(),
-  xp: integer('xp').notNull().default(0),
-  completedChapters: integer('completed_chapters').notNull().default(0),
-  completedBooks: integer('completed_books').notNull().default(0),
-  completedSeries: integer('completed_series').notNull().default(0),
-  approvedReviews: integer('approved_reviews').notNull().default(0),
-  confirmedErrors: integer('confirmed_errors').notNull().default(0),
-  uniqueReadingDays: integer('unique_reading_days').notNull().default(0),
-  genreCount: integer('genre_count').notNull().default(0),
-  quotesSaved: integer('quotes_saved').notNull().default(0),
-  levelGrowth: integer('level_growth').notNull().default(0),
-  reachedXpAt: text('reached_xp_at'),
-  updatedAt: text('updated_at').notNull(),
-}, (table) => [
-  primaryKey({ columns: [table.visitorKey, table.monthKey] }),
-  index('reader_monthly_stats_ranking_idx').on(table.monthKey, table.xp, table.completedBooks, table.uniqueReadingDays, table.completedChapters),
-]);
-
-export const readerAchievements = sqliteTable('reader_achievements', {
-  visitorKey: text('visitor_key').notNull(),
-  achievementKey: text('achievement_key').notNull(),
-  unlockedAt: text('unlocked_at').notNull(),
-}, (table) => [
-  primaryKey({ columns: [table.visitorKey, table.achievementKey] }),
-  index('reader_achievements_unlocked_idx').on(table.visitorKey, table.unlockedAt),
-]);
-
-export const readerRankHistory = sqliteTable('reader_rank_history', {
-  visitorKey: text('visitor_key').notNull(),
-  rankKey: text('rank_key').notNull(),
-  rankName: text('rank_name').notNull(),
-  reachedLevel: integer('reached_level').notNull(),
-  unlockedAt: text('unlocked_at').notNull(),
-}, (table) => [
-  primaryKey({ columns: [table.visitorKey, table.rankKey] }),
-  index('reader_rank_history_reader_unlocked_idx').on(table.visitorKey, table.unlockedAt),
-]);
-
-export const readerMonthlyAwards = sqliteTable('reader_monthly_awards', {
-  visitorKey: text('visitor_key').notNull(),
-  monthKey: text('month_key').notNull(),
-  nominationKey: text('nomination_key').notNull(),
-  title: text('title').notNull(),
-  awardedAt: text('awarded_at').notNull(),
-  awardedBy: text('awarded_by').notNull().default('system'),
-}, (table) => [
-  primaryKey({ columns: [table.visitorKey, table.monthKey, table.nominationKey] }),
-  index('reader_monthly_awards_reader_idx').on(table.visitorKey, table.awardedAt),
-]);
-
-export const readerLevelConfig = sqliteTable('reader_level_config', {
-  id: text('id').primaryKey(),
-  config: text('config').notNull().default('{}'),
-  updatedAt: text('updated_at').notNull(),
-  updatedBy: text('updated_by').notNull().default(''),
-});
-
-export const readerXpAdjustments = sqliteTable('reader_xp_adjustments', {
-  id: text('id').primaryKey(),
-  visitorKey: text('visitor_key').notNull(),
-  delta: integer('delta').notNull(),
-  oldXp: integer('old_xp').notNull(),
-  newXp: integer('new_xp').notNull(),
-  reason: text('reason').notNull(),
-  changedBy: text('changed_by').notNull(),
-  createdAt: text('created_at').notNull(),
-}, (table) => [
-  index('reader_xp_adjustments_reader_created_idx').on(table.visitorKey, table.createdAt),
-]);
-
-export const readerMonthFinalizations = sqliteTable('reader_month_finalizations', {
-  monthKey: text('month_key').primaryKey(),
-  status: text('status').notNull().default('started'),
-  startedAt: text('started_at').notNull(),
-  completedAt: text('completed_at'),
 });
 
 export const paragraphReactions = sqliteTable('paragraph_reactions', {
@@ -582,6 +430,18 @@ export const readerDictionary = sqliteTable('reader_dictionary', {
   updatedAt: text('updated_at').notNull(),
 }, (table) => [
   index('reader_dictionary_visitor_book_idx').on(table.visitorKey, table.bookId, table.createdAt),
+]);
+
+export const chapterSupport = sqliteTable('chapter_support', {
+  id: integer('id').primaryKey(),
+  cardNumber: text('card_number').notNull().default(''),
+});
+
+export const chapterLikes = sqliteTable('chapter_likes', {
+  chapterId: text('chapter_id').notNull().references(() => chapters.id, { onDelete: 'cascade' }),
+  visitorKey: text('visitor_key').notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.chapterId, table.visitorKey] }),
 ]);
 
 export const chapterEmotions = sqliteTable('chapter_emotions', {

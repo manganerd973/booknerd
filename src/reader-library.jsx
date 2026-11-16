@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
-import { Bookmark, BookOpen, Check, ChevronDown, Heart, LoaderCircle, Trash2, XCircle } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Bookmark, BookOpen, Check, Heart, LoaderCircle, XCircle } from 'lucide-react';
 import { getVisitorKey } from './site-analytics.js';
 
 export const LIBRARY_STATUS = {
@@ -12,21 +12,6 @@ export const LIBRARY_STATUS = {
   dropped: { label: 'Брошено', short: 'Брошено' },
 };
 
-const READER_LIBRARY_CACHE_KEY = 'booknerd-reader-library-cache-v1';
-
-function readLibraryCache() {
-  try {
-    const cached = JSON.parse(localStorage.getItem(READER_LIBRARY_CACHE_KEY) || '[]');
-    return Array.isArray(cached) ? cached : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeLibraryCache(items) {
-  try { localStorage.setItem(READER_LIBRARY_CACHE_KEY, JSON.stringify(items || [])); } catch { /* Offline cache is optional. */ }
-}
-
 function announceLibraryChange(item) {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('booknerd-library-change', { detail: item }));
@@ -34,20 +19,11 @@ function announceLibraryChange(item) {
 }
 
 export async function loadReaderLibrary() {
-  if (typeof navigator !== 'undefined' && !navigator.onLine) return readLibraryCache();
   const visitorKey = getVisitorKey();
-  try {
-    const response = await fetch(`/api/library?visitorKey=${encodeURIComponent(visitorKey)}`, { cache: 'no-store' });
-    if (!response.ok) throw new Error('Не удалось открыть личную библиотеку.');
-    const data = await response.json();
-    const items = Array.isArray(data.items) ? data.items : [];
-    writeLibraryCache(items);
-    return items;
-  } catch (error) {
-    const cached = readLibraryCache();
-    if (cached.length || typeof navigator !== 'undefined' && !navigator.onLine) return cached;
-    throw error;
-  }
+  const response = await fetch(`/api/library?visitorKey=${encodeURIComponent(visitorKey)}`, { cache: 'no-store' });
+  if (!response.ok) throw new Error('Не удалось открыть личную библиотеку.');
+  const data = await response.json();
+  return Array.isArray(data.items) ? data.items : [];
 }
 
 export async function updateReaderLibrary({ bookId, status = 'saved', lastChapterId = null, lastPage = 0, progress = 0, preserveFinished = false }) {
@@ -59,8 +35,6 @@ export async function updateReaderLibrary({ bookId, status = 'saved', lastChapte
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || 'Не удалось обновить личную библиотеку.');
-  const cached = readLibraryCache();
-  writeLibraryCache([data.item, ...cached.filter((item) => item.bookId !== data.item.bookId)]);
   announceLibraryChange(data.item);
   return data.item;
 }
@@ -73,7 +47,6 @@ export async function removeReaderLibraryBook(bookId) {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || 'Не удалось убрать книгу.');
-  writeLibraryCache(readLibraryCache().filter((item) => item.bookId !== bookId));
   announceLibraryChange({ bookId, status: null });
 }
 
@@ -81,8 +54,6 @@ export default function BookLibraryControl({ bookId }) {
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState('');
-  const [open, setOpen] = useState(false);
-  const controlRef = useRef(null);
 
   useEffect(() => {
     let active = true;
@@ -101,19 +72,7 @@ export default function BookLibraryControl({ bookId }) {
     return () => window.clearTimeout(timer);
   }, [notice]);
 
-  useEffect(() => {
-    if (!open) return undefined;
-    const close = (event) => {
-      if (event.key === 'Escape' || (event.type === 'pointerdown' && !controlRef.current?.contains(event.target))) setOpen(false);
-    };
-    document.addEventListener('pointerdown', close);
-    window.addEventListener('keydown', close);
-    return () => {
-      document.removeEventListener('pointerdown', close);
-      window.removeEventListener('keydown', close);
-    };
-  }, [open]);
-
+  const options = useMemo(() => Object.entries(LIBRARY_STATUS), []);
   const StatusIcon = status === 'finished' ? Check : status === 'reading' ? BookOpen : status === 'favorite' ? Heart : status === 'dropped' ? XCircle : Bookmark;
 
   const chooseStatus = async (nextStatus) => {
@@ -121,7 +80,6 @@ export default function BookLibraryControl({ bookId }) {
     try {
       const item = await updateReaderLibrary({ bookId, status: nextStatus, progress: nextStatus === 'finished' ? 100 : 0 });
       setStatus(item.status);
-      setOpen(false);
       setNotice(`Книга добавлена: ${LIBRARY_STATUS[item.status].label.toLowerCase()}.`);
     } catch (error) {
       setNotice(error.message);
@@ -135,8 +93,7 @@ export default function BookLibraryControl({ bookId }) {
     try {
       await removeReaderLibraryBook(bookId);
       setStatus('');
-      setOpen(false);
-      setNotice('Книга убрана из закладок.');
+      setNotice('Книга убрана из вашей библиотеки.');
     } catch (error) {
       setNotice(error.message);
     } finally {
@@ -145,23 +102,19 @@ export default function BookLibraryControl({ bookId }) {
   };
 
   return (
-    <div className="book-library-control" ref={controlRef}>
-      <button type="button" className="book-library-menu-trigger" onClick={() => setOpen((current) => !current)} aria-expanded={open} disabled={loading}>
-        {loading ? <LoaderCircle className="spin" size={19} /> : <StatusIcon size={19} />}
-        <span><small>Мои закладки</small><strong>{status ? LIBRARY_STATUS[status].label : 'В планах'}</strong></span>
-        <ChevronDown size={18} />
-      </button>
-      {open ? (
-        <div className="book-library-menu" role="menu">
-          <small>Переместить на полку</small>
-          {Object.entries(LIBRARY_STATUS).map(([value, option]) => (
-            <button type="button" className={status === value ? 'is-active' : ''} onClick={() => chooseStatus(value)} disabled={loading} role="menuitem" key={value}>
-              {status === value ? <Check size={15} /> : <span />}{option.short}
-            </button>
-          ))}
-          {status ? <button type="button" className="is-remove" onClick={remove} disabled={loading} role="menuitem"><Trash2 size={15} /> Убрать из закладок</button> : null}
-        </div>
-      ) : null}
+    <div className="book-library-control">
+      <div className="book-library-control-title">
+        {loading ? <LoaderCircle className="spin" size={18} /> : <StatusIcon size={18} />}
+        <span><small>Моя библиотека</small><strong>{status ? LIBRARY_STATUS[status].label : 'Добавить книгу'}</strong></span>
+      </div>
+      <div className="book-library-statuses">
+        {options.map(([value, option]) => (
+          <button type="button" className={status === value ? 'is-active' : ''} onClick={() => chooseStatus(value)} disabled={loading} key={value}>
+            {value === 'finished' && status === value ? <Check size={14} /> : null}{option.short}
+          </button>
+        ))}
+        {status ? <button type="button" className="is-remove" onClick={remove} disabled={loading}>Убрать</button> : null}
+      </div>
       {notice ? <p role="status">{notice}</p> : null}
     </div>
   );

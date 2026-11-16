@@ -1,6 +1,5 @@
 import { hasReaderAccess } from '../../../lib/reader-access.js';
 import { ensureDb } from '../../../lib/runtime.js';
-import { refreshReaderLevel } from '../../../lib/reader-levels.js';
 
 const EMOTIONS = new Set(['😂', '😭', '😍', '😡', '😱', '🤍']);
 const THEMES = new Set(['original', 'white', 'black', 'system']);
@@ -24,10 +23,6 @@ function cleanList(value, limit = 30, itemLimit = 500) {
   return (Array.isArray(value) ? value : []).map((item) => String(item || '').trim().slice(0, itemLimit)).filter(Boolean).slice(0, limit);
 }
 
-function avatarUrl(key) {
-  return key ? `/api/covers/${String(key).split('/').map(encodeURIComponent).join('/')}` : '';
-}
-
 async function requireReader(request) {
   if (await hasReaderAccess(request)) return null;
   return Response.json({ error: 'Сначала введите пароль читателя.' }, { status: 401 });
@@ -40,9 +35,14 @@ export async function GET(request) {
     const url = new URL(request.url);
     const visitorKey = normalizeVisitorKey(url.searchParams.get('visitorKey'));
     const bookId = String(url.searchParams.get('bookId') || '').trim();
+    const profileView = url.searchParams.get('profileView') === '1';
     const chapterId = String(url.searchParams.get('chapterId') || '').trim();
     if (!visitorKey) return Response.json({ error: 'Читатель не определён.' }, { status: 400 });
     const db = await ensureDb();
+    if (url.searchParams.get('summary') === '1') {
+      const profile = await db.prepare('SELECT display_name FROM reader_profiles WHERE visitor_key = ?').bind(visitorKey).first();
+      return Response.json({ displayName: profile?.display_name || '' });
+    }
     const [profile, dictionary, reactions, capsules, emotionTotals, myEmotions] = await Promise.all([
       db.prepare(`SELECT * FROM reader_profiles WHERE visitor_key = ? LIMIT 1`).bind(visitorKey).first(),
       db.prepare(`SELECT d.*, b.title AS book_title, b.slug AS book_slug, c.title AS chapter_title, c.chapter_number
@@ -61,16 +61,27 @@ export async function GET(request) {
         ? db.prepare(`SELECT chapter_id, emoji FROM chapter_emotions WHERE visitor_key = ? AND book_id = ?`).bind(visitorKey, bookId).all()
         : Promise.resolve({ results: [] }),
     ]);
+    const ownComments = profileView ? await db.prepare(`SELECT c.id, c.book_id, c.body, c.is_spoiler, c.chapter_id, c.created_at, b.title, b.slug, ch.chapter_number,
+        COUNT(*) OVER () AS total
+      FROM comments c JOIN books b ON b.id = c.book_id
+      LEFT JOIN chapters ch ON ch.id = c.chapter_id
+      WHERE c.visitor_key = ? AND c.status = 'approved' AND b.published = 1
+        AND (c.chapter_id IS NULL OR ch.status = 'published')
+      ORDER BY c.created_at DESC LIMIT 30`).bind(visitorKey).all() : null;
     return Response.json({
       profile: profile ? {
         displayName: profile.display_name,
-        avatarUrl: avatarUrl(profile.photo_key),
+        bio: profile.bio || '',
+        createdAt: profile.created_at,
+        photoUrl: profile.photo_key ? `/api/reader-profile-photo?visitorKey=${encodeURIComponent(visitorKey)}&v=${encodeURIComponent(profile.updated_at || '')}` : '',
+        photoName: profile.photo_name || '',
         banner: profile.banner,
         favoriteCharacters: parseList(profile.favorite_characters),
         favoriteQuotes: parseList(profile.favorite_quotes),
         appTheme: THEMES.has(profile.app_theme) ? profile.app_theme : 'original',
         atmosphere: ATMOSPHERES.has(profile.atmosphere) ? profile.atmosphere : 'auto',
       } : null,
+      ownComments: ownComments?.results || [],
       dictionary: dictionary.results || [],
       reactions: reactions.results || [],
       capsules: capsules.results || [],
@@ -95,20 +106,22 @@ export async function POST(request) {
 
     if (action === 'profile') {
       const displayName = String(payload.displayName || 'Читатель BOOKNERD').trim().replace(/\s+/g, ' ').slice(0, 60) || 'Читатель BOOKNERD';
+      const bio = typeof payload.bio === 'string' ? payload.bio.trim().slice(0, 280) : null;
       const banner = ['books', 'stars', 'forest', 'archive', 'garden'].includes(payload.banner) ? payload.banner : 'books';
       const appTheme = THEMES.has(payload.appTheme) ? payload.appTheme : 'original';
       const atmosphere = ATMOSPHERES.has(payload.atmosphere) ? payload.atmosphere : 'auto';
       const favoriteCharacters = cleanList(payload.favoriteCharacters, 30, 120);
       const favoriteQuotes = cleanList(payload.favoriteQuotes, 50, 1000);
       await db.prepare(`INSERT INTO reader_profiles
-        (visitor_key, display_name, banner, favorite_characters, favorite_quotes, app_theme, atmosphere, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (visitor_key, display_name, banner, favorite_characters, favorite_quotes, app_theme, atmosphere, created_at, updated_at, bio)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, ''))
         ON CONFLICT(visitor_key) DO UPDATE SET display_name = excluded.display_name, banner = excluded.banner,
           favorite_characters = excluded.favorite_characters, favorite_quotes = excluded.favorite_quotes,
-          app_theme = excluded.app_theme, atmosphere = excluded.atmosphere, updated_at = excluded.updated_at`)
-        .bind(visitorKey, displayName, banner, JSON.stringify(favoriteCharacters), JSON.stringify(favoriteQuotes), appTheme, atmosphere, now, now).run();
-      await refreshReaderLevel({ db, visitorKey, suppressNotifications: false }).catch(() => null);
-      return Response.json({ ok: true, profile: { displayName, banner, favoriteCharacters, favoriteQuotes, appTheme, atmosphere } });
+          app_theme = excluded.app_theme, atmosphere = excluded.atmosphere, updated_at = excluded.updated_at,
+          bio = COALESCE(?, reader_profiles.bio)`)
+        .bind(visitorKey, displayName, banner, JSON.stringify(favoriteCharacters), JSON.stringify(favoriteQuotes), appTheme, atmosphere, now, now, bio, bio).run();
+      const saved = await db.prepare('SELECT bio, created_at FROM reader_profiles WHERE visitor_key = ?').bind(visitorKey).first();
+      return Response.json({ ok: true, profile: { displayName, banner, favoriteCharacters, favoriteQuotes, appTheme, atmosphere, bio: saved?.bio || '', createdAt: saved?.created_at || now } });
     }
 
     if (action === 'reaction') {

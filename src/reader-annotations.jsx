@@ -4,6 +4,7 @@ import React, { useMemo, useState } from 'react';
 import {
   Check,
   Bookmark,
+  BookOpen,
   Copy,
   Flag,
   Highlighter,
@@ -28,10 +29,7 @@ export const HIGHLIGHT_COLORS = [
 
 // The supplied sticker sheet is an exact 5 × 8 grid. Keeping the sheet as a
 // sprite makes the reader fast and avoids loading dozens of separate files.
-export const CUSTOM_STICKER_COUNT = 67;
-
 export const READER_STICKERS = [
-  ...Array.from({ length: CUSTOM_STICKER_COUNT }, (_, index) => ({ id: `custom-${String(index + 1).padStart(2, '0')}`, name: `Стикер ${index + 1}`, sheet: 'custom', src: `/reaction-stickers/sticker-${String(index + 1).padStart(2, '0')}.jpg` })),
   { id: 'love', name: 'Влюблённость', column: 0, row: 0 },
   { id: 'delight', name: 'Восторг', column: 1, row: 0 },
   { id: 'happy', name: 'Радость', column: 2, row: 0 },
@@ -101,9 +99,6 @@ export function stickerById(id) {
 export function ReaderSticker({ stickerId, size = 42, title, className = '' }) {
   const sticker = stickerById(stickerId);
   if (!sticker) return null;
-  if (sticker.sheet === 'custom') {
-    return <span className={`reader-sticker-art reader-sticker-photo ${className}`.trim()} role="img" aria-label={title || 'Стикер'} data-sticker-sheet="custom" style={{ width: size, height: size, backgroundImage: `url('${sticker.src}')` }} />;
-  }
   const columns = sticker.columns || 5;
   const rows = sticker.rows || 8;
   const cellAspectRatio = sticker.sheet === 'doodles'
@@ -119,6 +114,7 @@ export function ReaderSticker({ stickerId, size = 42, title, className = '' }) {
       className={`reader-sticker-art ${className}`.trim()}
       role="img"
       aria-label={title || sticker.name}
+      title={title || sticker.name}
       data-sticker-sheet={sticker.sheet || 'roundies'}
       style={{
         width: size,
@@ -134,16 +130,15 @@ export function ReaderSticker({ stickerId, size = 42, title, className = '' }) {
 export function StickerPicker({ value = '', onSelect }) {
   const selectedSticker = stickerById(value);
   const [group, setGroup] = useState(() => (
-    selectedSticker?.sheet === 'doodles' ? 'doodles' : selectedSticker && selectedSticker.sheet !== 'custom' ? 'roundies' : 'custom'
+    selectedSticker?.sheet === 'doodles' ? 'doodles' : 'roundies'
   ));
   const visibleStickers = READER_STICKERS.filter((sticker) => (
-    group === 'custom' ? sticker.sheet === 'custom' : group === 'doodles' ? sticker.sheet === 'doodles' : !sticker.sheet
+    group === 'doodles' ? sticker.sheet === 'doodles' : sticker.sheet !== 'doodles'
   ));
 
   return (
     <div className="reader-sticker-browser">
       <div className="reader-sticker-tabs" role="tablist" aria-label="Наборы стикеров">
-        <button type="button" className={group === 'custom' ? 'is-active' : ''} onClick={() => setGroup('custom')} role="tab" aria-selected={group === 'custom'}>Ваши стикеры<small>{CUSTOM_STICKER_COUNT}</small></button>
         <button
           type="button"
           className={group === 'roundies' ? 'is-active' : ''}
@@ -151,7 +146,7 @@ export function StickerPicker({ value = '', onSelect }) {
           role="tab"
           aria-selected={group === 'roundies'}
         >
-          Круглые
+          Милые эмоции
           <small>40</small>
         </button>
         <button
@@ -161,23 +156,25 @@ export function StickerPicker({ value = '', onSelect }) {
           role="tab"
           aria-selected={group === 'doodles'}
         >
-          Рисованные
+          Яркие лица
           <small>20</small>
         </button>
       </div>
-      <p className="reader-sticker-hint">Выберите изображение — оно появится справа от выделенного отрывка.</p>
-      <div className="reader-sticker-picker" role="listbox" aria-label="Стикеры">
+      <p className="reader-sticker-hint">Нажмите на эмоцию — стикер добавится к выделенному отрывку.</p>
+      <div className="reader-sticker-picker" role="listbox" aria-label="Стикеры эмоций">
         {visibleStickers.map((sticker) => (
           <button
             type="button"
             className={value === sticker.id ? 'is-active' : ''}
             onClick={() => onSelect(sticker.id)}
-            aria-label="Выбрать стикер"
+            aria-label={sticker.name}
             aria-selected={value === sticker.id}
             role="option"
+            title={sticker.name}
             key={sticker.id}
           >
             <ReaderSticker stickerId={sticker.id} size={64} />
+            <span className="reader-sticker-name">{sticker.name}</span>
             {value === sticker.id ? <Check size={15} /> : null}
           </button>
         ))}
@@ -353,7 +350,7 @@ export function AnnotatedParagraph({ text, runs = [], as: Element = 'p', classNa
   );
 }
 
-export function SelectionAnnotationBar({ selection, onHighlight, onNote, onSticker, onBookmark, onReaction, onReport, onTranslate, onSearch, onCopy, onShare, onClose }) {
+export function SelectionAnnotationBar({ selection, onHighlight, onNote, onSticker, onBookmark, onReaction, onDictionary, onReport, onTranslate, onSearch, onCopy, onShare, onClose }) {
   const [view, setView] = useState('actions');
   if (!selection) return null;
 
@@ -362,11 +359,12 @@ export function SelectionAnnotationBar({ selection, onHighlight, onNote, onStick
       <div className="reader-selection-preview">“{selection.text.slice(0, 90)}{selection.text.length > 90 ? '…' : ''}”</div>
       {view === 'actions' ? (
         <div className="reader-selection-actions">
-          <button type="button" onClick={() => setView('colors')}><Highlighter size={19} /><span>Выделить</span></button>
+          <button className="reader-selection-edit" type="button" onClick={onReport}><Flag size={18} /><span>Предложить правку</span></button>
+          <button className="reader-selection-accent" type="button" onClick={() => setView('colors')}><Highlighter size={19} /><span>Выделить</span></button>
           <button type="button" onClick={onNote}><StickyNote size={19} /><span>Заметка</span></button>
-          <button type="button" onClick={() => setView('stickers')}><SmilePlus size={19} /><span>Стикер</span></button>
+          <button className="reader-selection-accent" type="button" onClick={() => setView('stickers')}><SmilePlus size={19} /><span>Стикеры</span></button>
           <button type="button" onClick={() => setView('reactions')}><Heart size={19} /><span>Реакция</span></button>
-          <button type="button" onClick={onTranslate}><Languages size={19} /><span>Перевести</span></button>
+          <button className="reader-selection-accent" type="button" onClick={onTranslate}><Languages size={19} /><span>Перевести</span></button>
           <button type="button" onClick={() => setView('more')}><MoreHorizontal size={20} /><span>Ещё</span></button>
         </div>
       ) : null}
@@ -397,7 +395,7 @@ export function SelectionAnnotationBar({ selection, onHighlight, onNote, onStick
       {view === 'more' ? (
         <div className="reader-selection-actions reader-selection-more">
           <button type="button" onClick={onBookmark}><Bookmark size={19} /><span>Закладка</span></button>
-          <button type="button" onClick={onReport}><Flag size={19} /><span>Ошибка</span></button>
+          <button type="button" onClick={onDictionary}><BookOpen size={19} /><span>В словарь</span></button>
           <button type="button" onClick={onCopy}><Copy size={19} /><span>Копировать</span></button>
           <button type="button" onClick={onSearch}><Search size={19} /><span>Поиск</span></button>
           <button type="button" onClick={onShare}><Share2 size={19} /><span>Поделиться</span></button>

@@ -1,172 +1,140 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowDownRight,
   ArrowRight,
-  Bookmark,
-  BookOpen,
-  Check,
   ChevronLeft,
   ChevronRight,
+  BookOpen,
   EyeOff,
-  Heart,
   Menu,
   MessageCircle,
   Quote,
   Search,
-  ShieldCheck,
   Sparkles,
-  Star,
   X,
 } from 'lucide-react';
 import CommentVotes from './comment-votes.jsx';
 import CommentReport from './comment-report.jsx';
-import { LIBRARY_STATUS, loadReaderLibrary, removeReaderLibraryBook, updateReaderLibrary } from './reader-library.jsx';
+import { loadReaderLibrary, updateReaderLibrary } from './reader-library.jsx';
 import { ContinueReading, TranslationVoting } from './home-reader-features.jsx';
 import DiscoveryDashboard from './discovery-dashboard.jsx';
-import ReaderMasters from './reader-masters.jsx';
-import { MobileBottomNavigation } from './page-chrome.jsx';
-import { FEATURED_GENRES, genreKey, uniqueGenres } from '../lib/genres.js';
+import { SiteLogo as Logo, ProfileMenu, ShelfNavigation, ThemeButton } from './page-chrome.jsx';
+import { HomeShelves } from './book-shelves.jsx';
 
-function Logo() {
-  return (
-    <a className="logo" href="/" aria-label="BOOKNERD — на главную">
-      <span className="logo-mark" aria-hidden="true">
-        <span>B</span>
-        <Sparkles size={13} strokeWidth={2.5} />
-      </span>
-      <span className="logo-name">BOOKNERD<span>.</span></span>
-    </a>
-  );
-}
+function HeroBookCover({ book, className, onSelect }) {
+  const Cover = onSelect ? 'button' : 'a';
+  const action = onSelect
+    ? { type: 'button', onClick: onSelect, 'aria-label': `Показать книгу «${book.title}»` }
+    : { href: `/books/${book.slug}`, 'aria-label': `Открыть книгу «${book.title}»` };
 
-function HeroBookCover({ book, className = '' }) {
-  if (!book) return null;
   return (
-    <a
+    <Cover
       className={`mini-cover hero-book-cover cover-${book.cover || 'garden'} ${book.coverUrl ? 'has-image' : ''} ${className}`}
-      href={`/books/${book.slug}`}
-      aria-label={`Открыть книгу «${book.title}»`}
+      {...action}
     >
       {book.coverUrl ? (
-        <img src={book.coverUrl} alt={`Обложка книги «${book.title}»`} decoding="async" />
+        <img src={book.coverUrl} alt="" />
       ) : (
         <>
-          <span className="cover-kicker">перевод booknerd</span>
-          <span className="cover-symbol">✦</span>
+          <span className="cover-symbol" aria-hidden="true">✦</span>
           <strong>{book.title}</strong>
           <small>{book.author}</small>
         </>
       )}
-    </a>
+    </Cover>
   );
 }
 
-function HeroArtwork({ books = [] }) {
-  const [coverOffset, setCoverOffset] = useState(0);
+function FeaturedBooks({ books }) {
+  const [index, setIndex] = useState(0);
+  const touchStart = useRef(null);
+  const featured = useMemo(() => {
+    const readable = books.filter((book) => book.publishedChapterCount > 0);
+    return [...readable].sort((a, b) => Number(Boolean(b.teamPick)) - Number(Boolean(a.teamPick))).slice(0, 7);
+  }, [books]);
+  const count = featured.length;
+  const book = featured[index];
+  if (!book) return null;
 
-  useEffect(() => {
-    if (books.length < 2) return undefined;
-    setCoverOffset(Math.floor(Math.random() * books.length));
-    if (books.length < 3) return undefined;
-    const interval = window.setInterval(() => {
-      setCoverOffset((current) => (current + 2) % books.length);
-    }, 7000);
-    return () => window.clearInterval(interval);
-  }, [books.length]);
-
-  const featuredBooks = useMemo(() => {
-    if (!books.length) return [];
-    const first = books[coverOffset % books.length];
-    const second = books[(coverOffset + 1) % books.length];
-    return first?.id === second?.id ? [first] : [first, second];
-  }, [books, coverOffset]);
+  const change = (step) => setIndex((current) => (current + step + count) % count);
+  const previous = featured[(index + count - 1) % count];
+  const next = featured[(index + 1) % count];
 
   return (
-    <div className="hero-art" aria-label="Коллекция переводов BOOKNERD">
-      <div className="orbit orbit-one" />
-      <div className="orbit orbit-two" />
-      <span className="art-star star-one">✦</span>
-      <span className="art-star star-two">✧</span>
-      <div className="art-note">
-        <span>выбор</span>
-        <strong>читателей</strong>
-        <ArrowDownRight size={24} />
+    <section className="home-feature" aria-label="Книги Booknerd" aria-roledescription="карусель">
+      <div
+        className="home-feature-shelf"
+        onTouchStart={(event) => { touchStart.current = event.touches[0]; }}
+        onTouchCancel={() => { touchStart.current = null; }}
+        onTouchEnd={(event) => {
+          const start = touchStart.current;
+          touchStart.current = null;
+          if (!start || count < 2) return;
+          const end = event.changedTouches[0];
+          const horizontal = end.clientX - start.clientX;
+          const vertical = end.clientY - start.clientY;
+          if (Math.abs(horizontal) > 45 && Math.abs(horizontal) > Math.abs(vertical)) change(horizontal < 0 ? 1 : -1);
+        }}
+      >
+        {count > 2 && <HeroBookCover book={previous} className="home-cover-side home-cover-previous" onSelect={() => change(-1)} />}
+        <HeroBookCover book={book} className="home-cover-current" />
+        {count > 1 && <HeroBookCover book={next} className="home-cover-side home-cover-next" onSelect={() => change(1)} />}
+        {count > 1 && (
+          <>
+            <button type="button" className="home-shelf-arrow home-shelf-back" onClick={() => change(-1)} aria-label="Предыдущая книга"><ChevronLeft /></button>
+            <button type="button" className="home-shelf-arrow home-shelf-forward" onClick={() => change(1)} aria-label="Следующая книга"><ChevronRight /></button>
+          </>
+        )}
       </div>
-      {featuredBooks.length === 1 ? <HeroBookCover book={featuredBooks[0]} className="cover-front cover-only" key={`only-${featuredBooks[0].id}`} /> : null}
-      {featuredBooks.length > 1 ? <HeroBookCover book={featuredBooks[0]} className="cover-back" key={`back-${featuredBooks[0].id}`} /> : null}
-      {featuredBooks.length > 1 ? <HeroBookCover book={featuredBooks[1]} className="cover-front" key={`front-${featuredBooks[1].id}`} /> : null}
-      <div className="round-stamp">
-        <span><b>Читай.</b><b>Чувствуй.</b><b>Возвращайся.</b></span>
-        <BookOpen size={24} />
-      </div>
-    </div>
-  );
-}
-
-function BookCover({ book }) {
-  if (book.coverUrl) {
-    return (
-      <div className="book-cover uploaded-book-cover">
-        <img src={book.coverUrl} alt={`Обложка книги «${book.title}»`} loading="lazy" decoding="async" />
-      </div>
-    );
-  }
-  return (
-    <div className={`book-cover cover-${book.cover}`}>
-      <span className="cover-kicker">перевод booknerd</span>
-      <span className="book-cover-number">{book.number || 'BN'}</span>
-      <div className="book-cover-shape" />
-      <div className="book-cover-copy">
-        <span>{book.author}</span>
-        <strong>{book.title}</strong>
-        <small>BOOKNERD EDITION</small>
-      </div>
-    </div>
-  );
-}
-
-function BookCard({ book, libraryStatus = '', onSave, onOpen }) {
-  const saved = Boolean(libraryStatus);
-  return (
-    <article
-      className="book-card"
-      role="link"
-      tabIndex={0}
-      aria-label={`Открыть страницу книги «${book.title}»`}
-      onClick={() => onOpen(book)}
-      onKeyDown={(event) => { if (event.key === 'Enter') onOpen(book); }}
-    >
-      <div className="book-visual-wrap">
-        <BookCover book={book} />
-        <button
-          className={`save-button ${saved ? 'is-saved' : ''}`}
-          onClick={(event) => { event.stopPropagation(); onSave(book); }}
-          aria-label={saved ? `Убрать ${book.title} из закладок` : `Сохранить ${book.title}`}
-        >
-          <Bookmark size={18} fill={saved ? 'currentColor' : 'none'} />
-        </button>
-        <span className="status-pill">{book.status}</span>
-      </div>
-      <div className="book-info">
-        <div className="book-meta">
-          <span>{book.genre}</span>
-          <span>{book.progress}%</span>
-        </div>
-        <button className="book-title-button" onClick={(event) => { event.stopPropagation(); onOpen(book); }}>
-          <h3>{book.title}</h3>
-          <ArrowDownRight size={21} />
-        </button>
+      <div className="home-feature-info" aria-live="polite">
+        <h1><a href={`/books/${book.slug}`}>{book.title}</a></h1>
         <p>{book.author}</p>
-        {(book.tropes || []).length ? <div className="book-tropes">{book.tropes.slice(0, 2).map((trope) => <span key={trope}>{trope}</span>)}</div> : null}
-        <div className="progress-track" aria-label={`Готовность перевода ${book.progress}%`}>
-          <span style={{ width: `${book.progress}%` }} />
-        </div>
-        <small className="book-note">{book.note}</small>
-        {libraryStatus ? <span className={`book-library-state is-${libraryStatus}`}>{LIBRARY_STATUS[libraryStatus]?.label}</span> : null}
+        <dl>
+          <div><dt>Жанр</dt><dd>{book.genre}</dd></div>
+          {book.publicationYear && <div><dt>Год</dt><dd>{book.publicationYear}</dd></div>}
+          <div><dt>Глав на сайте</dt><dd>{book.publishedChapterCount}</dd></div>
+        </dl>
+        <a className="home-read-button" href={`/books/${book.slug}`}><BookOpen size={19} /> Читать</a>
       </div>
-    </article>
+      {count > 1 && <div className="home-slide-controls" role="group" aria-label="Выбор книги">
+        {featured.map((entry, position) => <button type="button" key={entry.id} aria-label={entry.title} aria-pressed={position === index} onClick={() => setIndex(position)} />)}
+      </div>}
+    </section>
+  );
+}
+
+function LatestChapters({ chapters, books, libraryByBook }) {
+  const [savedOnly, setSavedOnly] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+  const booksById = useMemo(() => new Map(books.map((book) => [book.id, book])), [books]);
+  const visible = chapters.filter((chapter) => booksById.has(chapter.bookId) && (!savedOnly || libraryByBook.has(chapter.bookId)));
+
+  return (
+    <section className="home-updates section" aria-labelledby="home-updates-title">
+      <div className="home-section-heading">
+        <h2 id="home-updates-title">Обновления</h2>
+        <a href="/calendar">Календарь глав <ArrowRight size={16} /></a>
+      </div>
+      <div className="home-update-filters" role="group" aria-label="Какие обновления показать">
+        <button type="button" aria-pressed={!savedOnly} onClick={() => { setSavedOnly(false); setShowAll(false); }}>Все</button>
+        <button type="button" aria-pressed={savedOnly} onClick={() => { setSavedOnly(true); setShowAll(false); }}>Мои закладки</button>
+      </div>
+      {visible.length ? <ul className="home-update-list">
+        {(showAll ? visible : visible.slice(0, 6)).map((chapter) => {
+          const book = booksById.get(chapter.bookId);
+          return <li key={chapter.id}>
+            <a href={`/books/${book.slug}/chapters/${chapter.id}`}>
+              <span className="home-update-cover">{book.coverUrl ? <img src={book.coverUrl} alt="" loading="lazy" /> : <BookOpen size={20} />}</span>
+              <span className="home-update-copy"><strong>{book.title}</strong><small>Глава {chapter.chapterNumber}{chapter.title && chapter.title !== `Глава ${chapter.chapterNumber}` ? ` · ${chapter.title}` : ''}</small></span>
+              {chapter.publishedAt && <time dateTime={chapter.publishedAt}>{new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'short', timeZone: 'Asia/Dushanbe' }).format(new Date(chapter.publishedAt))}</time>}
+              <ChevronRight size={17} />
+            </a>
+          </li>;
+        })}
+      </ul> : <p className="home-empty">{savedOnly ? 'Среди последних обновлений пока нет книг из вашей библиотеки.' : 'Свежие главы появятся здесь после публикации.'}</p>}
+      {visible.length > 6 && <button type="button" className="home-show-more" onClick={() => setShowAll(!showAll)}>{showAll ? 'Свернуть' : 'Ещё обновления'}</button>}
+    </section>
   );
 }
 
@@ -175,7 +143,7 @@ function PopularComments({ comments }) {
     <section className="popular-comments section" aria-labelledby="popular-comments-title">
       <div className="section-heading">
         <div>
-          <span className="section-number">04 / ГОЛОС ЧИТАТЕЛЕЙ</span>
+          <span className="section-number">03 / ГОЛОС ЧИТАТЕЛЕЙ</span>
           <h2 id="popular-comments-title">Комментарии,<br /><em>которые любят.</em></h2>
         </div>
         <p>Самые высоко оценённые мысли о книгах и главах. Голосуйте за отзывы, которые откликаются.</p>
@@ -186,10 +154,10 @@ function PopularComments({ comments }) {
             <article className="popular-comment-card" key={comment.id}>
               <MessageCircle size={23} />
               <PopularCommentBody comment={comment} />
-              <div className="popular-comment-author"><strong>{comment.authorName}{comment.authorRole === 'admin' ? <span className="popular-comment-admin-badge"><ShieldCheck size={11} /> Администратор</span> : null}</strong><span>о книге «{comment.bookTitle}»</span></div>
+              <div className="popular-comment-author"><strong>{comment.authorName}</strong><span>о книге «{comment.bookTitle}»</span></div>
               <div className="popular-comment-footer">
                 <div className="popular-comment-feedback"><CommentVotes commentId={comment.id} initialUpVotes={comment.upVotes} initialDownVotes={comment.downVotes} compact /><CommentReport commentId={comment.id} compact /></div>
-                <a href={comment.chapterId ? `/books/${comment.bookSlug}/chapters/${comment.chapterId}#comment-${comment.id}` : comment.context === 'discussion' ? `/books/${comment.bookSlug}#discussion-comment-${comment.id}` : `/books/${comment.bookSlug}#comment-${comment.id}`}>
+                <a href={comment.chapterId ? `/books/${comment.bookSlug}/chapters/${comment.chapterId}` : `/books/${comment.bookSlug}`}>
                   К обсуждению <ArrowRight size={15} />
                 </a>
               </div>
@@ -204,70 +172,18 @@ function PopularComments({ comments }) {
 }
 
 function QuoteOfDay({ quote }) {
-  const [activeQuote, setActiveQuote] = useState(quote);
-
-  useEffect(() => {
-    let active = true;
-    let timeoutId;
-    let loadTimer;
-    let idleId;
-    let quotePool = quote ? [quote] : [];
-
-    const pickCurrentQuote = () => {
-      if (!active || !quotePool.length) return;
-      const slot = Math.floor(Date.now() / (2 * 60 * 1000));
-      setActiveQuote(quotePool[slot % quotePool.length]);
-    };
-
-    const loadPool = async () => {
-      try {
-        const response = await fetch('/api/quote-of-day', { cache: 'no-store' });
-        const data = await response.json().catch(() => ({}));
-        if (!active || !response.ok) return;
-        if (Array.isArray(data.quotes) && data.quotes.length) quotePool = data.quotes;
-        else if (data.quote) quotePool = [data.quote];
-        pickCurrentQuote();
-      } catch {
-        // Keep the current quote when the reader is temporarily offline.
-      }
-    };
-
-    const scheduleNext = () => {
-      const interval = 2 * 60 * 1000;
-      const delay = interval - (Date.now() % interval) + 250;
-      timeoutId = window.setTimeout(() => {
-        pickCurrentQuote();
-        if (active) scheduleNext();
-      }, delay);
-    };
-
-    pickCurrentQuote();
-    if ('requestIdleCallback' in window) idleId = window.requestIdleCallback(loadPool, { timeout: 2200 });
-    else loadTimer = window.setTimeout(loadPool, 1200);
-    scheduleNext();
-    return () => {
-      active = false;
-      window.clearTimeout(timeoutId);
-      window.clearTimeout(loadTimer);
-      if (idleId) window.cancelIdleCallback(idleId);
-    };
-  }, [quote]);
-
-  const sourceHref = activeQuote?.chapterId
-    ? `/books/${activeQuote.bookSlug}/chapters/${activeQuote.chapterId}?page=${Number(activeQuote.page || 0) + 1}`
-    : activeQuote?.bookSlug ? `/books/${activeQuote.bookSlug}` : '/translations';
   return (
-    <section className="quote-of-day section" aria-labelledby="quote-of-day-title" aria-live="polite">
+    <section className="quote-of-day section" aria-labelledby="quote-of-day-title">
       <div className="quote-of-day-card">
         <div className="quote-of-day-topline"><span>01 / ЦИТАТА ДНЯ</span><Quote size={28} /></div>
-        {activeQuote ? (
+        {quote ? (
           <>
-            <blockquote id="quote-of-day-title">«{activeQuote.quote}»</blockquote>
-            {activeQuote.note ? <p>{activeQuote.note}</p> : null}
+            <blockquote id="quote-of-day-title">«{quote.quote}»</blockquote>
+            {quote.note ? <p>{quote.note}</p> : null}
             <div className="quote-of-day-source">
-              <div><strong>{activeQuote.authorName}</strong><span>{activeQuote.source === 'editorial' ? 'команда проекта' : 'читатель BOOKNERD'}</span></div>
-              <a href={sourceHref}>
-                <span>{activeQuote.bookTitle}</span>{activeQuote.chapterTitle ? <small>{activeQuote.chapterTitle}</small> : null}<ArrowRight size={18} />
+              <div><strong>{quote.authorName}</strong><span>читатель BOOKNERD</span></div>
+              <a href={quote.chapterId ? `/books/${quote.bookSlug}/chapters/${quote.chapterId}?page=${Number(quote.page || 0) + 1}` : `/books/${quote.bookSlug}`}>
+                <span>{quote.bookTitle}</span>{quote.chapterTitle ? <small>{quote.chapterTitle}</small> : null}<ArrowRight size={18} />
               </a>
             </div>
           </>
@@ -278,86 +194,6 @@ function QuoteOfDay({ quote }) {
           </div>
         )}
       </div>
-    </section>
-  );
-}
-
-function HomepageFanarts({ artworks = [] }) {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
-
-  useEffect(() => {
-    if (artworks.length < 2) return;
-    setActiveIndex(Math.floor(Math.random() * artworks.length));
-  }, [artworks.length]);
-
-  useEffect(() => {
-    if (artworks.length < 2 || isPaused || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
-    const interval = window.setInterval(() => {
-      setActiveIndex((current) => (current + 1) % artworks.length);
-    }, 6500);
-    return () => window.clearInterval(interval);
-  }, [artworks.length, isPaused]);
-
-  if (!artworks.length) return null;
-  const visibleIndex = activeIndex % artworks.length;
-  const activeArtwork = artworks[visibleIndex];
-  const secondaryArtworks = artworks.filter((_, index) => index !== visibleIndex).slice(0, 7);
-  const showPrevious = () => setActiveIndex((current) => (current - 1 + artworks.length) % artworks.length);
-  const showNext = () => setActiveIndex((current) => (current + 1) % artworks.length);
-
-  return (
-    <section className="homepage-fanarts section" aria-labelledby="homepage-fanarts-title">
-      <div className="section-heading homepage-fanarts-heading">
-        <div>
-          <span className="section-number">02 / ВНУТРИ ИСТОРИЙ</span>
-          <h2 id="homepage-fanarts-title">Сначала почувствуй.<br /><em>Потом читай.</em></h2>
-        </div>
-        <p>Фанарты к нашим переводам — один взгляд на героев, атмосферу и мир перед первой главой.</p>
-      </div>
-      <div
-        className="homepage-fanart-grid"
-        onMouseEnter={() => setIsPaused(true)}
-        onMouseLeave={() => setIsPaused(false)}
-        onFocusCapture={() => setIsPaused(true)}
-        onBlurCapture={() => setIsPaused(false)}
-      >
-        <article className="is-featured homepage-fanart-rotator">
-          <a
-            className="is-active"
-            href={`/books/${activeArtwork.bookSlug}`}
-            aria-label={`Открыть книгу «${activeArtwork.bookTitle}» по фанарту`}
-            key={activeArtwork.id}
-          >
-            <img src={activeArtwork.imageUrl} alt={activeArtwork.caption || `Фанарт к книге «${activeArtwork.bookTitle}»`} loading="eager" decoding="async" />
-            <span>
-              <small>{activeArtwork.bookTitle}</small>
-              <strong>{activeArtwork.caption || 'Заглянуть в эту историю'}</strong>
-              <em>Открыть книгу <ArrowRight size={16} /></em>
-            </span>
-          </a>
-          {artworks.length > 1 ? (
-            <div className="homepage-fanart-switcher" aria-label="Переключение фанартов">
-              <button type="button" onClick={showPrevious} aria-label="Предыдущий фанарт"><ChevronLeft size={18} /></button>
-              <span>{visibleIndex + 1} / {artworks.length}</span>
-              <button type="button" onClick={showNext} aria-label="Следующий фанарт"><ChevronRight size={18} /></button>
-            </div>
-          ) : null}
-        </article>
-        {secondaryArtworks.map((artwork) => (
-          <article key={artwork.id}>
-            <a href={`/books/${artwork.bookSlug}`} aria-label={`Открыть книгу «${artwork.bookTitle}» по фанарту`}>
-              <img src={artwork.imageUrl} alt={artwork.caption || `Фанарт к книге «${artwork.bookTitle}»`} loading="lazy" decoding="async" />
-              <span>
-                <small>{artwork.bookTitle}</small>
-                <strong>{artwork.caption || 'Заглянуть в эту историю'}</strong>
-                <em>Открыть книгу <ArrowRight size={16} /></em>
-              </span>
-            </a>
-          </article>
-        ))}
-      </div>
-      <a className="homepage-fanarts-library" href="/translations">Выбрать историю по настроению <ArrowRight size={18} /></a>
     </section>
   );
 }
@@ -381,20 +217,11 @@ function PopularCommentBody({ comment }) {
   );
 }
 
-function App({ initialBooks = [], initialPopularComments = [], initialQuoteOfDay = null, initialFeaturedArtworks = [] }) {
+function App({ initialBooks = [], initialChapters = [], initialPopularComments = [], initialQuoteOfDay = null }) {
   const books = initialBooks;
-  const filters = useMemo(() => ['Все', ...uniqueGenres(books.flatMap((book) => book.genres?.length ? book.genres : [book.genre]))], [books]);
-  const tickerGenres = useMemo(() => uniqueGenres([
-    ...FEATURED_GENRES,
-    ...books.flatMap((book) => book.genres?.length ? book.genres : [book.genre])
-      .filter(Boolean),
-  ]).map((genre) => genre.toLocaleUpperCase('ru-RU')), [books]);
-  const [activeFilter, setActiveFilter] = useState('Все');
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [notice, setNotice] = useState('');
-  const [visibleBookLimit, setVisibleBookLimit] = useState(8);
   const [libraryItems, setLibraryItems] = useState([]);
   const libraryByBook = useMemo(() => new Map(libraryItems.map((item) => [item.bookId, item])), [libraryItems]);
 
@@ -430,50 +257,30 @@ function App({ initialBooks = [], initialPopularComments = [], initialQuoteOfDay
       active = false;
       window.removeEventListener('booknerd-library-change', onChange);
     };
-  }, []);
+  }, [books]);
 
   useEffect(() => {
-    if (!notice) return undefined;
-    const timeout = window.setTimeout(() => setNotice(''), 2600);
-    return () => window.clearTimeout(timeout);
-  }, [notice]);
-
-  useEffect(() => {
-    document.body.style.overflow = searchOpen || menuOpen ? 'hidden' : '';
-    return () => { document.body.style.overflow = ''; };
+    if (!searchOpen && !menuOpen) return undefined;
+    document.body.style.overflow = 'hidden';
+    const closeOnEscape = (event) => {
+      if (event.key !== 'Escape') return;
+      setSearchOpen(false);
+      setMenuOpen(false);
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.body.style.overflow = '';
+      document.removeEventListener('keydown', closeOnEscape);
+    };
   }, [searchOpen, menuOpen]);
 
   const visibleBooks = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return books.filter((book) => {
-      const inFilter = activeFilter === 'Все' || (book.genres || [book.genre]).some((genre) => genreKey(genre) === genreKey(activeFilter));
       const inSearch = !normalized || `${book.title} ${book.author} ${(book.genres || [book.genre]).join(' ')} ${(book.tropes || []).join(' ')}`.toLowerCase().includes(normalized);
-      return inFilter && inSearch;
+      return inSearch;
     });
-  }, [activeFilter, query]);
-  const renderedBooks = visibleBooks.slice(0, visibleBookLimit);
-
-  useEffect(() => {
-    setVisibleBookLimit(8);
-  }, [activeFilter, query]);
-
-  const toggleSave = async (book) => {
-    const current = libraryByBook.get(book.id);
-    try {
-      if (current) {
-        setLibraryItems((items) => items.filter((item) => item.bookId !== book.id));
-        await removeReaderLibraryBook(book.id);
-        setNotice('Книга убрана из закладок');
-      } else {
-        const item = await updateReaderLibrary({ bookId: book.id, status: 'saved' });
-        setLibraryItems((items) => [item, ...items.filter((entry) => entry.bookId !== book.id)]);
-        setNotice('Добавлено в закладки');
-      }
-    } catch (error) {
-      setNotice(error.message);
-      loadReaderLibrary().then(setLibraryItems).catch(() => {});
-    }
-  };
+  }, [books, query]);
 
   const openBook = (book) => {
     if (book?.slug) window.location.href = `/books/${book.slug}`;
@@ -481,18 +288,13 @@ function App({ initialBooks = [], initialPopularComments = [], initialQuoteOfDay
 
   return (
     <>
-      <div className="site-shell" id="top">
-        <div className="announcement">
-          <span>✦</span>
-          <p>Истории, которые мы хотели прочитать сами</p>
-          <span className="announcement-side">переводим с любовью · глава за главой</span>
-        </div>
-
-        <header className="header">
+      <div className="site-shell booknerd-home" id="top">
+        <header className="home-header">
+          <button type="button" className="home-menu-button" onClick={() => setMenuOpen(true)} aria-label="Открыть меню"><Menu size={22} /></button>
           <Logo />
           <nav className="desktop-nav" aria-label="Главная навигация">
             <a href="/translations">Переводы</a>
-            <a href="/library">Закладки</a>
+            <a href="/library">Моя библиотека</a>
             <a href="/calendar">Календарь глав</a>
             <a href="/community">Сообщество</a>
             <a href="/about">О проекте</a>
@@ -502,184 +304,38 @@ function App({ initialBooks = [], initialPopularComments = [], initialQuoteOfDay
             <button className="icon-button" onClick={() => setSearchOpen(true)} aria-label="Открыть поиск">
               <Search size={19} />
             </button>
-            <a className="telegram-button" href="/go/telegram" target="_blank" rel="noreferrer">
-              Наш Telegram <ArrowRight size={17} />
-            </a>
-            <button className="menu-button" onClick={() => setMenuOpen(true)} aria-label="Открыть меню">
-              <Menu size={22} />
-            </button>
+            <ThemeButton />
+            <ProfileMenu />
           </div>
         </header>
 
         <main>
-          <section className="hero">
-            <div className="hero-copy">
-              <div className="eyebrow"><span /> независимые книжные переводы</div>
-              <h1>Истории,<br />которым нужен<br /><em>наш голос.</em></h1>
-              <p className="hero-lede">
-                Переводим книги бережно — сохраняя юмор, характеры и то самое чувство,
-                из-за которого невозможно остановиться на одной главе.
-              </p>
-              <div className="hero-actions">
-                <a className="primary-button" href="/translations">
-                  Смотреть переводы <ArrowDownRight size={19} />
-                </a>
-                  <a className="text-button" href={books[0]?.slug ? `/books/${books[0].slug}` : '/translations'}>
-                  Что читаем сейчас <span>↗</span>
-                </a>
-              </div>
-              <div className="hero-stats">
-                <div><strong>3 000+</strong><span>читателей</span></div>
-                <div><strong>3×</strong><span>перевод · редактура · корректура</span></div>
-                <div><strong>100%</strong><span>любви к деталям</span></div>
-              </div>
-            </div>
-            <HeroArtwork books={books} />
-          </section>
-
-          <div className="ticker" aria-hidden="true">
-            <div>
-              {[0, 1].map((copy) => (
-                <React.Fragment key={copy}>
-                  {tickerGenres.map((genre) => <React.Fragment key={`${copy}-${genre}`}><span>{genre}</span><b>✦</b></React.Fragment>)}
-                </React.Fragment>
-              ))}
-            </div>
-          </div>
-
-          <QuoteOfDay quote={initialQuoteOfDay} />
-
-          <HomepageFanarts artworks={initialFeaturedArtworks} />
-
+          <FeaturedBooks books={books} />
           <ContinueReading items={libraryItems} books={books} />
+          <LatestChapters chapters={initialChapters} books={books} libraryByBook={libraryByBook} />
 
+          <HomeShelves books={books} libraryByBook={libraryByBook} />
+
+          {initialQuoteOfDay && <QuoteOfDay quote={initialQuoteOfDay} />}
           <DiscoveryDashboard books={books} />
-          <ReaderMasters />
-
-          <section className="catalog section" id="catalog">
-            <div className="section-heading catalog-heading">
-              <div>
-                <span className="section-number">03 / ВЕСЬ КАТАЛОГ</span>
-                <h2>Выбирай следующую<br /><em>книжную любовь</em></h2>
-              </div>
-              <p>От уютной романтики до миров, где магия требует слишком высокую цену.</p>
-            </div>
-
-            <div className="catalog-toolbar">
-              <div className="filter-list" role="group" aria-label="Фильтр по жанрам">
-                {filters.map((filter) => (
-                  <button
-                    key={filter}
-                    className={activeFilter === filter ? 'active' : ''}
-                    onClick={() => setActiveFilter(filter)}
-                  >
-                    {filter}
-                  </button>
-                ))}
-              </div>
-              <button className="catalog-search" onClick={() => setSearchOpen(true)}>
-                <Search size={18} /> Найти книгу
-              </button>
-            </div>
-
-            {visibleBooks.length > 0 ? (
-              <div className="book-grid book-list-home">
-                {renderedBooks.map((book) => (
-                  <BookCard
-                    key={book.id}
-                    book={book}
-                    libraryStatus={libraryByBook.get(book.id)?.status || ''}
-                    onSave={toggleSave}
-                    onOpen={openBook}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="empty-state">
-                <BookOpen size={30} />
-                <h3>Ничего не нашлось</h3>
-                <p>Попробуй другой запрос или жанр.</p>
-              </div>
-            )}
-            {visibleBooks.length > renderedBooks.length ? (
-              <button className="catalog-load-more" type="button" onClick={() => setVisibleBookLimit((current) => current + 8)}>
-                Показать ещё книги <ArrowDownRight size={18} />
-              </button>
-            ) : null}
-          </section>
-
-          <PopularComments comments={initialPopularComments} />
-
+          {initialPopularComments.length > 0 && <PopularComments comments={initialPopularComments} />}
           <TranslationVoting />
-
-          <section className="manifesto section" id="about">
-            <div className="manifesto-card">
-              <div className="manifesto-topline">
-                <span>05 / НАШ ПОДХОД</span>
-                <Sparkles size={28} />
-              </div>
-              <blockquote>
-                Мы переводим не только слова.<br />Мы переводим <em>ощущение.</em>
-              </blockquote>
-              <div className="manifesto-bottom">
-                <p>
-                  Сохраняем голос автора, спорим о каждой интонации и не выпускаем главу,
-                  пока она не зазвучит по‑настоящему.
-                </p>
-                <a href="/team">Познакомиться с командой <ArrowRight size={18} /></a>
-              </div>
-            </div>
-
-            <div className="values" id="team">
-              <article>
-                <span>01</span>
-                <Heart size={24} />
-                <h3>С любовью к тексту</h3>
-                <p>Не упрощаем характеры и не теряем атмосферу ради скорости.</p>
-              </article>
-              <article>
-                <span>02</span>
-                <MessageCircle size={24} />
-                <h3>Вместе с читателями</h3>
-                <p>Обсуждаем, слушаем обратную связь и выбираем истории вместе.</p>
-              </article>
-              <article>
-                <span>03</span>
-                <Star size={24} />
-                <h3>Качество — привычка</h3>
-                <p>Перевод, редактура и корректура проходят несколько внимательных этапов.</p>
-              </article>
-            </div>
-          </section>
-
-          <section className="join section" id="join">
-            <div className="join-decoration" aria-hidden="true">
-              <span>BOOK</span><span>NERD</span>
-            </div>
-            <div className="join-content">
-              <span className="section-number">06 / ЧИТАТЬ ДАЛЬШЕ</span>
-              <h2>Новая глава уже<br /><em>на подходе.</em></h2>
-              <p>Следи за новыми переводами и продолжай чтение прямо на сайте.</p>
-              <a className="join-library-link" href="/translations">Открыть каталог <ArrowRight size={19} /></a>
-              <small>Все опубликованные главы появляются в онлайн-читалке.</small>
-            </div>
-          </section>
         </main>
 
         <footer>
           <Logo />
           <p>Книжная команда переводов · сделано читателями для читателей</p>
-          <div><a href="/translations">Переводы</a><a href="/library">Закладки</a><a href="/calendar">Расписание</a><a href="/community">Сообщество</a><a href="/profile">Профиль</a><a href="/search">Поиск</a><a href="/about">О нас</a><a href="/team">Команда</a><a href="/terms">Соглашение</a><a href="/privacy">Конфиденциальность</a><a href="/go/telegram" target="_blank" rel="noreferrer">Telegram</a></div>
+          <div><a href="/translations">Переводы</a><a href="/library">Моя библиотека</a><a href="/calendar">Календарь</a><a href="/community">Сообщество</a><a href="/profile">Профиль</a><a href="/search">Поиск</a><a href="/about">О нас</a><a href="/team">Команда</a><a href="/go/telegram" target="_blank" rel="noreferrer">Telegram</a></div>
           <span>© 2026 BOOKNERD</span>
         </footer>
-        <MobileBottomNavigation active="home" />
+        <ShelfNavigation active="home" continueHref={libraryItems.some((item) => item.lastChapterId) ? '#continue-reading' : '/library'} />
       </div>
 
       {searchOpen && (
         <div className="overlay" role="dialog" aria-modal="true" aria-label="Поиск книг">
           <button className="overlay-close" onClick={() => setSearchOpen(false)} aria-label="Закрыть поиск"><X /></button>
           <div className="search-dialog">
-            <span>Поиск по каталогу</span>
+            <span>Поиск по библиотеке</span>
             <div className="search-input-wrap">
               <Search size={25} />
               <input
@@ -707,25 +363,23 @@ function App({ initialBooks = [], initialPopularComments = [], initialQuoteOfDay
       )}
 
       {menuOpen && (
-        <div className="mobile-drawer">
-          <div className="drawer-head"><Logo /><button onClick={() => setMenuOpen(false)}><X /></button></div>
+        <div className="mobile-drawer home-drawer" role="dialog" aria-modal="true" aria-label="Меню">
+          <div className="drawer-head"><Logo /><button onClick={() => setMenuOpen(false)} aria-label="Закрыть меню"><X /></button></div>
           <nav>
-            <a href="/translations" onClick={() => setMenuOpen(false)}><span>01</span>Переводы</a>
-            <a href="/library" onClick={() => setMenuOpen(false)}><span>02</span>Закладки</a>
-            <a href="/calendar" onClick={() => setMenuOpen(false)}><span>03</span>Календарь глав</a>
-            <a href="/community" onClick={() => setMenuOpen(false)}><span>04</span>Сообщество</a>
-            <a href="/profile" onClick={() => setMenuOpen(false)}><span>05</span>Профиль</a>
-            <a href="/search" onClick={() => setMenuOpen(false)}><span>06</span>Расширенный поиск</a>
-            <a href="/about" onClick={() => setMenuOpen(false)}><span>07</span>О проекте</a>
-            <a href="/team" onClick={() => setMenuOpen(false)}><span>08</span>Команда</a>
-            <a href="/go/telegram" target="_blank" rel="noreferrer" onClick={() => setMenuOpen(false)}><span>09</span>Telegram</a>
-            <a href="/admin" onClick={() => setMenuOpen(false)}><span>10</span>Редакционная</a>
+            <a href="/translations" onClick={() => setMenuOpen(false)}>Переводы</a>
+            <a href="/library" onClick={() => setMenuOpen(false)}>Моя библиотека</a>
+            <a href="/calendar" onClick={() => setMenuOpen(false)}>Календарь глав</a>
+            <a href="/community" onClick={() => setMenuOpen(false)}>Сообщество</a>
+            <a href="/profile" onClick={() => setMenuOpen(false)}>Профиль</a>
+            <a href="/search" onClick={() => setMenuOpen(false)}>Расширенный поиск</a>
+            <a href="/about" onClick={() => setMenuOpen(false)}>О проекте</a>
+            <a href="/team" onClick={() => setMenuOpen(false)}>Команда</a>
+            <a href="/go/telegram" target="_blank" rel="noreferrer" onClick={() => setMenuOpen(false)}>Telegram</a>
+            <a href="/admin" onClick={() => setMenuOpen(false)}>Редакционная</a>
           </nav>
-          <p>Истории, которые мы хотели прочитать сами.</p>
         </div>
       )}
 
-      {notice && <div className="toast"><Check size={17} />{notice}</div>}
     </>
   );
 }

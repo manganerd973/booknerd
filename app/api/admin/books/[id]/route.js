@@ -1,13 +1,15 @@
+import { env } from 'cloudflare:workers';
 import { authorizeAdminRequest } from '../../../../../lib/admin-auth.js';
 import { recalculateBookProgress, slugify } from '../../../../../lib/books.js';
 import { ensureDb } from '../../../../../lib/runtime.js';
 import { normalizeGoogleDriveUrl } from '../../../../../lib/google-drive.js';
 import { notifyBookPreferenceEvent, notifyPublishedBook } from '../../../../../lib/push-notifications.js';
-import { normalizeBookStatus } from '../../../../../lib/book-status.js';
-import { normalizeGenres } from '../../../../../lib/genres.js';
+import { BOOK_TYPES, BOOK_AGE_RATINGS, normalizeBookStatus } from '../../../../../lib/book-status.js';
 
 function normalizePayload(payload = {}) {
-  const genres = normalizeGenres(payload.genres);
+  const genres = Array.isArray(payload.genres)
+    ? payload.genres.map((genre) => String(genre).trim()).filter(Boolean).slice(0, 20)
+    : String(payload.genres || '').split(/[,;\n]+/).map((genre) => genre.trim()).filter(Boolean).slice(0, 20);
   const tropes = Array.isArray(payload.tropes)
     ? payload.tropes.map((trope) => String(trope).trim()).filter(Boolean).slice(0, 40)
     : String(payload.tropes || '').split(/[,;\n]+/).map((trope) => trope.trim()).filter(Boolean).slice(0, 40);
@@ -31,13 +33,6 @@ function normalizePayload(payload = {}) {
   const searchAliases = Array.isArray(payload.searchAliases)
     ? payload.searchAliases.map((item) => String(item).trim()).filter(Boolean).slice(0, 100)
     : String(payload.searchAliases || '').split(/[,;\n]+/).map((item) => item.trim()).filter(Boolean).slice(0, 100);
-  const suitabilitySource = payload.suitabilityProfile && typeof payload.suitabilityProfile === 'object'
-    ? payload.suitabilityProfile
-    : {};
-  const suitabilityProfile = Object.fromEntries(['romance', 'angst', 'pace', 'spice', 'triggers'].map((key) => [
-    key,
-    String(suitabilitySource[key] || '').trim().slice(0, 120),
-  ]));
   return {
     title: String(payload.title || '').trim().slice(0, 180),
     originalTitle: String(payload.originalTitle || '').trim().slice(0, 180),
@@ -47,6 +42,8 @@ function normalizePayload(payload = {}) {
     releaseDays,
     author: String(payload.author || '').trim().slice(0, 140),
     country: String(payload.country || '').trim().slice(0, 100),
+    bookType: BOOK_TYPES.includes(payload.bookType) ? payload.bookType : '',
+    ageRating: BOOK_AGE_RATINGS.includes(payload.ageRating) ? payload.ageRating : null,
     publicationYear: payload.publicationYear ? Math.max(1, Math.min(9999, Math.floor(Number(payload.publicationYear)))) : null,
     pageCount: Math.max(0, Math.min(100000, Math.floor(Number(payload.pageCount || 0)))),
     plannedChapterCount: Math.max(0, Math.min(100000, Math.floor(Number(payload.plannedChapterCount || 0)))),
@@ -61,9 +58,6 @@ function normalizePayload(payload = {}) {
     searchAliases,
     dedication: String(payload.dedication || '').trim().slice(0, 2000),
     triggerWarnings,
-    suitabilityProfile,
-    ageRating: String(payload.ageRating || '').trim().slice(0, 20),
-    ageReason: String(payload.ageReason || '').trim().slice(0, 1000),
     hasHotScenes: Boolean(payload.hasHotScenes),
     hotSceneChapters: String(payload.hotSceneChapters || '').trim().slice(0, 160),
     synopsis: String(payload.synopsis || '').trim().slice(0, 12000),
@@ -98,14 +92,14 @@ export async function PUT(request, { params }) {
     if (conflict) slug = `${slug}-${id.slice(0, 6)}`;
 
     await db.prepare(
-      `UPDATE books SET slug = ?, title = ?, original_title = ?, series_title = ?, series_number = ?, series_reading_order = ?, release_days = ?, author = ?, country = ?, publication_year = ?, page_count = ?, planned_chapter_count = ?, author_birthday = ?, original_release_date = ?, translator = ?, editor = ?, proofreader = ?, playlist_url = ?, team_pick = ?, quote_of_day = ?, search_aliases = ?, dedication = ?, trigger_warnings = ?, suitability_profile = ?, age_rating = ?, age_reason = ?, has_hot_scenes = ?, hot_scene_chapters = ?, synopsis = ?, genres = ?, tropes = ?, drive_url = ?,
-       status = ?, cover_key = ?, published = ?, updated_at = ? WHERE id = ?`
+      `UPDATE books SET slug = ?, title = ?, original_title = ?, series_title = ?, series_number = ?, series_reading_order = ?, release_days = ?, author = ?, country = ?, publication_year = ?, page_count = ?, planned_chapter_count = ?, author_birthday = ?, original_release_date = ?, translator = ?, editor = ?, proofreader = ?, playlist_url = ?, team_pick = ?, quote_of_day = ?, search_aliases = ?, dedication = ?, trigger_warnings = ?, has_hot_scenes = ?, hot_scene_chapters = ?, synopsis = ?, genres = ?, tropes = ?, drive_url = ?,
+       status = ?, cover_key = ?, published = ?, updated_at = ?, book_type = ?, age_rating = ? WHERE id = ?`
     ).bind(
       slug, payload.title, payload.originalTitle, payload.seriesTitle, payload.seriesNumber, JSON.stringify(payload.seriesReadingOrder), JSON.stringify(payload.releaseDays), payload.author,
       payload.country, payload.publicationYear, payload.pageCount, payload.plannedChapterCount, payload.authorBirthday, payload.originalReleaseDate, payload.translator, payload.editor, payload.proofreader, payload.playlistUrl, payload.teamPick ? 1 : 0, payload.quoteOfDay, JSON.stringify(payload.searchAliases),
-      payload.dedication, JSON.stringify(payload.triggerWarnings), JSON.stringify(payload.suitabilityProfile), payload.ageRating, payload.ageReason, payload.hasHotScenes ? 1 : 0, payload.hotSceneChapters, payload.synopsis,
+      payload.dedication, JSON.stringify(payload.triggerWarnings), payload.hasHotScenes ? 1 : 0, payload.hotSceneChapters, payload.synopsis,
       JSON.stringify(payload.genres), JSON.stringify(payload.tropes), payload.driveUrl, payload.status, payload.coverKey,
-      payload.published ? 1 : 0, new Date().toISOString(), id,
+      payload.published ? 1 : 0, new Date().toISOString(), payload.bookType, payload.ageRating, id,
     ).run();
     const progressState = await recalculateBookProgress(id, db);
     if (current.cover_key && current.cover_key !== payload.coverKey) {
@@ -145,13 +139,20 @@ export async function DELETE(request, { params }) {
     if (!book) return Response.json({ error: 'Книга не найдена.' }, { status: 404 });
     const artworkRows = await db.prepare(`SELECT image_key FROM book_artworks WHERE book_id = ?`).bind(id).all();
     const artworkKeys = (artworkRows.results || []).map((row) => row.image_key).filter(Boolean);
+    const musicRows = await db.prepare(
+      `SELECT m.storage_key FROM chapter_music m JOIN chapters c ON c.id = m.chapter_id WHERE c.book_id = ?`
+    ).bind(id).all();
+    const musicKeys = (musicRows.results || []).map((row) => row.storage_key).filter(Boolean);
     await db.batch([
       db.prepare(`DELETE FROM book_artworks WHERE book_id = ?`).bind(id),
       db.prepare(`DELETE FROM books WHERE id = ?`).bind(id),
       ...(book.cover_key ? [db.prepare(`DELETE FROM book_covers WHERE key = ?`).bind(book.cover_key)] : []),
-      ...(book.world_map_key ? [db.prepare(`DELETE FROM book_covers WHERE key = ?`).bind(book.world_map_key)] : []),
       ...artworkKeys.map((key) => db.prepare(`DELETE FROM book_covers WHERE key = ?`).bind(key)),
     ]);
+    if (env?.BUCKET) {
+      const bucketKeys = [...musicKeys, book.world_map_key].filter(Boolean);
+      if (bucketKeys.length) await Promise.all(bucketKeys.map((key) => env.BUCKET.delete(key).catch(() => {})));
+    }
     return Response.json({ ok: true });
   } catch (error) {
     return Response.json({ error: error.message || 'Не удалось удалить книгу.' }, { status: 500 });
