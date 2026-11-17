@@ -14,11 +14,8 @@ import {
   Sparkles,
   X,
 } from 'lucide-react';
-import CommentVotes from './comment-votes.jsx';
-import CommentReport from './comment-report.jsx';
 import { loadReaderLibrary } from './reader-library.jsx';
-import { ContinueReading, TranslationVoting } from './home-reader-features.jsx';
-import DiscoveryDashboard from './discovery-dashboard.jsx';
+import { ContinueReading } from './home-reader-features.jsx';
 import { SiteLogo as Logo, ProfileMenu, ShelfNavigation, ThemeButton } from './page-chrome.jsx';
 import { HomeShelves } from './book-shelves.jsx';
 
@@ -138,39 +135,6 @@ function LatestChapters({ chapters, books, libraryByBook }) {
   );
 }
 
-function PopularComments({ comments }) {
-  return (
-    <section id="popular-comments" className="popular-comments section" aria-labelledby="popular-comments-title">
-      <div className="section-heading">
-        <div>
-          <span className="section-number">03 / ГОЛОС ЧИТАТЕЛЕЙ</span>
-          <h2 id="popular-comments-title">Комментарии,<br /><em>которые любят.</em></h2>
-        </div>
-        <p>Самые высоко оценённые мысли о книгах и главах. Голосуйте за отзывы, которые откликаются.</p>
-      </div>
-      {comments.length ? (
-        <div className="popular-comment-grid">
-          {comments.map((comment) => (
-            <article className="popular-comment-card" key={comment.id}>
-              <MessageCircle size={23} />
-              <PopularCommentBody comment={comment} />
-              <div className="popular-comment-author"><strong>{comment.authorName}</strong><span>о книге «{comment.bookTitle}»</span></div>
-              <div className="popular-comment-footer">
-                <div className="popular-comment-feedback"><CommentVotes commentId={comment.id} initialUpVotes={comment.upVotes} initialDownVotes={comment.downVotes} compact /><CommentReport commentId={comment.id} compact /></div>
-                <a href={comment.chapterId ? `/books/${comment.bookSlug}/chapters/${comment.chapterId}` : `/books/${comment.bookSlug}`}>
-                  К обсуждению <ArrowRight size={15} />
-                </a>
-              </div>
-            </article>
-          ))}
-        </div>
-      ) : (
-        <div className="popular-comments-empty"><MessageCircle size={28} /><div><strong>Здесь появятся любимые комментарии</strong><span>Когда читатели начнут голосовать, самые популярные отзывы попадут на главную.</span></div></div>
-      )}
-    </section>
-  );
-}
-
 function QuoteOfDay({ quote }) {
   return (
     <section className="quote-of-day section" aria-labelledby="quote-of-day-title">
@@ -198,26 +162,7 @@ function QuoteOfDay({ quote }) {
   );
 }
 
-function PopularCommentBody({ comment }) {
-  const [revealed, setRevealed] = useState(false);
-  if (!comment.isSpoiler) return <blockquote>«{comment.body}»</blockquote>;
-  if (!revealed) {
-    return (
-      <button className="popular-comment-spoiler" type="button" onClick={() => setRevealed(true)}>
-        <EyeOff size={22} />
-        <span><strong>Комментарий со спойлером</strong><small>Нажмите, чтобы прочитать</small></span>
-      </button>
-    );
-  }
-  return (
-    <div className="popular-comment-spoiler-open">
-      <blockquote>«{comment.body}»</blockquote>
-      <button type="button" onClick={() => setRevealed(false)}><EyeOff size={13} /> Скрыть</button>
-    </div>
-  );
-}
-
-function App({ initialBooks = [], initialChapters = [], initialPopularComments = [], initialQuoteOfDay = null }) {
+function App({ initialBooks = [], initialChapters = [], initialQuoteOfDay = null }) {
   const books = initialBooks;
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
@@ -303,9 +248,6 @@ function App({ initialBooks = [], initialChapters = [], initialPopularComments =
           <HomeShelves books={books} libraryByBook={libraryByBook} />
 
           {initialQuoteOfDay && <QuoteOfDay quote={initialQuoteOfDay} />}
-          <DiscoveryDashboard books={books} />
-          {initialPopularComments.length > 0 && <PopularComments comments={initialPopularComments} />}
-          <TranslationVoting />
         </main>
 
         <footer>

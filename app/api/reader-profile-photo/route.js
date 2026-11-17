@@ -1,3 +1,4 @@
+import { checkImageStorageBudget } from '../../../lib/image-storage-budget.js';
 import { env } from 'cloudflare:workers';
 import { hasReaderAccess } from '../../../lib/reader-access.js';
 import { ensureDb } from '../../../lib/runtime.js';
@@ -108,6 +109,7 @@ export async function POST(request) {
     } else {
       // Small, resized avatars can also be stored with the existing D1 binding.
       if (file.size > 256 * 1024) return Response.json({ error: 'Уменьшите фото до 256 КБ.' }, { status: 400 });
+      await checkImageStorageBudget(db, file.size);
       await db.prepare('CREATE TABLE IF NOT EXISTS reader_avatar_images (photo_key TEXT PRIMARY KEY, image BLOB NOT NULL)').run();
       uploadedKey = `d1-avatar:${crypto.randomUUID()}`;
       await db.prepare('INSERT INTO reader_avatar_images (photo_key, image) VALUES (?, ?)').bind(uploadedKey, await file.arrayBuffer()).run();

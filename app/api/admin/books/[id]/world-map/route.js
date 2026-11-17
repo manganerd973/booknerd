@@ -1,3 +1,4 @@
+import { checkImageStorageBudget } from '../../../../../../lib/image-storage-budget.js';
 import { env } from 'cloudflare:workers';
 import { authorizeAdminRequest } from '../../../../../../lib/admin-auth.js';
 import { ensureDb } from '../../../../../../lib/runtime.js';
@@ -50,6 +51,7 @@ export async function POST(request, { params }) {
       await env.BUCKET.put(uploadedKey, file.stream(), { httpMetadata: { contentType: file.type } });
     } else {
       if (file.size > 1400000) return Response.json({ error: 'Уменьшите карту до 1,4 МБ или подключите хранилище R2.' }, { status: 400 });
+      await checkImageStorageBudget(db, file.size);
       uploadedKey = `maps/${bookId}/${crypto.randomUUID()}.${extension}`;
       await db.prepare('INSERT INTO book_covers (key, content_type, data, created_at, uploaded_by) VALUES (?, ?, ?, ?, ?)')
         .bind(uploadedKey, file.type, await file.arrayBuffer(), new Date().toISOString(), auth.email || '').run();

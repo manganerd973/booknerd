@@ -1,3 +1,4 @@
+import { checkImageStorageBudget } from '../../../../lib/image-storage-budget.js';
 import { authorizeAdminRequest } from '../../../../lib/admin-auth.js';
 import { ensureDb } from '../../../../lib/runtime.js';
 
@@ -37,6 +38,7 @@ export async function POST(request) {
       return Response.json({ error: 'Файл не похож на настоящее изображение.' }, { status: 400 });
     }
 
+    await checkImageStorageBudget(await ensureDb(), file.size);
     const key = `chapter-images/${crypto.randomUUID()}.${extensionFor(file.type)}`;
     await (await ensureDb()).prepare(
       `INSERT INTO book_covers (key, content_type, data, created_at, uploaded_by) VALUES (?, ?, ?, ?, ?)`,

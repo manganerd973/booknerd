@@ -1,4 +1,4 @@
-const SHELL_CACHE = 'booknerd-shell-v12';
+const SHELL_CACHE = 'booknerd-shell-v13';
 const OFFLINE_CACHE = 'booknerd-offline-books-v9';
 const SHELL_URLS = ['/', '/translations', '/library', '/calendar', '/manifest.webmanifest', '/booknerd-icon-v3-192.png'];
 
@@ -31,8 +31,13 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin || url.pathname.startsWith('/admin') || url.pathname.startsWith('/api/admin')) return;
+  // APIs are live data; do not search the entire offline cache for every poll.
+  if (url.pathname.startsWith('/api/')) return;
   event.respondWith((async () => {
     const cached = await caches.match(request, { ignoreSearch: request.mode === 'navigate' });
+    // Versioned bundles and fonts are immutable. Reuse them immediately.
+    const immutableAsset = url.pathname.startsWith('/_next/static/') || request.destination === 'font';
+    if (immutableAsset && cached) return cached;
     try {
       const response = await fetch(request);
       if (response.ok && !response.redirected && (request.mode === 'navigate' || ['style', 'script', 'font', 'image'].includes(request.destination))) {
@@ -42,7 +47,7 @@ self.addEventListener('fetch', (event) => {
       return response;
     } catch {
       if (cached) return cached;
-      if (request.mode === 'navigate') return caches.match('/');
+      if (request.mode === 'navigate') return (await caches.match('/')) || new Response('Нет соединения. Попробуйте открыть страницу позже.', { status: 503, headers: { 'content-type': 'text/plain; charset=utf-8' } });
       return Response.error();
     }
   })());

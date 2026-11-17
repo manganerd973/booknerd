@@ -1,3 +1,4 @@
+import { checkImageStorageBudget } from '../../../lib/image-storage-budget.js';
 import { hasReaderAccess } from '../../../lib/reader-access.js';
 import { ensureDb } from '../../../lib/runtime.js';
 
@@ -31,6 +32,7 @@ export async function POST(request) {
     if (!file.size || file.size > MAX_AVATAR_BYTES) return Response.json({ error: 'Аватар получился слишком большим. Выберите другое фото.' }, { status: 400 });
 
     const db = await ensureDb();
+    await checkImageStorageBudget(db, file.size);
     const current = await db.prepare(`SELECT photo_key FROM reader_profiles WHERE visitor_key = ? LIMIT 1`).bind(visitorKey).first();
     const extension = file.type === 'image/png' ? 'png' : file.type === 'image/jpeg' ? 'jpg' : 'webp';
     const key = `reader-avatars/${crypto.randomUUID()}.${extension}`;

@@ -180,11 +180,6 @@ export function ProfileMenu() {
         <a href="/profile#profile-history" onClick={() => setOpen(false)}><Clock3 size={17} /> История чтения</a>
         <a href="/team" onClick={() => setOpen(false)}><Users size={17} /> Команда Booknerd</a>
         <span className="profile-menu-divider" />
-        <a href="/#future-translations" onClick={() => setOpen(false)}><BookOpen size={17} /> Что читать следующим / Будущие переводы</a>
-        <a href="/#what-to-read" onClick={() => setOpen(false)}><Compass size={17} /> Что читаем?</a>
-        <a href="/#daily-selection" onClick={() => setOpen(false)}><Sparkles size={17} /> Ежедневная подборка</a>
-        <a href="/#book-records" onClick={() => setOpen(false)}><Trophy size={17} /> Книжные рекорды</a>
-        <a href="/#popular-comments" onClick={() => setOpen(false)}><MessageCircle size={17} /> Комментарии, которые любят</a>
       </nav>}
     </div>
   );

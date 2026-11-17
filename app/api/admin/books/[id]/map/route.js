@@ -1,3 +1,4 @@
+import { checkImageStorageBudget } from '../../../../../../lib/image-storage-budget.js';
 import { authorizeAdminRequest } from '../../../../../../lib/admin-auth.js';
 import { ensureDb } from '../../../../../../lib/runtime.js';
 import { mapWorldMap, normalizeWorldMapMarkers } from '../../../../../../lib/world-map.js';
@@ -57,6 +58,7 @@ export async function POST(request, { params }) {
     let sizeBytes = Number(current.world_map_size_bytes || 0);
     let insertedKey = null;
     if (hasNewFile) {
+      await checkImageStorageBudget(db, file.size);
       const extension = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
       mapKey = `maps/${bookId}/${crypto.randomUUID()}.${extension}`;
       contentType = file.type;
