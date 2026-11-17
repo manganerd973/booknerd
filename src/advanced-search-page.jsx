@@ -1,5 +1,7 @@
 'use client';
 
+import { uniqueGenres, hasGenre } from '../lib/genres.js';
+
 import React, { useMemo, useState } from 'react';
 import { Grid3X3, Search, SlidersHorizontal } from 'lucide-react';
 import { SiteFooter, SiteHeader } from './page-chrome.jsx';
@@ -10,14 +12,14 @@ export default function AdvancedSearchPage({ books = [] }) {
   const [country, setCountry] = useState('');
   const [length, setLength] = useState('all');
   const [chapters, setChapters] = useState('all');
-  const genres = [...new Set(books.flatMap((book) => book.genres || []).filter(Boolean))].sort();
+  const genres = uniqueGenres(books.flatMap((book) => book.genres || []));
   const countries = [...new Set(books.map((book) => book.country).filter(Boolean))].sort();
   const results = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase('ru-RU');
     return books.filter((book) => {
       const haystack = [book.title, book.originalTitle, book.author, book.country, book.translator, book.editor, book.proofreader, ...(book.genres || []), ...(book.tropes || []), ...(book.searchAliases || []), book.quoteOfDay].join(' ').toLocaleLowerCase('ru-RU');
       if (needle && !haystack.includes(needle)) return false;
-      if (genre && !(book.genres || []).includes(genre)) return false;
+      if (genre && !hasGenre(book.genres, genre)) return false;
       if (country && book.country !== country) return false;
       const pages = Number(book.pageCount || 0);
       if (length === 'short' && (!pages || pages > 300)) return false;

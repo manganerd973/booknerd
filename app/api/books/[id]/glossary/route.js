@@ -13,12 +13,14 @@ export async function GET(request, { params }) {
     let unlockedChapter = 0;
     if (visitorKey) {
       const progress = await db.prepare(
-        `SELECT COALESCE(c.chapter_number, 0) AS chapter_number
-         FROM reader_library rl
-         LEFT JOIN chapters c ON c.id = rl.last_chapter_id
-         WHERE rl.visitor_key = ? AND rl.book_id = ?
-         LIMIT 1`
-      ).bind(visitorKey, bookId).first();
+        `SELECT MAX(chapter_number) AS chapter_number FROM (
+           SELECT c.chapter_number FROM reader_library rl JOIN chapters c ON c.id = rl.last_chapter_id
+           WHERE rl.visitor_key = ? AND rl.book_id = ?
+           UNION ALL
+           SELECT c.chapter_number FROM reading_sessions rs JOIN chapters c ON c.id = rs.chapter_id
+           WHERE rs.visitor_key = ? AND rs.book_id = ?
+         )`
+      ).bind(visitorKey, bookId, visitorKey, bookId).first();
       unlockedChapter = Math.max(0, Number(progress?.chapter_number || 0));
     }
     const result = await db.prepare(

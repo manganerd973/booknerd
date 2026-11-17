@@ -74,7 +74,7 @@ export default function DiscoveryDashboard({ books = [] }) {
   };
 
   return (
-    <section className="discovery-dashboard section" aria-labelledby="discovery-title">
+    <section id="what-to-read" className="discovery-dashboard section" aria-labelledby="discovery-title">
       <div className="section-heading discovery-heading">
         <div><span className="section-number">СЕГОДНЯ В BOOKNERD</span><h2 id="discovery-title">{daily.greeting}.<br /><em>Что читаем?</em></h2></div>
         <p>Ежедневная подборка меняется вместе с библиотекой и тем, что сейчас любят читатели.</p>
@@ -82,7 +82,7 @@ export default function DiscoveryDashboard({ books = [] }) {
 
       {greetingBook ? <a className="discovery-greeting-pick" href={`/books/${greetingBook.slug}`}><Sparkles size={18} /><span><small>{daily.period.label}</small><strong>{greetingBook.title}</strong></span><ArrowRight size={17} /></a> : null}
 
-      <div className="discovery-daily-grid">
+      <div id="daily-selection" className="discovery-daily-grid">
         <article className="discovery-daily-card is-day"><Sparkles size={23} /><div><small>КНИГА ДНЯ</small><h3>{dayBook?.title || 'Новая история скоро'}</h3><p>{dayBook?.author || 'Команда BOOKNERD готовит рекомендацию.'}</p></div>{dayBook ? <a href={`/books/${dayBook.slug}`}>Открыть <ArrowRight size={16} /></a> : null}</article>
         <article className="discovery-daily-card is-random"><Dice5 size={23} /><div><small>ПОЛНОСТЬЮ СЛУЧАЙНАЯ</small><h3>{randomBook?.title || 'Испытайте удачу'}</h3><p>{randomBook?.genre || randomBook?.author || 'Одна кнопка — одна новая история.'}</p></div><button type="button" onClick={reroll}>Ещё раз</button></article>
         <article className="discovery-daily-card is-quote"><MessageCircle size={23} /><div><small>ФРАЗА ИЗ КНИГИ</small><blockquote>{quoteBook?.quoteOfDay ? `«${quoteBook.quoteOfDay}»` : '«Некоторые истории находят нас именно тогда, когда нужны.»'}</blockquote><p>{quoteBook?.title || 'BOOKNERD'}</p></div></article>
@@ -103,13 +103,14 @@ export default function DiscoveryDashboard({ books = [] }) {
         {(data.anniversaries || []).map((book) => <a href={`/books/${book.slug}`} key={`anniversary-${book.id}`}><CalendarHeart size={20} /><span><small>Годовщина выхода книги</small><strong>{book.title}</strong></span></a>)}
       </div> : null}
 
-      {data?.records ? <div className="discovery-records">
+      <div id="book-records" className="discovery-records">
         <header><small>ИНТЕРЕСНАЯ СТАТИСТИКА</small><h3>Книжные рекорды BOOKNERD</h3></header>
         <div>
-          {[['Самая длинная', data.records.longest], ['Самая короткая', data.records.shortest], ['Самая эмоциональная', data.records.emotional], ['Самая перечитываемая', data.records.reread], ['Самая сохраняемая', data.records.saved], ['Быстрее всего читают', data.records.fast]].map(([label, book]) => book ? <a href={`/books/${book.slug}`} key={label}><small>{label}</small><strong>{book.title}</strong></a> : null)}
-          {data.records.activeHours?.length ? <article><small>Самые активные часы</small><strong>{data.records.activeHours.map((item) => `${String(item.hour).padStart(2, '0')}:00`).join(' · ')}</strong></article> : null}
+          {[['Самая длинная', data?.records?.longest], ['Самая короткая', data?.records?.shortest], ['Самая эмоциональная', data?.records?.emotional], ['Самая перечитываемая', data?.records?.reread], ['Самая сохраняемая', data?.records?.saved], ['Быстрее всего читают', data?.records?.fast]].map(([label, book]) => book ? <a href={`/books/${book.slug}`} key={label}><small>{label}</small><strong>{book.title}</strong></a> : null)}
+          {data?.records?.activeHours?.length ? <article><small>Самые активные часы</small><strong>{data?.records?.activeHours.map((item) => `${String(item.hour).padStart(2, '0')}:00`).join(' · ')}</strong></article> : null}
         </div>
-      </div> : null}
+        {!data?.records && <p>Книжные рекорды появятся после загрузки статистики.</p>}
+      </div>
 
       <div className="booknerd-mascot-tip" title="Пасхалка BOOKNERD"><span aria-hidden="true">🦉</span><p><strong>Маленький хранитель полки</strong>Нажмите на случайную книгу, если не знаете, что читать дальше.</p></div>
     </section>

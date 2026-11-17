@@ -14,6 +14,16 @@ export async function GET(request, { params }) {
       const auth = await authorizeAdminRequest(request);
       if (auth.response) return new Response('Not found', { status: 404 });
     }
+    const etag = `"${map.world_map_key}"`;
+    if (request.headers.get('if-none-match') === etag) return new Response(null, { status: 304, headers: { etag, 'cache-control': 'private, max-age=3600' } });
+    if (map.world_map_key.startsWith('maps/')) {
+      const image = await db.prepare('SELECT data, content_type FROM book_covers WHERE key = ?').bind(map.world_map_key).first();
+      if (!image?.data) return new Response('Not found', { status: 404 });
+      return new Response(Array.isArray(image.data) ? new Uint8Array(image.data) : image.data, { headers: {
+        'content-type': image.content_type, 'cache-control': 'private, max-age=3600', etag,
+        'x-content-type-options': 'nosniff',
+      } });
+    }
     if (!env?.BUCKET) return new Response('Map storage unavailable', { status: 503 });
     const object = await env.BUCKET.get(map.world_map_key);
     if (!object?.body) return new Response('Not found', { status: 404 });

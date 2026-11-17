@@ -161,7 +161,7 @@ export function TranslationVoting() {
   };
 
   return (
-    <section className="translation-voting section">
+    <section id="future-translations" className="translation-voting section">
       <div className="section-heading">
         <div><span className="section-number">БУДУЩИЕ ПЕРЕВОДЫ</span><h2>Что читать<br /><em>следующим.</em></h2></div>
         <p>Предлагайте книги. Команда перенесёт подходящие варианты в официальное голосование.</p>

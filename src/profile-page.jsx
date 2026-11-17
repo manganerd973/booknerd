@@ -9,6 +9,26 @@ import ProfileNotificationSettings from './profile-notification-settings.jsx';
 import { SiteFooter, SiteHeader } from './page-chrome.jsx';
 import { InstallInstructions, useBooknerdInstall } from './pwa-register.jsx';
 
+async function resizeAvatar(file) {
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) {
+    throw new Error('Выберите JPG, PNG или WEBP размером до 5 МБ.');
+  }
+  const url = URL.createObjectURL(file);
+  try {
+    const image = new Image();
+    image.src = url;
+    await image.decode();
+    const canvas = document.createElement('canvas');
+    const scale = Math.min(1, 384 / Math.max(image.width, image.height));
+    canvas.width = Math.max(1, Math.round(image.width * scale));
+    canvas.height = Math.max(1, Math.round(image.height * scale));
+    canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', .85));
+    if (!blob || blob.size > 256 * 1024) throw new Error('Не удалось уменьшить фото. Попробуйте другое изображение.');
+    return new File([blob], 'avatar.' + (blob.type === 'image/webp' ? 'webp' : 'png'), { type: blob.type });
+  } finally { URL.revokeObjectURL(url); }
+}
+
 const DEFAULT_PROFILE = { displayName: 'Читатель BOOKNERD', photoUrl: '', photoName: '', bio: '', createdAt: null, banner: 'books', favoriteCharacters: [], favoriteQuotes: [], appTheme: 'original', atmosphere: 'auto' };
 
 function formatDuration(seconds) {
@@ -58,7 +78,7 @@ function InstalledProfile({ books }) {
   const [ownComments, setOwnComments] = useState([]);
   const [stats, setStats] = useState(null);
   const [library, setLibrary] = useState([]);
-  const [memories, setMemories] = useState({ annotations: [], capsules: [] });
+  const [memories, setMemories] = useState({ annotations: [] });
   const [notice, setNotice] = useState('');
   const [photoSaving, setPhotoSaving] = useState(false);
   const photoInputRef = useRef(null);
@@ -73,8 +93,8 @@ function InstalledProfile({ books }) {
     const visitorKey = getVisitorKey();
     Promise.all([
       fetch(`/api/reader-hub?profileView=1&visitorKey=${encodeURIComponent(visitorKey)}`, { cache: 'no-store' }).then((response) => response.json()),
-      fetch(`/api/reader-stats?visitorKey=${encodeURIComponent(visitorKey)}`, { cache: 'no-store' }).then((response) => response.json()),
-      loadReaderLibrary(),
+      fetch(`/api/reader-stats?visitorKey=${encodeURIComponent(visitorKey)}`, { cache: 'no-store' }).then((response) => response.json()).catch(() => ({})),
+      loadReaderLibrary().catch(() => []),
     ]).then(([hub, statData, libraryData]) => {
       if (hub.profile) setProfile({ ...DEFAULT_PROFILE, ...hub.profile });
       setStats(statData.stats || null);
@@ -89,7 +109,7 @@ function InstalledProfile({ books }) {
           if (Array.isArray(entries)) annotations.push(...entries);
         }
       } catch { /* memory box still works with server data */ }
-      setMemories({ annotations, capsules: hub.capsules || [] });
+      setMemories({ annotations });
     }).catch(() => setNotice('Не удалось загрузить часть статистики.'));
   }, []);
 
@@ -113,11 +133,12 @@ function InstalledProfile({ books }) {
     try {
       const formData = new FormData();
       formData.set('visitorKey', getVisitorKey());
-      formData.set('photo', file);
+      formData.set('photo', await resizeAvatar(file));
       const response = await fetch('/api/reader-profile-photo', { method: 'POST', body: formData });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'Не удалось загрузить фотографию.');
       setProfile((current) => ({ ...current, ...data.photo }));
+      window.dispatchEvent(new CustomEvent('booknerd-profile-photo', { detail: data.photo.photoUrl }));
       setNotice('Фотография профиля сохранена.');
     } catch (error) {
       setNotice(error.message);
@@ -135,6 +156,7 @@ function InstalledProfile({ books }) {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'Не удалось удалить фотографию.');
       setProfile((current) => ({ ...current, photoUrl: '', photoName: '' }));
+      window.dispatchEvent(new CustomEvent('booknerd-profile-photo', { detail: '' }));
       setNotice('Фотография профиля удалена.');
     } catch (error) {
       setNotice(error.message);
@@ -217,7 +239,7 @@ function InstalledProfile({ books }) {
           <section className="profile-memory-box">
             <div className="profile-section-title"><Sparkles size={24} /><div><small>КОРОБКА ВОСПОМИНАНИЙ</small><h2>Ваш читательский год</h2></div></div>
             <p>BOOKNERD собирает завершённые книги, любимые цитаты, реакции, заметки и первые впечатления.</p>
-            <div><article><strong>{completedBooks.length}</strong><span>завершённых книг</span></article><article><strong>{memories.annotations.length}</strong><span>заметок и выделений</span></article><article><strong>{profile.favoriteQuotes.length}</strong><span>любимых цитат</span></article><article><strong>{memories.capsules.length}</strong><span>капсул времени</span></article></div>
+            <div><article><strong>{completedBooks.length}</strong><span>завершённых книг</span></article><article><strong>{memories.annotations.length}</strong><span>заметок и выделений</span></article><article><strong>{profile.favoriteQuotes.length}</strong><span>любимых цитат</span></article></div>
             {memories.annotations[0]?.text ? <blockquote>“{memories.annotations[0].text}”</blockquote> : null}
           </section>
 

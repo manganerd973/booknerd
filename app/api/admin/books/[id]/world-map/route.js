@@ -14,13 +14,18 @@ function getBucket() {
   return env.BUCKET;
 }
 
+async function deleteMap(db, key) {
+  if (key.startsWith('maps/')) await db.prepare('DELETE FROM book_covers WHERE key = ?').bind(key).run();
+  else if (env?.BUCKET) await env.BUCKET.delete(key);
+}
+
 function mapPayload(bookId, row) {
   return {
     worldMapKey: row.world_map_key || null,
     worldMapName: row.world_map_name || '',
     worldMapContentType: row.world_map_content_type || '',
     worldMapSizeBytes: Number(row.world_map_size_bytes || 0),
-    worldMapUrl: row.world_map_key ? `/api/books/${encodeURIComponent(bookId)}/world-map` : null,
+    worldMapUrl: row.world_map_key ? `/api/books/${encodeURIComponent(bookId)}/world-map?v=${encodeURIComponent(row.world_map_key)}` : null,
   };
 }
 
@@ -40,19 +45,23 @@ export async function POST(request, { params }) {
     const db = await ensureDb();
     const current = await db.prepare(`SELECT id, world_map_key FROM books WHERE id = ? LIMIT 1`).bind(bookId).first();
     if (!current) return Response.json({ error: 'Сначала сохраните книгу.' }, { status: 404 });
-    uploadedKey = `book-maps/${bookId}/${crypto.randomUUID()}.${extension}`;
-    await getBucket().put(uploadedKey, file.stream(), {
-      httpMetadata: { contentType: file.type },
-      customMetadata: { bookId, uploadedBy: auth.email || auth.displayName || '' },
-    });
+    if (env?.BUCKET) {
+      uploadedKey = `book-maps/${bookId}/${crypto.randomUUID()}.${extension}`;
+      await env.BUCKET.put(uploadedKey, file.stream(), { httpMetadata: { contentType: file.type } });
+    } else {
+      if (file.size > 1400000) return Response.json({ error: 'Уменьшите карту до 1,4 МБ или подключите хранилище R2.' }, { status: 400 });
+      uploadedKey = `maps/${bookId}/${crypto.randomUUID()}.${extension}`;
+      await db.prepare('INSERT INTO book_covers (key, content_type, data, created_at, uploaded_by) VALUES (?, ?, ?, ?, ?)')
+        .bind(uploadedKey, file.type, await file.arrayBuffer(), new Date().toISOString(), auth.email || '').run();
+    }
     await db.prepare(
       `UPDATE books SET world_map_key = ?, world_map_name = ?, world_map_content_type = ?, world_map_size_bytes = ?, updated_at = ? WHERE id = ?`
     ).bind(uploadedKey, String(file.name || 'Карта мира').slice(0, 240), file.type, file.size, new Date().toISOString(), bookId).run();
-    if (current.world_map_key && current.world_map_key !== uploadedKey) await getBucket().delete(current.world_map_key).catch(() => {});
+    if (current.world_map_key && current.world_map_key !== uploadedKey) await deleteMap(db, current.world_map_key).catch(() => {});
     const updated = await db.prepare(`SELECT world_map_key, world_map_name, world_map_content_type, world_map_size_bytes FROM books WHERE id = ?`).bind(bookId).first();
     return Response.json({ map: mapPayload(bookId, updated) }, { status: 201 });
   } catch (error) {
-    if (uploadedKey && env?.BUCKET) await env.BUCKET.delete(uploadedKey).catch(() => {});
+    if (uploadedKey) { try { await deleteMap(await ensureDb(), uploadedKey); } catch {} }
     return Response.json({ error: error.message || 'Не удалось загрузить карту.' }, { status: 500 });
   }
 }
@@ -68,7 +77,7 @@ export async function DELETE(request, { params }) {
     await db.prepare(
       `UPDATE books SET world_map_key = NULL, world_map_name = '', world_map_content_type = '', world_map_size_bytes = 0, updated_at = ? WHERE id = ?`
     ).bind(new Date().toISOString(), bookId).run();
-    if (current.world_map_key) await getBucket().delete(current.world_map_key).catch(() => {});
+    if (current.world_map_key) await deleteMap(db, current.world_map_key).catch(() => {});
     return Response.json({ ok: true });
   } catch (error) {
     return Response.json({ error: error.message || 'Не удалось удалить карту.' }, { status: 500 });

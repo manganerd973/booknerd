@@ -198,8 +198,7 @@ function validAnnotations(text, annotations) {
       return { ...annotation, start, end };
     })
     .filter((annotation) => annotation.start >= 0 && annotation.end > annotation.start && annotation.end <= text.length)
-    .sort((left, right) => left.start - right.start || left.end - right.end)
-    .filter((annotation, index, list) => index === 0 || annotation.start >= list[index - 1].end);
+    .sort((left, right) => left.start - right.start || left.end - right.end);
 }
 
 function validFootnotes(text, footnotes) {
@@ -267,6 +266,7 @@ export function AnnotatedParagraph({ text, runs = [], as: Element = 'p', classNa
         value: text.slice(start, end),
         formatting: activeRuns.find((item) => item.start <= start && item.end >= end) || null,
         annotation,
+        endingStickers: activeAnnotations.filter((item) => item.sticker && item.end === end),
         annotationEndsHere: Boolean(annotation && annotation.end === end),
         footnote: activeFootnotes.find((item) => item.start <= start && item.end >= end) || null,
         key: `${start}-${end}`,
@@ -333,16 +333,16 @@ export function AnnotatedParagraph({ text, runs = [], as: Element = 'p', classNa
               {content}
               {piece.annotation.note && piece.annotationEndsHere ? <span className="reader-note-pin" aria-label="Есть заметка"><StickyNote size={12} /></span> : null}
             </mark>
-            {piece.annotation.sticker && piece.annotationEndsHere ? (
-              <button
+            {piece.endingStickers.map((stickerAnnotation) => (
+              <button key={stickerAnnotation.id}
                 className="reader-inline-sticker-button"
                 type="button"
-                onClick={() => onOpenAnnotation?.(piece.annotation.id)}
-                aria-label={`Открыть стикер: ${stickerById(piece.annotation.sticker)?.name || 'эмоция'}`}
+                onClick={() => onOpenAnnotation?.(stickerAnnotation.id)}
+                aria-label={`Открыть стикер: ${stickerById(stickerAnnotation.sticker)?.name || 'эмоция'}`}
               >
-                <ReaderSticker stickerId={piece.annotation.sticker} size={46} className="reader-inline-sticker" />
+                <ReaderSticker stickerId={stickerAnnotation.sticker} size={46} className="reader-inline-sticker" />
               </button>
-            ) : null}
+            ))}
           </React.Fragment>
         ) : <React.Fragment key={piece.key}>{content}</React.Fragment>;
       })}

@@ -81,6 +81,13 @@ export async function POST(request) {
       ? await db.prepare(`SELECT id FROM chapters WHERE id = ? AND book_id = ? LIMIT 1`).bind(requestedChapterId, bookId).first()
       : null;
     const now = new Date().toISOString();
+    if (preserveFinished) {
+      await db.prepare(`UPDATE reader_library SET last_chapter_id = COALESCE(?, last_chapter_id),
+        last_page = CASE WHEN ? IS NULL THEN last_page ELSE ? END, progress = MAX(progress, ?),
+        last_opened_at = ?, updated_at = ? WHERE visitor_key = ? AND book_id = ?`)
+        .bind(chapter?.id || null, chapter?.id || null, lastPage, progress, now, now, visitorKey, bookId).run();
+      return Response.json({ ok: true, item: null });
+    }
     await db.prepare(
       `INSERT INTO reader_library
        (visitor_key, book_id, status, last_chapter_id, last_page, progress, reading_seconds, last_opened_at, created_at, updated_at)

@@ -24,6 +24,14 @@ function requireBucket() {
   return env.BUCKET;
 }
 
+async function deletePhotoObject(db, key) {
+  if (key.startsWith('d1-avatar:')) {
+    await db.prepare('DELETE FROM reader_avatar_images WHERE photo_key = ?').bind(key).run();
+  } else if (env?.BUCKET) {
+    await env.BUCKET.delete(key);
+  }
+}
+
 function photoPayload(visitorKey, row) {
   return {
     photoUrl: row?.photo_key ? `/api/reader-profile-photo?visitorKey=${encodeURIComponent(visitorKey)}&v=${encodeURIComponent(row.updated_at || Date.now())}` : '',
@@ -44,6 +52,15 @@ export async function GET(request) {
       `SELECT photo_key, photo_name, photo_content_type, photo_size_bytes FROM reader_profiles WHERE visitor_key = ? LIMIT 1`
     ).bind(visitorKey).first();
     if (!profile?.photo_key) return new Response('Not found', { status: 404 });
+    if (profile.photo_key.startsWith('d1-avatar:')) {
+      const photo = await db.prepare('SELECT image FROM reader_avatar_images WHERE photo_key = ?').bind(profile.photo_key).first();
+      if (!photo?.image) return new Response('Not found', { status: 404 });
+      return new Response(new Uint8Array(photo.image), { headers: {
+        'content-type': profile.photo_content_type || 'image/webp',
+        'cache-control': 'private, max-age=3600',
+        'x-content-type-options': 'nosniff',
+      } });
+    }
     const object = await requireBucket().get(profile.photo_key);
     if (!object?.body) return new Response('Not found', { status: 404 });
     const headers = new Headers({
@@ -83,19 +100,26 @@ export async function POST(request) {
          VALUES (?, 'Читатель BOOKNERD', 'books', '[]', '[]', 'original', 'auto', ?, ?)`
       ).bind(visitorKey, now, now).run();
     }
-    uploadedKey = `reader-profile-photos/${visitorKey}/${crypto.randomUUID()}.${extension}`;
-    await requireBucket().put(uploadedKey, file.stream(), {
-      httpMetadata: { contentType: file.type },
-      customMetadata: { visitorKey },
-    });
+    if (env?.BUCKET) {
+      uploadedKey = `reader-profile-photos/${visitorKey}/${crypto.randomUUID()}.${extension}`;
+      await env.BUCKET.put(uploadedKey, file.stream(), {
+        httpMetadata: { contentType: file.type }, customMetadata: { visitorKey },
+      });
+    } else {
+      // Small, resized avatars can also be stored with the existing D1 binding.
+      if (file.size > 256 * 1024) return Response.json({ error: 'Уменьшите фото до 256 КБ.' }, { status: 400 });
+      await db.prepare('CREATE TABLE IF NOT EXISTS reader_avatar_images (photo_key TEXT PRIMARY KEY, image BLOB NOT NULL)').run();
+      uploadedKey = `d1-avatar:${crypto.randomUUID()}`;
+      await db.prepare('INSERT INTO reader_avatar_images (photo_key, image) VALUES (?, ?)').bind(uploadedKey, await file.arrayBuffer()).run();
+    }
     await db.prepare(
       `UPDATE reader_profiles SET photo_key = ?, photo_name = ?, photo_content_type = ?, photo_size_bytes = ?, updated_at = ? WHERE visitor_key = ?`
     ).bind(uploadedKey, String(file.name || 'Фото читателя').slice(0, 240), file.type, file.size, now, visitorKey).run();
-    if (current?.photo_key && current.photo_key !== uploadedKey) await requireBucket().delete(current.photo_key).catch(() => {});
+    if (current?.photo_key && current.photo_key !== uploadedKey) await deletePhotoObject(db, current.photo_key).catch(() => {});
     const updated = await db.prepare(`SELECT photo_key, photo_name, photo_content_type, photo_size_bytes, updated_at FROM reader_profiles WHERE visitor_key = ?`).bind(visitorKey).first();
     return Response.json({ ok: true, photo: photoPayload(visitorKey, updated) }, { status: 201 });
   } catch (error) {
-    if (uploadedKey && env?.BUCKET) await env.BUCKET.delete(uploadedKey).catch(() => {});
+    if (uploadedKey) { try { await deletePhotoObject(await ensureDb(), uploadedKey); } catch {} }
     return Response.json({ error: error.message || 'Не удалось загрузить фотографию.' }, { status: 500 });
   }
 }
@@ -111,7 +135,7 @@ export async function DELETE(request) {
     await db.prepare(
       `UPDATE reader_profiles SET photo_key = NULL, photo_name = '', photo_content_type = '', photo_size_bytes = 0, updated_at = ? WHERE visitor_key = ?`
     ).bind(new Date().toISOString(), visitorKey).run();
-    if (current?.photo_key) await requireBucket().delete(current.photo_key).catch(() => {});
+    if (current?.photo_key) await deletePhotoObject(db, current.photo_key).catch(() => {});
     return Response.json({ ok: true });
   } catch (error) {
     return Response.json({ error: error.message || 'Не удалось удалить фотографию.' }, { status: 500 });

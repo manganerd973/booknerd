@@ -1,3 +1,4 @@
+import { normalizeWorkflowStatus } from '../../../../../lib/chapter-status.js';
 import { env } from 'cloudflare:workers';
 import { authorizeAdminRequest } from '../../../../../lib/admin-auth.js';
 import { ensureDb } from '../../../../../lib/runtime.js';
@@ -6,16 +7,14 @@ import { normalizeRichDocument, richDocumentToPlainText, serializeRichDocument }
 import { notifyBookPreferenceEvent, notifyPublishedChapter } from '../../../../../lib/push-notifications.js';
 import { recalculateBookProgress } from '../../../../../lib/books.js';
 
-const WORKFLOW_STATUSES = new Set(['draft', 'translating', 'editing', 'proofreading', 'ready', 'scheduled', 'published']);
+
 
 function normalizeChapter(payload = {}) {
   const driveUrl = normalizeGoogleDriveUrl(payload.driveUrl);
   const richDocument = normalizeRichDocument(payload.bodyRich);
   const richBody = richDocument.blocks.length ? richDocumentToPlainText(richDocument) : '';
   const chapterNumber = Math.max(1, Math.floor(Number(payload.chapterNumber || 1)));
-  const workflowStatus = WORKFLOW_STATUSES.has(payload.workflowStatus)
-    ? payload.workflowStatus
-    : payload.status === 'published' ? 'published' : 'draft';
+  const workflowStatus = normalizeWorkflowStatus(payload.workflowStatus, payload.status);
   return {
     chapterNumber,
     title: String(payload.title || '').trim().slice(0, 220),

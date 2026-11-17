@@ -1,4 +1,8 @@
 'use client';
+import AdminThemeToggle from './admin-theme-toggle.jsx';
+import { prepareMapImage } from './prepare-map-image.js';
+
+import { normalizeWorkflowStatus } from '../lib/chapter-status.js';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -533,7 +537,8 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
     setMapUploading(true);
     try {
       const formData = new FormData();
-      formData.append('map', file, file.name);
+      const prepared = await prepareMapImage(file);
+      formData.append('map', prepared, prepared.name);
       const data = await api(`/api/admin/books/${bookForm.id}/world-map`, { method: 'POST', body: formData });
       setBookForm((current) => ({ ...current, ...data.map }));
       flash(bookForm.worldMapUrl ? 'Карта мира заменена.' : 'Карта мира добавлена к книге.');
@@ -941,7 +946,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
               <Users size={19} /> Команда
             </button>
           )}
-          {currentUser.role === 'owner' && <a className="admin-support-link" href="/admin/support">Поддержка команды</a>}
+          {currentUser.role === 'owner' && <a className="admin-support-link" href="/admin/support">Благодарность · реквизиты</a>}
         </nav>
         <div className="admin-sidebar-note">
           <span>✦</span>
@@ -958,6 +963,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
 
       <main className="admin-main">
         <header className="admin-topbar">
+          <AdminThemeToggle />
           <button className="admin-menu-toggle" onClick={() => setMenuOpen(true)}><Menu size={21} /></button>
           <div>
             <span>BOOKNERD · ПАНЕЛЬ КОМАНДЫ</span>
@@ -1116,12 +1122,6 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                   <label className="admin-full-field"><span>Кому посвящена книга</span><textarea value={bookForm.dedication || ''} onChange={(event) => setBookForm({ ...bookForm, dedication: event.target.value })} placeholder="Например: Всем девушкам, которые однажды выбрали себя…" rows={3} /><small>Посвящение появится на главной странице книги.</small></label>
                   <label className="admin-full-field"><span>Предупреждения о триггерах</span><textarea value={bookForm.triggerWarningsText || ''} onChange={(event) => setBookForm({ ...bookForm, triggerWarningsText: event.target.value, triggerWarnings: splitBookTags(event.target.value, 40) })} placeholder="Например: насилие, утрата близкого, панические атаки" rows={3} /><small>Разделяйте предупреждения запятыми. Они появятся только на странице книги.</small></label>
                   <div className="admin-glossary-shortcut"><BookOpen size={20} /><div><strong>Слова и их значения</strong><small>{bookForm.id ? 'Добавляйте слова в простом словаре ниже на этой странице.' : 'Сначала сохраните книгу — после этого появится простой словарь «слово — значение».'}</small></div>{bookForm.id ? <a href="#admin-book-glossary">Открыть словарь</a> : null}</div>
-                  <label className="admin-full-field"><span>Любимая цитата дня</span><textarea value={bookForm.quoteOfDay || ''} onChange={(event) => setBookForm({ ...bookForm, quoteOfDay: event.target.value })} placeholder="Цитата из книги для главной страницы" rows={2} /></label>
-                  <div className="admin-fields three-columns">
-                    <label><span>Переводчик</span><input value={bookForm.translator || ''} onChange={(event) => setBookForm({ ...bookForm, translator: event.target.value })} /></label>
-                    <label><span>Редактор</span><input value={bookForm.editor || ''} onChange={(event) => setBookForm({ ...bookForm, editor: event.target.value })} /></label>
-                    <label><span>Корректор</span><input value={bookForm.proofreader || ''} onChange={(event) => setBookForm({ ...bookForm, proofreader: event.target.value })} /></label>
-                  </div>
                   <div className="admin-fields two-columns">
                     <label><span>Горячие сцены</span><select value={bookForm.hasHotScenes ? 'yes' : 'no'} onChange={(event) => setBookForm({ ...bookForm, hasHotScenes: event.target.value === 'yes', hotSceneChapters: event.target.value === 'yes' ? bookForm.hotSceneChapters : '' })}><option value="no">Нет</option><option value="yes">Да</option></select></label>
                     <label><span>Главы со сценами</span><input value={bookForm.hotSceneChapters || ''} onChange={(event) => setBookForm({ ...bookForm, hotSceneChapters: event.target.value })} placeholder="Например, 12–14" disabled={!bookForm.hasHotScenes} /><small>Будут указаны только на странице книги.</small></label>
@@ -1220,7 +1220,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                       }} /></label>
                       <label className="grow"><span>Название главы</span><input value={chapterForm.title} onChange={(event) => setChapterForm({ ...chapterForm, title: event.target.value })} placeholder="Например, Возвращение" required /><small>Введите название вручную. В читалке номер главы не показывается.</small></label>
                       <label className="grow"><span>От лица героя</span><input value={chapterForm.pointOfView || ''} onChange={(event) => setChapterForm({ ...chapterForm, pointOfView: event.target.value })} placeholder="Например, Лейла" /></label>
-                      <label><span>Рабочий статус</span><select value={chapterForm.workflowStatus || 'draft'} onChange={(event) => setChapterForm({ ...chapterForm, workflowStatus: event.target.value, status: event.target.value === 'published' ? 'published' : 'draft' })}><option value="draft">Черновик</option><option value="translating">Переводится</option><option value="editing">На редактуре</option><option value="proofreading">На проверке</option><option value="ready">Готово</option><option value="scheduled">Запланировано</option><option value="published">Опубликовано</option></select></label>
+                      <label><span>Рабочий статус</span><select value={normalizeWorkflowStatus(chapterForm.workflowStatus, chapterForm.status)} onChange={(event) => setChapterForm({ ...chapterForm, workflowStatus: event.target.value, status: event.target.value === 'published' ? 'published' : 'draft' })}><option value="draft">Черновик</option><option value="proofreading">На проверке</option><option value="scheduled">Запланировано</option><option value="published">Опубликовано</option></select></label>
                     </div>
                     {chapterForm.workflowStatus === 'scheduled' ? (
                       <label className="admin-chapter-schedule"><span>Дата и время публикации</span><input type="datetime-local" value={localDateTimeInput(chapterForm.scheduledAt)} onChange={(event) => setChapterForm({ ...chapterForm, scheduledAt: event.target.value })} required /><small>BOOKNERD проверяет расписание каждую минуту, сам публикует главу и отправляет уведомления.</small></label>
@@ -1251,33 +1251,6 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                         ) : <p className="admin-footnote-empty">Сносок пока нет.</p>}
                     </section>
                     <label className="admin-chapter-drive"><span>Файл главы в Google Drive</span><input type="url" value={chapterForm.driveUrl || ''} onChange={(event) => setChapterForm({ ...chapterForm, driveUrl: event.target.value })} placeholder="https://drive.google.com/…" /></label>
-                    <section className="admin-chapter-music">
-                      <header><span><Music2 size={19} /></span><div><strong>Музыка этой главы</strong><small>Выберите отдельный трек, который читатель сможет включить во время чтения.</small></div></header>
-                      {chapterForm.id ? (
-                        <>
-                          <div className="admin-chapter-music-fields">
-                            <label><span>Название трека</span><input value={chapterForm.musicTitle || ''} onChange={(event) => setChapterForm((current) => ({ ...current, musicTitle: event.target.value }))} placeholder="Например, Midnight Letters" maxLength="180" /></label>
-                            <label><span>Исполнитель</span><input value={chapterForm.musicArtist || ''} onChange={(event) => setChapterForm((current) => ({ ...current, musicArtist: event.target.value }))} placeholder="Необязательно" maxLength="180" /></label>
-                          </div>
-                          {chapterForm.musicUrl ? (
-                            <div className="admin-chapter-music-current">
-                              <audio controls preload="metadata" src={chapterForm.musicUrl}>Ваш браузер не поддерживает аудио.</audio>
-                              <small>{chapterForm.musicFileName || 'Музыкальный файл'}{chapterForm.musicSizeBytes ? ` · ${(chapterForm.musicSizeBytes / 1024 / 1024).toFixed(1)} МБ` : ''}</small>
-                            </div>
-                          ) : <p>Музыка к этой главе пока не выбрана.</p>}
-                          <div className="admin-chapter-music-actions">
-                            <label className="admin-secondary">
-                              {musicUploading ? <LoaderCircle className="spin" size={17} /> : <UploadCloud size={17} />}
-                              {chapterForm.musicUrl ? 'Заменить файл' : 'Выбрать музыку'}
-                              <input type="file" accept="audio/mpeg,audio/mp4,audio/aac,audio/ogg,audio/opus,audio/webm,audio/wav,.mp3,.m4a,.aac,.ogg,.opus,.webm,.wav" onChange={uploadChapterMusic} disabled={musicUploading} />
-                            </label>
-                            {chapterForm.musicUrl ? <button type="button" className="admin-secondary" onClick={saveChapterMusicDetails} disabled={musicUploading}><Save size={17} /> Сохранить подпись</button> : null}
-                            {chapterForm.musicUrl ? <button type="button" className="admin-danger" onClick={deleteChapterMusic} disabled={musicUploading}><Trash2 size={17} /> Убрать музыку</button> : null}
-                          </div>
-                          <small className="admin-chapter-music-hint">MP3, M4A, AAC, OGG, OPUS, WEBM или WAV, до 25 МБ. Музыка не запускается автоматически.</small>
-                        </>
-                      ) : <p>Сначала сохраните главу — после этого здесь можно будет выбрать музыку.</p>}
-                    </section>
                     <label className="admin-chapter-team-note"><span>Заметка команды под главой</span><textarea rows="4" maxLength="4000" value={chapterForm.teamNote || ''} onChange={(event) => setChapterForm({ ...chapterForm, teamNote: event.target.value })} placeholder="Новости, пояснение переводчика, благодарность или вопрос читателям…" /><small>Появится после текста главы и перед комментариями.</small></label>
                     <div className="admin-chapter-actions">
                       {chapterForm.id && <button type="button" className="admin-danger" onClick={deleteChapter}><Trash2 size={17} /> Удалить</button>}

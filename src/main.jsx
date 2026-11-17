@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import CommentVotes from './comment-votes.jsx';
 import CommentReport from './comment-report.jsx';
-import { loadReaderLibrary, updateReaderLibrary } from './reader-library.jsx';
+import { loadReaderLibrary } from './reader-library.jsx';
 import { ContinueReading, TranslationVoting } from './home-reader-features.jsx';
 import DiscoveryDashboard from './discovery-dashboard.jsx';
 import { SiteLogo as Logo, ProfileMenu, ShelfNavigation, ThemeButton } from './page-chrome.jsx';
@@ -140,7 +140,7 @@ function LatestChapters({ chapters, books, libraryByBook }) {
 
 function PopularComments({ comments }) {
   return (
-    <section className="popular-comments section" aria-labelledby="popular-comments-title">
+    <section id="popular-comments" className="popular-comments section" aria-labelledby="popular-comments-title">
       <div className="section-heading">
         <div>
           <span className="section-number">03 / ГОЛОС ЧИТАТЕЛЕЙ</span>
@@ -227,22 +227,8 @@ function App({ initialBooks = [], initialChapters = [], initialPopularComments =
 
   useEffect(() => {
     let active = true;
-    const refresh = () => loadReaderLibrary().then(async (items) => {
-      let nextItems = items;
-      try {
-        const legacyIds = JSON.parse(localStorage.getItem('booknerd-saved') || '[]');
-        const missingIds = Array.isArray(legacyIds)
-          ? legacyIds.filter((id) => books.some((book) => book.id === id) && !items.some((item) => item.bookId === id))
-          : [];
-        if (missingIds.length) {
-          const migrated = await Promise.all(missingIds.map((bookId) => updateReaderLibrary({ bookId, status: 'saved' })));
-          nextItems = [...migrated, ...items];
-        }
-        localStorage.removeItem('booknerd-saved');
-      } catch {
-        // Old bookmarks are optional; the new library still works without migration.
-      }
-      if (active) setLibraryItems(nextItems);
+    const refresh = () => loadReaderLibrary().then((items) => {
+      if (active) setLibraryItems(items);
     }).catch(() => {});
     refresh();
     const onChange = (event) => {

@@ -40,8 +40,8 @@ export async function GET(request) {
     if (!visitorKey) return Response.json({ error: 'Читатель не определён.' }, { status: 400 });
     const db = await ensureDb();
     if (url.searchParams.get('summary') === '1') {
-      const profile = await db.prepare('SELECT display_name FROM reader_profiles WHERE visitor_key = ?').bind(visitorKey).first();
-      return Response.json({ displayName: profile?.display_name || '' });
+      const profile = await db.prepare('SELECT display_name, photo_key, updated_at FROM reader_profiles WHERE visitor_key = ?').bind(visitorKey).first();
+      return Response.json({ displayName: profile?.display_name || '', photoUrl: profile?.photo_key ? `/api/reader-profile-photo?visitorKey=${encodeURIComponent(visitorKey)}&v=${encodeURIComponent(profile.updated_at || '')}` : '' });
     }
     const [profile, dictionary, reactions, capsules, emotionTotals, myEmotions] = await Promise.all([
       db.prepare(`SELECT * FROM reader_profiles WHERE visitor_key = ? LIMIT 1`).bind(visitorKey).first(),

@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
-import { Check, Clock3, GitFork, MapPinned, Save, Sparkles, WandSparkles } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Clock3, GitFork, MapPinned, Sparkles, WandSparkles } from 'lucide-react';
 import { getVisitorKey } from './site-analytics.js';
-import { loadReaderLibrary } from './reader-library.jsx';
 
 const TABS = [['map', 'Карта мира'], ['tree', 'Древо персонажей'], ['timeline', 'Таймлайн'], ['quiz', 'Какой вы персонаж?']];
 
@@ -11,23 +10,16 @@ export default function BookUniverse({ book }) {
   const [entries, setEntries] = useState([]);
   const [active, setActive] = useState('map');
   const [answers, setAnswers] = useState([]);
-  const [capsule, setCapsule] = useState({ firstImpression: '', finalImpression: '' });
   const [emotionTotals, setEmotionTotals] = useState([]);
-  const [finished, setFinished] = useState(false);
-  const [notice, setNotice] = useState('');
 
   useEffect(() => {
     const visitorKey = getVisitorKey();
     Promise.all([
       fetch(`/api/books/${book.id}/glossary?visitorKey=${encodeURIComponent(visitorKey)}`, { cache: 'no-store' }).then((response) => response.json()),
       fetch(`/api/reader-hub?visitorKey=${encodeURIComponent(visitorKey)}&bookId=${encodeURIComponent(book.id)}`, { cache: 'no-store' }).then((response) => response.json()),
-      loadReaderLibrary(),
-    ]).then(([glossary, hub, library]) => {
+    ]).then(([glossary, hub]) => {
       setEntries(glossary.entries || []);
-      const saved = (hub.capsules || []).find((item) => item.book_id === book.id);
-      if (saved) setCapsule({ firstImpression: saved.first_impression || '', finalImpression: saved.final_impression || '' });
       setEmotionTotals(hub.emotionTotals || []);
-      setFinished((library || []).some((item) => item.bookId === book.id && item.status === 'finished'));
     }).catch(() => {});
   }, [book.id]);
 
@@ -35,13 +27,8 @@ export default function BookUniverse({ book }) {
   const places = entries.filter((entry) => entry.category === 'place');
   const timeline = entries.filter((entry) => entry.category === 'timeline');
   const quizResult = answers.length >= 3 && characters.length ? characters[answers.reduce((sum, value) => sum + value, 0) % characters.length] : null;
-  const saveCapsule = async () => {
-    const response = await fetch('/api/reader-hub', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ visitorKey: getVisitorKey(), action: 'capsule', bookId: book.id, ...capsule }) });
-    const data = await response.json().catch(() => ({}));
-    setNotice(response.ok ? 'Капсула времени сохранена.' : data.error || 'Не удалось сохранить.');
-  };
 
-  if (!entries.length && !book.searchAliases?.length) return <TimeCapsule book={book} capsule={capsule} setCapsule={setCapsule} finished={finished} save={saveCapsule} notice={notice} />;
+  if (!entries.length && !book.searchAliases?.length) return null;
   return (
     <>
       <section className="book-universe">
@@ -59,18 +46,6 @@ export default function BookUniverse({ book }) {
           return <article key={chapter.id}><strong>{chapter.title || 'Новая глава'}</strong><span>{chapterEmotions.map((item) => <i key={item.emoji}>{item.emoji} {item.total}</i>)}</span></article>;
         })}</div></div> : null}
       </section>
-      <TimeCapsule book={book} capsule={capsule} setCapsule={setCapsule} finished={finished} save={saveCapsule} notice={notice} />
     </>
-  );
-}
-
-function TimeCapsule({ book, capsule, setCapsule, finished, save, notice }) {
-  return (
-    <section className="book-time-capsule">
-      <div><Clock3 size={27} /><span><small>ЛИЧНАЯ КАПСУЛА ВРЕМЕНИ</small><h2>Ожидания и итоговые эмоции</h2></span></div>
-      <p>Запишите впечатление после первой главы. После завершения книги BOOKNERD покажет его рядом с итогом.</p>
-      <div className="book-capsule-fields"><label><span>После первой главы</span><textarea rows="4" value={capsule.firstImpression} onChange={(event) => setCapsule({ ...capsule, firstImpression: event.target.value })} placeholder="Какой вы представляете эту историю сейчас?" /></label>{finished ? <label><span>После завершения</span><textarea rows="4" value={capsule.finalImpression} onChange={(event) => setCapsule({ ...capsule, finalImpression: event.target.value })} placeholder="Что изменилось в ваших чувствах?" /></label> : <div className="book-capsule-locked">Итоговое поле откроется после переноса книги в «Прочитано».</div>}</div>
-      <button type="button" onClick={save}><Save size={16} /> Сохранить капсулу</button>{notice ? <span className="book-capsule-notice"><Check size={14} />{notice}</span> : null}
-    </section>
   );
 }

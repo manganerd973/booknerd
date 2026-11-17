@@ -8,11 +8,11 @@ export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
   await requireReaderAccess('/');
-  const [books, popularComments, quoteOfDay] = await Promise.all([
+  const [books, popularComments, quoteOfDay, chapters] = await Promise.all([
     listPublicBooks().catch(() => []),
     listPopularComments(6).catch(() => []),
     getQuoteOfDay().catch(() => null),
+    listRecentPublicChapters().catch(() => []),
   ]);
-  const chapters = await listRecentPublicChapters().catch(() => []);
   return <BooknerdSite initialBooks={books} initialChapters={chapters} initialPopularComments={popularComments} initialQuoteOfDay={quoteOfDay} />;
 }

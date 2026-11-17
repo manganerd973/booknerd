@@ -1,6 +1,7 @@
+import BookContentTabs from '../../../src/book-content-tabs.jsx';
 import { AlertTriangle, ArrowRight, BookOpen, Clock3, ExternalLink, FileText, Flame } from 'lucide-react';
 import { notFound } from 'next/navigation';
-import { getBookBySlug, listChapters, listSeriesBooks } from '../../../lib/books.js';
+import { getBookBySlug, listChapterSummaries, listSeriesBooks } from '../../../lib/books.js';
 import { listBookArtworks } from '../../../lib/artworks.js';
 import { requireReaderAccess } from '../../../lib/reader-access.js';
 import BookArtGallery from '../../../src/book-art-gallery.jsx';
@@ -22,7 +23,7 @@ export default async function BookPage({ params }) {
   const book = await getBookBySlug(slug);
   if (!book) notFound();
   const [chapters, artworks, seriesBooks] = await Promise.all([
-    listChapters(book.id),
+    listChapterSummaries(book.id),
     listBookArtworks(book.id),
     listSeriesBooks(book.seriesTitle),
   ]);
@@ -73,7 +74,8 @@ export default async function BookPage({ params }) {
         </div>
       </section>
 
-      <section className="book-detail-body">
+      <BookContentTabs
+        chaptersContent={<>      <section className="book-detail-body">
         <aside className="chapter-catalog">
           <div className="chapter-catalog-title"><h2>Оглавление</h2><span>{chapters.length}</span></div>
           {chapters.length ? (
@@ -90,15 +92,13 @@ export default async function BookPage({ params }) {
             <div className="chapter-empty"><BookOpen size={30} /><p>Опубликованных глав пока нет.</p></div>
           )}
         </aside>
-      </section>
+      </section></>}
+        artContent={<BookArtGallery artworks={artworks} bookTitle={book.title} />}
+        commentsContent={<><BookReviews bookId={book.id} /><CommentsSection bookId={book.id} /></>}
+      />
 
       <SeriesReadingOrder book={book} seriesBooks={seriesBooks} />
 
-      {(book.translator || book.editor || book.proofreader || book.quoteOfDay) ? <section className="book-credits">
-        <div><span className="editorial-section-number">НАД КНИГОЙ РАБОТАЛИ</span><h2>Команда перевода</h2></div>
-        <div>{book.translator ? <article><small>Перевод</small><strong>{book.translator}</strong></article> : null}{book.editor ? <article><small>Редактура</small><strong>{book.editor}</strong></article> : null}{book.proofreader ? <article><small>Корректура</small><strong>{book.proofreader}</strong></article> : null}</div>
-        {book.quoteOfDay ? <blockquote>«{book.quoteOfDay}»</blockquote> : null}
-      </section> : null}
 
       <BookGlossary bookId={book.id} />
 
@@ -145,11 +145,8 @@ export default async function BookPage({ params }) {
         )}
       </section>
 
-      <BookArtGallery artworks={artworks} bookTitle={book.title} />
 
-      <BookReviews bookId={book.id} />
 
-      <CommentsSection bookId={book.id} />
     </main>
   );
 }

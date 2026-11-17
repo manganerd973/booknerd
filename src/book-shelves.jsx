@@ -1,3 +1,4 @@
+import { uniqueGenres, hasGenre } from '../lib/genres.js';
 import React from 'react';
 import { Star } from 'lucide-react';
 
@@ -13,11 +14,11 @@ export function booksForShelf(books, shelf) {
 }
 
 export function bookCollections(books) {
-  const genres = [...new Set(books.flatMap((book) => book.genres || []))];
+  const genres = uniqueGenres(books.flatMap((book) => book.genres || []));
   return [
     { key: 'recommended', title: 'С чего начать', description: 'Выбор команды и книги с высокими оценками.', books: booksForShelf(books, 'recommended') },
     { key: 'finished', title: 'Читать до финала', description: 'Переводы, которые уже завершены.', books: booksForShelf(books, 'finished') },
-    ...genres.map((genre) => ({ key: `genre:${genre}`, title: genre, description: '', books: books.filter((book) => book.genres?.includes(genre)) })),
+    ...genres.map((genre) => ({ key: `genre:${genre}`, title: genre, description: '', books: books.filter((book) => hasGenre(book.genres, genre)) })),
   ].filter((collection) => collection.books.length);
 }
 

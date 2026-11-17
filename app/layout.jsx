@@ -21,13 +21,13 @@ export const metadata = {
   },
   icons: {
     icon: [
-      { url: '/booknerd-favicon-v2.ico', type: 'image/x-icon' },
-      { url: '/booknerd-icon-v2-192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/booknerd-icon-v2-512.png', sizes: '512x512', type: 'image/png' },
+      { url: '/booknerd-favicon-v3.ico', type: 'image/x-icon' },
+      { url: '/booknerd-icon-v3-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/booknerd-icon-v3-512.png', sizes: '512x512', type: 'image/png' },
     ],
-    shortcut: '/booknerd-favicon-v2.ico',
+    shortcut: '/booknerd-favicon-v3.ico',
     apple: [
-      { url: '/booknerd-apple-touch-icon-v2.png', sizes: '180x180', type: 'image/png' },
+      { url: '/booknerd-apple-touch-icon-v3.png', sizes: '180x180', type: 'image/png' },
     ],
   },
 };

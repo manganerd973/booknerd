@@ -1,3 +1,4 @@
+import { normalizeWorkflowStatus } from '../../../../../../lib/chapter-status.js';
 import { authorizeAdminRequest } from '../../../../../../lib/admin-auth.js';
 import { listChapters, recalculateBookProgress } from '../../../../../../lib/books.js';
 import { ensureDb } from '../../../../../../lib/runtime.js';
@@ -5,12 +6,10 @@ import { normalizeGoogleDriveUrl } from '../../../../../../lib/google-drive.js';
 import { normalizeRichDocument, richDocumentToPlainText, serializeRichDocument } from '../../../../../../lib/rich-document.js';
 import { notifyBookPreferenceEvent, notifyPublishedChapter } from '../../../../../../lib/push-notifications.js';
 
-const WORKFLOW_STATUSES = new Set(['draft', 'translating', 'editing', 'proofreading', 'ready', 'scheduled', 'published']);
+
 
 function normalizeChapter(payload = {}) {
-  const workflowStatus = WORKFLOW_STATUSES.has(payload.workflowStatus)
-    ? payload.workflowStatus
-    : payload.status === 'published' ? 'published' : 'draft';
+  const workflowStatus = normalizeWorkflowStatus(payload.workflowStatus, payload.status);
   const status = workflowStatus === 'published' ? 'published' : 'draft';
   const driveUrl = normalizeGoogleDriveUrl(payload.driveUrl);
   const richDocument = normalizeRichDocument(payload.bodyRich);

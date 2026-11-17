@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import {
   ArrowRight,
   Bell,
+  Trophy,
+  MessageCircle,
   BookOpen,
   Bookmark,
   Compass,
@@ -28,7 +30,7 @@ import { getStoredAppTheme, setStoredAppTheme } from './app-preferences.jsx';
 export function SiteLogo() {
   return (
     <a className="logo" href="/" aria-label="BOOKNERD — на главную">
-      <span className="logo-mark" aria-hidden="true"><span>B</span><Sparkles size={13} strokeWidth={2.5} /></span>
+      <img className="logo-mark booknerd-brand-icon" src="/booknerd-icon-v3-192.png" alt="" aria-hidden="true" />
       <span className="logo-name">BOOKNERD<span>.</span></span>
     </a>
   );
@@ -120,6 +122,7 @@ export function ProfileMenu() {
   const { installed } = useBooknerdInstall();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
+  const [photoUrl, setPhotoUrl] = useState('');
   const menuRef = React.useRef(null);
 
   React.useEffect(() => {
@@ -144,6 +147,18 @@ export function ProfileMenu() {
     return () => window.removeEventListener('booknerd-profile-name', updateName);
   }, []);
 
+  React.useEffect(() => {
+    if (!installed) return undefined;
+    let active = true;
+    const updatePhoto = (event) => setPhotoUrl(event.detail || '');
+    window.addEventListener('booknerd-profile-photo', updatePhoto);
+    fetch(`/api/reader-hub?summary=1&visitorKey=${encodeURIComponent(getVisitorKey())}`, { cache: 'no-store' })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => { if (active && data) { setName(data.displayName || ''); setPhotoUrl(data.photoUrl || ''); } })
+      .catch(() => {});
+    return () => { active = false; window.removeEventListener('booknerd-profile-photo', updatePhoto); };
+  }, [installed]);
+
   if (!installed) return null;
   const toggle = () => {
     setOpen(!open);
@@ -156,7 +171,7 @@ export function ProfileMenu() {
 
   return (
     <div className="profile-menu" ref={menuRef}>
-      <button type="button" className="icon-button" aria-label="Меню профиля" aria-expanded={open} onClick={toggle}><UserRound size={19} /></button>
+      <button type="button" className="icon-button" aria-label="Меню профиля" aria-expanded={open} onClick={toggle}>{photoUrl ? <img className="profile-menu-avatar" src={photoUrl} alt="Моя аватарка" onError={() => setPhotoUrl('')} /> : <UserRound size={19} />}</button>
       {open && <nav className="profile-menu-panel" aria-label="Разделы профиля">
         <strong>{name || 'Читатель Booknerd'}</strong>
         <a href="/profile" onClick={() => setOpen(false)}><UserRound size={17} /> Мой профиль</a>
@@ -164,6 +179,12 @@ export function ProfileMenu() {
         <a href="/library" onClick={() => setOpen(false)}><Bookmark size={17} /> Библиотека</a>
         <a href="/profile#profile-history" onClick={() => setOpen(false)}><Clock3 size={17} /> История чтения</a>
         <a href="/team" onClick={() => setOpen(false)}><Users size={17} /> Команда Booknerd</a>
+        <span className="profile-menu-divider" />
+        <a href="/#future-translations" onClick={() => setOpen(false)}><BookOpen size={17} /> Что читать следующим / Будущие переводы</a>
+        <a href="/#what-to-read" onClick={() => setOpen(false)}><Compass size={17} /> Что читаем?</a>
+        <a href="/#daily-selection" onClick={() => setOpen(false)}><Sparkles size={17} /> Ежедневная подборка</a>
+        <a href="/#book-records" onClick={() => setOpen(false)}><Trophy size={17} /> Книжные рекорды</a>
+        <a href="/#popular-comments" onClick={() => setOpen(false)}><MessageCircle size={17} /> Комментарии, которые любят</a>
       </nav>}
     </div>
   );

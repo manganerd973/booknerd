@@ -1,5 +1,7 @@
 'use client';
 
+import { genreKey, uniqueGenres, hasGenre } from '../lib/genres.js';
+
 import React, { useEffect, useRef, useState } from 'react';
 import { Layers, Search, SlidersHorizontal, X } from 'lucide-react';
 import { SiteFooter, SiteHeader } from './page-chrome.jsx';
@@ -33,9 +35,9 @@ export default function TranslationsPage({ initialBooks = [], initialView = 'all
   }, []);
 
   const collections = bookCollections(initialBooks);
-  const collection = collections.find((entry) => entry.key === collectionKey);
+  const collection = collections.find((entry) => entry.key === collectionKey || (entry.key.startsWith('genre:') && collectionKey.startsWith('genre:') && genreKey(entry.key.slice(6)) === genreKey(collectionKey.slice(6))));
   const source = collection && view === 'all' ? collection.books : booksForShelf(initialBooks, view);
-  const genres = [...new Set(initialBooks.flatMap((book) => book.genres || []))].sort((a, b) => a.localeCompare(b, 'ru'));
+  const genres = uniqueGenres(initialBooks.flatMap((book) => book.genres || []));
   const types = [...new Set(initialBooks.map((book) => book.bookType).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru'));
   const years = [...new Set(initialBooks.map((book) => book.publicationYear).filter(Boolean))].sort((a, b) => b - a);
   const libraryById = new Map(library.map((item) => [item.bookId, item.status]));
@@ -51,8 +53,8 @@ export default function TranslationsPage({ initialBooks = [], initialView = 'all
       && (filters.max === '' || chapters <= Number(filters.max))
       && (!filters.statuses.length || filters.statuses.includes(libraryById.get(book.id)))
       && (!filters.hideLibrary || !libraryById.has(book.id))
-      && (!filters.genres.length || filters.genres.some((genre) => bookGenres.includes(genre)))
-      && !filters.excluded.some((genre) => bookGenres.includes(genre))
+      && (!filters.genres.length || filters.genres.some((genre) => hasGenre(bookGenres, genre)))
+      && !filters.excluded.some((genre) => hasGenre(bookGenres, genre))
       && [book.title, book.author, ...bookGenres, ...(book.tropes || [])].join(' ').toLocaleLowerCase('ru').includes(text);
   });
   const changeDraft = (key, value) => setDraft((current) => ({ ...current, [key]: value }));

@@ -1,3 +1,4 @@
+import { normalizeWorkflowStatus } from '../../../../../../../../lib/chapter-status.js';
 import { authorizeAdminRequest } from '../../../../../../../../lib/admin-auth.js';
 import { ensureDb } from '../../../../../../../../lib/runtime.js';
 import { recalculateBookProgress } from '../../../../../../../../lib/books.js';
@@ -34,13 +35,13 @@ export async function POST(request, { params }) {
         version.title, version.point_of_view || '', version.body || '', version.body_rich || '',
         version.footnotes || '[]', version.team_note || '',
         version.workflow_status === 'published' ? 'published' : 'draft',
-        version.workflow_status || 'draft', version.scheduled_at || null, editor, now, id,
+        normalizeWorkflowStatus(version.workflow_status), version.scheduled_at || null, editor, now, id,
       ),
       db.prepare(
         `INSERT INTO chapter_audit (id, chapter_id, action, from_status, to_status, editor_email, created_at)
          VALUES (?, ?, 'restored', ?, ?, ?, ?)`
       ).bind(
-        crypto.randomUUID(), id, current.workflow_status || 'draft', version.workflow_status || 'draft', editor, now,
+        crypto.randomUUID(), id, current.workflow_status || 'draft', normalizeWorkflowStatus(version.workflow_status), editor, now,
       ),
     ]);
     const progressState = await recalculateBookProgress(current.book_id, db);

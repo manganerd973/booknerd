@@ -45,18 +45,10 @@ export async function POST(request) {
         completed ? 1 : 0, notificationReturn ? 1 : 0, nowIso, nowIso,
       ),
       db.prepare(
-        `INSERT INTO reader_library
-         (visitor_key, book_id, status, last_chapter_id, last_page, progress, reading_seconds, last_opened_at, created_at, updated_at)
-         VALUES (?, ?, 'reading', ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(visitor_key, book_id) DO UPDATE SET
-         status = CASE WHEN reader_library.status = 'finished' THEN 'finished' ELSE 'reading' END,
-         last_chapter_id = excluded.last_chapter_id,
-         last_page = excluded.last_page,
-         progress = MAX(reader_library.progress, excluded.progress),
-         reading_seconds = reader_library.reading_seconds + excluded.reading_seconds,
-         last_opened_at = excluded.last_opened_at,
-         updated_at = excluded.updated_at`
-      ).bind(visitorKey, bookId, chapterId, page, bookProgress, seconds, nowIso, nowIso, nowIso),
+        `UPDATE reader_library SET last_chapter_id = ?, last_page = ?,
+         progress = MAX(progress, ?), reading_seconds = reading_seconds + ?,
+         last_opened_at = ?, updated_at = ? WHERE visitor_key = ? AND book_id = ?`
+      ).bind(chapterId, page, bookProgress, seconds, nowIso, nowIso, visitorKey, bookId),
     ]);
     return Response.json({ ok: true });
   } catch (error) {
