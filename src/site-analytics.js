@@ -7,6 +7,11 @@ export function getVisitorKey() {
   let key = '';
   try { key = localStorage.getItem(VISITOR_STORAGE_KEY) || ''; } catch { /* Storage can be disabled. */ }
   if (!key) {
+    try { key = decodeURIComponent(document.cookie.split('; ').find(item => item.startsWith(`${VISITOR_COOKIE}=`))?.slice(VISITOR_COOKIE.length + 1) || ''); } catch { /* Ignore malformed cookies. */ }
+    if (key && !/^[a-zA-Z0-9:_-]{8,120}$/.test(key)) key = '';
+    if (key) { try { localStorage.setItem(VISITOR_STORAGE_KEY, key); } catch {} }
+  }
+  if (!key) {
     key = typeof crypto !== 'undefined' && crypto.randomUUID
       ? crypto.randomUUID()
       : `reader-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;

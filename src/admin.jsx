@@ -1,4 +1,5 @@
 'use client';
+import AdminCommentReply from './admin-comment-reply.jsx';
 import AdminThemeToggle from './admin-theme-toggle.jsx';
 import { prepareMapImage } from './prepare-map-image.js';
 
@@ -1313,6 +1314,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                         {comment.bookTitle}{comment.chapterTitle ? ` · глава ${comment.chapterNumber}: ${comment.chapterTitle}` : ' · страница книги'}
                       </a>
                     </div>
+                    {currentUser.role === 'owner' && comment.kind === 'comment' && comment.status === 'approved' && <AdminCommentReply commentId={comment.id} onSent={loadComments} />}
                     <div className="admin-comment-actions">
                       {comment.status === 'pending'
                         ? <button className="admin-primary" onClick={() => approveComment(comment)}><Check size={16} /> Вернуть на сайт</button>

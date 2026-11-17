@@ -7,6 +7,7 @@ function mapComment(row) {
     id: row.id,
     parentId: row.parent_id || null,
     authorName: row.author_name,
+    isAdmin: Boolean(row.is_admin),
     body: row.body,
     isSpoiler: Boolean(row.is_spoiler),
     createdAt: row.created_at,
@@ -37,13 +38,13 @@ export async function GET(request) {
 
     const db = await ensureDb();
     const statement = chapterId
-      ? db.prepare(`SELECT c.id, c.parent_id, c.author_name, c.body, c.is_spoiler, c.created_at, COUNT(*) OVER () AS total,
+      ? db.prepare(`SELECT c.id, c.parent_id, c.is_admin, c.author_name, c.body, c.is_spoiler, c.created_at, COUNT(*) OVER () AS total,
           SUM(CASE WHEN v.value = 1 THEN 1 ELSE 0 END) AS up_votes,
           SUM(CASE WHEN v.value = -1 THEN 1 ELSE 0 END) AS down_votes
           FROM comments c LEFT JOIN comment_votes v ON v.comment_id = c.id
           WHERE c.book_id = ? AND c.chapter_id = ? AND c.status = 'approved'
           GROUP BY c.id ORDER BY c.created_at ASC LIMIT 100`).bind(bookId, chapterId)
-      : db.prepare(`SELECT c.id, c.parent_id, c.author_name, c.body, c.is_spoiler, c.created_at, COUNT(*) OVER () AS total,
+      : db.prepare(`SELECT c.id, c.parent_id, c.is_admin, c.author_name, c.body, c.is_spoiler, c.created_at, COUNT(*) OVER () AS total,
           SUM(CASE WHEN v.value = 1 THEN 1 ELSE 0 END) AS up_votes,
           SUM(CASE WHEN v.value = -1 THEN 1 ELSE 0 END) AS down_votes
           FROM comments c LEFT JOIN comment_votes v ON v.comment_id = c.id

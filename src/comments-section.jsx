@@ -168,7 +168,7 @@ export default function CommentsSection({ bookId, chapterId = null, onCountChang
       <div className={`reader-comment-thread ${depth ? 'is-reply-thread' : ''}`} key={comment.id}>
         <article className={`reader-comment ${depth ? 'is-reply' : ''}`}>
           <header className="reader-comment-header">
-            <strong>{comment.authorName}</strong>
+            <strong>{comment.authorName}</strong>{comment.isAdmin && <span style={{ color: '#a78bfa', fontWeight: 700 }}> · Администратор BOOKNERD</span>}
           </header>
           <CommentBody comment={comment} />
           <div className="reader-comment-actions">

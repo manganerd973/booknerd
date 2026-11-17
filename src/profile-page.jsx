@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Award, Camera, Check, Library, LoaderCircle, MessageCircle, Pencil, Save, Sparkles, Star, Trash2, UserRound } from 'lucide-react';
+import ProfileRecovery from './profile-recovery.jsx';
 import { getVisitorKey } from './site-analytics.js';
 import { loadReaderLibrary } from './reader-library.jsx';
 import { APP_THEME_OPTIONS, setStoredAppTheme, setStoredAtmosphere } from './app-preferences.jsx';
@@ -198,6 +199,7 @@ function InstalledProfile({ books }) {
               </a>
             </li>)}</ul> : <p>Здесь появятся ваши комментарии к книгам и главам.</p>}
           </section>
+          <ProfileRecovery />
           <section className="profile-editor" id="profile-settings">
             <div><h2>Настройки профиля</h2></div>
             <div className="profile-fields">
