@@ -29,16 +29,24 @@ export function useBooknerdInstall() {
 
 export function InstallInstructions() {
   const { device, canInstall, install, installedHere } = useBooknerdInstall();
-  if (device === 'desktop') return <p>Откройте Booknerd на телефоне, добавьте его на главный экран и запустите с иконки.</p>;
-  if (installedHere) return <p>Теперь откройте Booknerd с иконки на главном экране, чтобы перейти в профиль.</p>;
-  return (
-    <>
-      {device === 'ios'
-        ? <p>Откройте в Safari, нажмите <strong>«Поделиться»</strong>, затем <strong>«На экран „Домой“»</strong>.</p>
-        : <p>В меню браузера выберите <strong>«Установить приложение»</strong> или <strong>«Добавить на главный экран»</strong>.</p>}
-      {canInstall && <button type="button" className="booknerd-install-button" onClick={install}><Download size={15} /> Установить</button>}
-    </>
-  );
+  return <div className="install-steps">
+    {installedHere && <p>Сайт добавлен. Найдите иконку BOOKNERD на главном экране телефона и откройте её.</p>}
+    <p>BOOKNERD устанавливается из браузера — искать его в App Store или Google Play не нужно.</p>
+    <details open={device === 'ios'}><summary>iPhone / iPad — через Safari</summary><ol>
+      <li>Откройте <strong>booknerd.bknrd.workers.dev</strong> в Safari. Если вы внутри Telegram, откройте ссылку во внешнем браузере.</li>
+      <li>Нажмите кнопку <strong>«Поделиться»</strong> (квадрат со стрелкой вверх). В некоторых версиях Safari она находится в меню «…».</li>
+      <li>Прокрутите список действий и выберите <strong>«На экран „Домой“»</strong>.</li>
+      <li>Если есть переключатель <strong>«Открывать как веб-приложение»</strong>, включите его. Нажмите <strong>«Добавить»</strong>.</li>
+      <li>Вернитесь на домашний экран и запустите BOOKNERD с новой иконки.</li>
+    </ol></details>
+    <details open={device === 'android'}><summary>Android — через Chrome</summary><ol>
+      <li>Откройте <strong>booknerd.bknrd.workers.dev</strong> в Chrome.</li>
+      <li>Нажмите <strong>⋮</strong> справа вверху → <strong>«Добавить на главный экран»</strong> или <strong>«Установить приложение»</strong>.</li>
+      <li>Подтвердите установку, затем откройте BOOKNERD с иконки на телефоне.</li>
+    </ol></details>
+    <p>Если пункта установки нет, откройте сайт напрямую в Safari или Chrome, а не во встроенном браузере мессенджера.</p>
+    {canInstall && <button type="button" className="booknerd-install-button" onClick={install}><Download size={15} /> Установить BOOKNERD</button>}
+  </div>;
 }
 
 export default function PwaRegister({ children }) {

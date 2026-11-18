@@ -23,7 +23,7 @@ export default function BookArtGallery({ artworks = [], bookTitle = '' }) {
     };
   }, [activeIndex, artworks.length]);
 
-  if (!artworks.length) return null;
+  if (!artworks.length) return <p className="book-art-empty">Арты для этой книги пока не добавлены.</p>;
 
   return (
     <section className="book-art-section" aria-labelledby="book-art-title">

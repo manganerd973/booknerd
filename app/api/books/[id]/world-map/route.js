@@ -16,10 +16,9 @@ export async function GET(request, { params }) {
     }
     const etag = `"${map.world_map_key}"`;
     if (request.headers.get('if-none-match') === etag) return new Response(null, { status: 304, headers: { etag, 'cache-control': 'private, max-age=3600' } });
-    if (map.world_map_key.startsWith('maps/')) {
+    { // Older uploads can have different key prefixes: check the saved D1 object first.
       const image = await db.prepare('SELECT data, content_type FROM book_covers WHERE key = ?').bind(map.world_map_key).first();
-      if (!image?.data) return new Response('Not found', { status: 404 });
-      return new Response(Array.isArray(image.data) ? new Uint8Array(image.data) : image.data, { headers: {
+      if (image?.data) return new Response(Array.isArray(image.data) ? new Uint8Array(image.data) : image.data, { headers: {
         'content-type': image.content_type, 'cache-control': 'private, max-age=3600', etag,
         'x-content-type-options': 'nosniff',
       } });

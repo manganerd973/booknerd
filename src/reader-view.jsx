@@ -51,7 +51,6 @@ import {
 } from 'lucide-react';
 import CommentsSection from './comments-section.jsx';
 import { ShelfBook } from './book-shelves.jsx';
-import { CompletionReviewForm } from './book-reviews.jsx';
 import { richDocumentFor } from '../lib/rich-document.js';
 import { getVisitorKey, trackReaderPresence } from './site-analytics.js';
 import {
@@ -1373,6 +1372,19 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
     </section>
   );
 
+  useEffect(() => {
+    const page = document.querySelector('.reader-modern');
+    if (!page) return;
+    const color = getComputedStyle(page).getPropertyValue('--reader-page').trim();
+    const nodes = [document.documentElement, document.body];
+    const previous = nodes.map(node => node.style.backgroundColor);
+    const meta = document.querySelector('meta[name="theme-color"]');
+    const oldMeta = meta?.content;
+    nodes.forEach(node => node.style.setProperty('background-color', color, 'important'));
+    if (meta) meta.content = color;
+    return () => { nodes.forEach((node, i) => { node.style.removeProperty('background-color'); if (previous[i]) node.style.backgroundColor = previous[i]; }); if (meta) meta.content = oldMeta; };
+  }, [settings.theme]);
+
   return (
     <main className="reader-page reader-modern" data-reader-theme={settings.theme} data-reader-chrome={chromeHidden ? 'hidden' : 'visible'} style={fontStyle}>
       <section
@@ -1950,7 +1962,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
               </div>
               <p>Так постепенно складывается эмоциональная карта всей книги.</p>
             </section>
-            {!next && translationCompleted ? <CompletionReviewForm bookId={book.id} /> : null}
+
             {next ? (
               <a href={`/books/${book.slug}/chapters/${next.id}`}>Читать дальше <ArrowRight size={18} /></a>
             ) : translationCompleted ? (

@@ -1,5 +1,3 @@
 import React from 'react';
-export default function PurpleCat() { return (<svg className="loading-purple-cat" viewBox="0 0 240 180" aria-hidden="true">
-      <path className="loading-cat-tail" d="M172 126 C225 138 228 71 197 76 C179 80 189 99 202 91" fill="none" stroke="#9470f4" strokeWidth="13" strokeLinecap="round" />
-      <g className="loading-cat-body"><ellipse cx="119" cy="129" rx="66" ry="29" fill="#6c4ee0"/><path d="M65 108 L60 52 Q61 44 69 49 L92 67 Q118 58 143 67 L165 49 Q174 43 172 55 L167 110 Q164 139 116 139 Q68 139 65 108" fill="#9470f4"/><path d="M72 61 L74 80 L87 73 M160 61 L157 80 L146 73" fill="#cdbbff"/><g fill="none" stroke="#25123f" strokeWidth="4" strokeLinecap="round"><path d="M83 96 Q91 106 99 96 M133 96 Q141 106 149 96 M111 114 Q116 122 122 114 Q128 121 133 114"/><path d="M59 106 L39 102 M59 115 L38 117 M172 106 L192 102 M172 115 L192 118"/></g><path d="M115 105 Q122 101 128 105 L122 111 Z" fill="#25123f"/><ellipse cx="87" cy="113" rx="10" ry="4" fill="#c5a5ff"/><ellipse cx="149" cy="113" rx="10" ry="4" fill="#c5a5ff"/></g>
-    </svg>); }
+import LoadingMascot from './loading-mascot.jsx';
+export default function PurpleCat() { return <LoadingMascot />; }

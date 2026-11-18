@@ -1,17 +1,16 @@
 import BookContentTabs from '../../../src/book-content-tabs.jsx';
 import { AlertTriangle, ArrowRight, BookOpen, Clock3, ExternalLink, FileText, Flame } from 'lucide-react';
 import { notFound } from 'next/navigation';
-import { getBookBySlug, listChapterSummaries, listSeriesBooks } from '../../../lib/books.js';
+import { getBookBySlug, listChapterSummaries, listPublicBooks } from '../../../lib/books.js';
 import { listBookArtworks } from '../../../lib/artworks.js';
 import { requireReaderAccess } from '../../../lib/reader-access.js';
 import BookArtGallery from '../../../src/book-art-gallery.jsx';
 import BookRating from '../../../src/book-rating.jsx';
-import BookReviews from '../../../src/book-reviews.jsx';
+import WorldMapViewer from '../../../src/world-map-viewer.jsx';
+import { genreKey } from '../../../lib/genres.js';
 import CommentsSection from '../../../src/comments-section.jsx';
 import BookLibraryControl from '../../../src/reader-library.jsx';
 import BookGlossary from '../../../src/book-glossary.jsx';
-import SeriesReadingOrder from '../../../src/series-reading-order.jsx';
-import BookUniverse from '../../../src/book-universe.jsx';
 import OfflineBookButton from '../../../src/offline-book-button.jsx';
 import { SiteHeader } from '../../../src/page-chrome.jsx';
 
@@ -22,11 +21,14 @@ export default async function BookPage({ params }) {
   await requireReaderAccess(`/books/${slug}`);
   const book = await getBookBySlug(slug);
   if (!book) notFound();
-  const [chapters, artworks, seriesBooks] = await Promise.all([
+  const [chapters, artworks, publicBooks] = await Promise.all([
     listChapterSummaries(book.id),
     listBookArtworks(book.id),
-    listSeriesBooks(book.seriesTitle),
+    listPublicBooks(),
   ]);
+  const isStandalone = !book.seriesTitle || /^(одиночка|standalone)$/i.test(book.seriesTitle.trim());
+  const uniqueTags = values => [...new Map((values || []).map(v => [genreKey(v), v])).values()];
+  const similarBooks = publicBooks.filter(item => item.id !== book.id && (item.genres || []).some(g => (book.genres || []).some(own => genreKey(g) === genreKey(own)))).slice(0, 6);
   const heatGuide = chapters.filter((chapter) => Number(chapter.heatLevel || 0) > 0);
   const hasHotScenes = Boolean(book.hasHotScenes || heatGuide.length);
   const hotSceneChapters = book.hotSceneChapters
@@ -54,7 +56,7 @@ export default async function BookPage({ params }) {
           <h1>{book.title}</h1>
           <p className="book-detail-author">{book.author}</p>
           {book.originalTitle && <p className="book-original-title">{book.originalTitle}</p>}
-          {book.seriesTitle && <p className="book-series">Серия «{book.seriesTitle}»{book.seriesNumber ? ` · книга ${book.seriesNumber}` : ''}</p>}
+          <p className="book-series">{isStandalone ? 'Одиночная книга' : <>Серия «{book.seriesTitle}»{book.seriesNumber ? ` · книга ${book.seriesNumber}` : ''}</>}</p>
           <div className="book-description">
             {shortSynopsis ? <>
               <p className="book-description-preview">{shortSynopsis}</p>
@@ -68,7 +70,11 @@ export default async function BookPage({ params }) {
           </div>
           <BookLibraryControl bookId={book.id} />
           <dl className="book-facts">{facts.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
-          {[...(book.genres || []), ...(book.tropes || [])].length > 0 && <p className="book-topics"><strong>Жанры и темы</strong> {[...new Set([...(book.genres || []), ...(book.tropes || [])])].join(' · ')}</p>}
+          <div className="book-taxonomy">
+            {[["Жанры", book.genres], ["Тропы", book.tropes]].map(([label, values]) => values?.length ? <section key={label}><h3>{label}</h3><div className="book-tag-list">{uniqueTags(values).map(value => <span key={genreKey(value)}>{value}</span>)}</div></section> : null)}
+            {book.dedication && <section><h3>Посвящение</h3><p>{book.dedication}</p></section>}
+            {book.triggerWarnings?.length > 0 && <details><summary>Триггеры</summary><div className="book-tag-list">{uniqueTags(book.triggerWarnings).map(value => <span key={genreKey(value)}>{value}</span>)}</div></details>}
+          </div>
           <BookRating bookId={book.id} />
           <OfflineBookButton book={book} chapters={chapters} />
         </div>
@@ -94,59 +100,16 @@ export default async function BookPage({ params }) {
         </aside>
       </section></>}
         artContent={<BookArtGallery artworks={artworks} bookTitle={book.title} />}
-        commentsContent={<><BookReviews bookId={book.id} /><CommentsSection bookId={book.id} /></>}
+        mapContent={book.worldMapUrl ? <WorldMapViewer url={book.worldMapUrl} title={book.title} /> : <p>Карта для этой книги пока не добавлена.</p>}
+        commentsContent={<CommentsSection bookId={book.id} />}
       />
 
-      <SeriesReadingOrder book={book} seriesBooks={seriesBooks} />
-
-
-      <BookGlossary bookId={book.id} />
-
-      <BookUniverse book={{ ...book, chapters }} />
-
-      {(book.triggerWarnings || []).length ? (
-        <section className="book-trigger-warnings" aria-labelledby="book-trigger-warnings-title">
-          <div>
-            <AlertTriangle size={23} />
-            <div><span className="editorial-section-number">03 / БЕРЕЖНО К СЕБЕ</span><h2 id="book-trigger-warnings-title">Предупреждения о триггерах</h2></div>
-          </div>
-          <p>Перед чтением обратите внимание: в книге встречаются темы, которые могут быть чувствительными.</p>
-          <div>{book.triggerWarnings.map((warning) => <span key={warning}>{warning}</span>)}</div>
-        </section>
-      ) : null}
-
-      <section className="book-heat-guide" aria-labelledby="book-heat-guide-title">
-        <div className="book-heat-guide-heading">
-          <div>
-            <span className="editorial-section-number">03 / ПУТЕВОДИТЕЛЬ ПО ГЛАВАМ</span>
-            <h2 id="book-heat-guide-title">Горячие сцены — по желанию</h2>
-          </div>
-          <Flame size={34} />
-        </div>
-        <p>Это небольшой путеводитель по главам для любителей горячих сцен, а также для тех, кто предпочитает их избегать.</p>
-        <div className="book-heat-summary">
-          <div><span>Горячие сцены</span><strong>{hasHotScenes ? 'Да' : 'Нет'}</strong></div>
-          {hasHotScenes && hotSceneChapters ? <div><span>Главы со сценами</span><strong>{hotSceneChapters}</strong></div> : null}
-        </div>
-        {heatGuide.length ? (
-          <div className="book-heat-guide-list">
-            {heatGuide.map((chapter) => (
-              <a href={`/books/${book.slug}/chapters/${chapter.id}`} key={chapter.id}>
-                <span>Глава {chapter.chapterNumber}</span>
-                <strong>{chapter.title}</strong>
-                {chapter.heatPages ? <small>главы {chapter.heatPages}</small> : null}
-                <em aria-label={`Уровень горячих сцен: ${chapter.heatLevel} из 3`}>{'🔥'.repeat(chapter.heatLevel)}</em>
-                <ArrowRight size={17} />
-              </a>
-            ))}
-          </div>
-        ) : (
-          !hasHotScenes ? <div className="book-heat-guide-empty"><span>♡</span><p>В книге нет горячих сцен.</p></div> : null
-        )}
+      <details className="book-extra-details"><summary>Словарь книги</summary><BookGlossary bookId={book.id} /></details>
+      {hasHotScenes && <details className="book-extra-details"><summary>Главы с горячими сценами</summary><p>{hotSceneChapters || 'Информация уточняется.'}</p></details>}
+      <section className="book-related"><h2>Похожие по жанрам</h2>
+        {similarBooks.length ? <div className="book-related-grid">{similarBooks.map(item => <a key={item.id} href={`/books/${item.slug}`}>{item.coverUrl && <img src={item.coverUrl} alt="" loading="lazy" />}<strong>{item.title}</strong></a>)}</div> : <p>Похожие книги появятся по мере пополнения каталога.</p>}
+        <a className="shelf-control" href="/discovery">Рекомендации и подборки →</a>
       </section>
-
-
-
     </main>
   );
 }

@@ -67,6 +67,7 @@ export async function POST(request) {
     const parentId = String(payload.parentId || '').trim() || null;
     const visitorKey = normalizeVisitorKey(payload.visitorKey);
     const authorName = String(payload.authorName || '').trim().replace(/\s+/g, ' ').slice(0, 60);
+    if (/админ|admin|booknerd|букнерд/i.test(authorName.normalize('NFKC').replace(/[^\p{L}\p{N}]/gu, '')) || payload.isAdmin || payload.asAdmin) return Response.json({ error: 'Официальные ответы BOOKNERD доступны только владелице через админку. Выберите свой псевдоним.' }, { status: 403 });
     const body = String(payload.body || '').trim().slice(0, 2000);
     const isSpoiler = payload.isSpoiler === true;
     if (payload.website) return Response.json({ ok: true }, { status: 201 });

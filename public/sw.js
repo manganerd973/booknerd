@@ -1,6 +1,6 @@
-const SHELL_CACHE = 'booknerd-shell-v13';
+const SHELL_CACHE = 'booknerd-shell-v15';
 const OFFLINE_CACHE = 'booknerd-offline-books-v9';
-const SHELL_URLS = ['/', '/translations', '/library', '/calendar', '/manifest.webmanifest', '/booknerd-icon-v3-192.png'];
+const SHELL_URLS = ['/', '/translations', '/library', '/calendar', '/manifest.webmanifest', '/booknerd-icon-v4-192.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(SHELL_CACHE).then((cache) => Promise.allSettled(SHELL_URLS.map((url) => cache.add(url)))).then(() => self.skipWaiting()));
@@ -56,8 +56,8 @@ self.addEventListener('push', (event) => {
   let data = {};
   try { data = event.data?.json?.() || {}; } catch { data = { body: event.data?.text?.() || '' }; }
   const options = {
-    icon: data.icon || '/booknerd-icon-v3-192.png',
-    badge: data.badge || '/booknerd-icon-v3-192.png',
+    icon: data.icon || '/booknerd-icon-v4-192.png',
+    badge: data.badge || '/booknerd-icon-v4-192.png',
     data: { url: data.url || '/' },
     tag: data.topic ? `booknerd-${data.topic}` : data.chapterId ? `booknerd-${data.chapterId}` : 'booknerd-update',
     renotify: true,

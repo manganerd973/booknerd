@@ -30,7 +30,7 @@ import { getStoredAppTheme, setStoredAppTheme } from './app-preferences.jsx';
 export function SiteLogo() {
   return (
     <a className="logo" href="/" aria-label="BOOKNERD — на главную">
-      <img className="logo-mark booknerd-brand-icon" src="/booknerd-icon-v3-192.png" alt="" aria-hidden="true" />
+      <img className="logo-mark booknerd-brand-icon" src="/booknerd-icon-v4-192.png" alt="" aria-hidden="true" />
       <span className="logo-name">BOOKNERD<span>.</span></span>
     </a>
   );
@@ -180,6 +180,9 @@ export function ProfileMenu() {
         <a href="/profile#profile-history" onClick={() => setOpen(false)}><Clock3 size={17} /> История чтения</a>
         <a href="/team" onClick={() => setOpen(false)}><Users size={17} /> Команда Booknerd</a>
         <span className="profile-menu-divider" />
+        <a href="/community" onClick={() => setOpen(false)}><Users size={17} /> Сообщество</a>
+        <a href="/discovery" onClick={() => setOpen(false)}><BookOpen size={17} /> Рекомендации и подборки</a>
+        <a href="/discovery#book-records" onClick={() => setOpen(false)}><BookOpen size={17} /> Книжные рекорды</a>
       </nav>}
     </div>
   );

@@ -1,5 +1,5 @@
 'use client';
-import PurpleCat from './purple-cat.jsx';
+import LoadingMascot from './loading-mascot.jsx';
 import React, { useEffect, useRef, useState } from 'react';
 export default function LoadingCat() {
   const audio = useRef(null);
@@ -21,7 +21,7 @@ export default function LoadingCat() {
     } catch { await context.close().catch(() => {}); audio.current = null; }
   }
   return <main className="book-loading-screen cat-loading-screen">
-    <div role="status" aria-live="polite"><PurpleCat /><strong>мууууур</strong><span className="loading-cat-caption">Загружаем историю…</span></div>
+    <div role="status" aria-live="polite"><LoadingMascot /><strong>мууууур</strong><span className="loading-cat-caption">Загружаем историю…</span></div>
     <button type="button" className="loading-purr-button" onClick={togglePurr}>{purring ? 'Выключить мурчание' : 'Включить мурчание'}</button>
   </main>;
 }

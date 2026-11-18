@@ -6,6 +6,7 @@ import '../src/pages.css';
 import '../src/home.css';
 import '../src/shelves.css';
 import '../src/install.css';
+import '../src/visual-fixes.css';
 import PwaRegister from '../src/pwa-register.jsx';
 import AppPreferences from '../src/app-preferences.jsx';
 
@@ -21,13 +22,13 @@ export const metadata = {
   },
   icons: {
     icon: [
-      { url: '/booknerd-favicon-v3.ico', type: 'image/x-icon' },
-      { url: '/booknerd-icon-v3-192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/booknerd-icon-v3-512.png', sizes: '512x512', type: 'image/png' },
+      { url: '/booknerd-favicon-v4.ico', type: 'image/x-icon' },
+      { url: '/booknerd-icon-v4-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/booknerd-icon-v4-512.png', sizes: '512x512', type: 'image/png' },
     ],
-    shortcut: '/booknerd-favicon-v3.ico',
+    shortcut: '/booknerd-favicon-v4.ico',
     apple: [
-      { url: '/booknerd-apple-touch-icon-v3.png', sizes: '180x180', type: 'image/png' },
+      { url: '/booknerd-apple-touch-icon-v4.png', sizes: '180x180', type: 'image/png' },
     ],
   },
 };
@@ -35,6 +36,7 @@ export const metadata = {
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
+  viewportFit: 'cover',
   themeColor: '#6c4ee0',
 };
 
