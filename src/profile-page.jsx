@@ -63,7 +63,7 @@ export default function ProfilePage({ books = [] }) {
       <SiteHeader compact />
       <main className="booknerd-profile-install">
         {device ? <>
-          <img src="/booknerd-icon-v2-192.png" width="64" height="64" alt="" />
+          <img src="/booknerd-icon-v4-192.png" width="64" height="64" alt="" />
           <h1>Профиль в приложении Booknerd</h1>
           <InstallInstructions />
           <a href="/">Вернуться к книгам</a>

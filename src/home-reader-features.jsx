@@ -47,9 +47,9 @@ export function ContinueReading({ items = [], books = [] }) {
         </div>
         <div className="home-update-copy">
           <strong>{item.bookTitle || book?.title}</strong>
-          <small>Глава {item.chapterNumber || '—'}{item.chapterTitle ? ` · ${item.chapterTitle}` : ''}</small>
+          <small>Глава {item.chapterNumber || '—'}{item.chapterTotal ? ` из ${item.chapterTotal}` : ''}{item.chapterTitle ? ` · ${item.chapterTitle}` : ''}</small>
           <progress max={100} value={item.progress || 0} aria-label="Прогресс чтения" />
-          <small>{item.progress || 0}% прочитано</small>
+          <small>{Math.round(item.progress || 0)}% прочитано · Впереди глав: {item.chaptersLeft ?? '—'}</small>
         </div>
         <ArrowRight size={18} />
       </a>
@@ -100,14 +100,15 @@ export function ReleaseCalendar({ books = [], showHeading = true }) {
 
 export function ReaderStatistics() {
   const [stats, setStats] = useState(null);
+  const [statsError, setStatsError] = useState(false);
   useEffect(() => {
     const query = new URLSearchParams({ visitorKey: getVisitorKey() });
     fetch(`/api/reader-stats?${query.toString()}`, { cache: 'no-store' })
       .then((response) => response.json())
-      .then((data) => setStats(data.stats || null))
-      .catch(() => {});
+      .then((data) => { if (!data.stats) throw new Error(); setStats(data.stats); })
+      .catch(() => setStatsError(true));
   }, []);
-  if (!stats) return null;
+  if (!stats) return <section className="reader-personal-stats section" role="status">{statsError ? 'Не удалось загрузить статистику. Обновите страницу, чтобы попробовать снова.' : 'Загружаем вашу статистику…'}</section>;
   return (
     <section className="reader-personal-stats section">
       <div className="reader-stats-heading">

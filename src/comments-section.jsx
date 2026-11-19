@@ -62,7 +62,7 @@ export default function CommentsSection({ bookId, chapterId = null, onCountChang
   const [comments, setComments] = useState([]);
   const [total, setTotal] = useState(0);
   const [authorName, setAuthorName] = useState('');
-  const [savedAuthorName, setSavedAuthorName] = useState('');
+
   const [body, setBody] = useState('');
   const [isSpoiler, setIsSpoiler] = useState(false);
   const [website, setWebsite] = useState('');
@@ -101,32 +101,14 @@ export default function CommentsSection({ bookId, chapterId = null, onCountChang
     }
   }, [bookId, chapterId, onCountChange]);
 
+  useEffect(() => { loadComments(); }, [loadComments]);
   useEffect(() => {
-    try {
-      const savedName = String(localStorage.getItem('booknerd-comment-name') || '').trim();
-      if (savedName.length >= 2) {
-        setAuthorName(savedName);
-        setSavedAuthorName(savedName);
-      }
-    } catch { /* optional */ }
-    loadComments();
-  }, [loadComments]);
-
-  const rememberAuthor = (value = authorName) => {
-    const normalizedName = String(value || '').trim().replace(/\s+/g, ' ').slice(0, 60);
-    if (normalizedName.length < 2) return false;
-    setAuthorName(normalizedName);
-    setSavedAuthorName(normalizedName);
-    try { localStorage.setItem('booknerd-comment-name', normalizedName); } catch { /* optional */ }
-    return true;
-  };
-
-  const changeAuthor = () => {
-    setSavedAuthorName('');
-    setAuthorName('');
-    setNotice('');
-    try { localStorage.removeItem('booknerd-comment-name'); } catch { /* optional */ }
-  };
+    let active = true;
+    commentsApi(`/api/reader-hub?summary=1&visitorKey=${encodeURIComponent(getVisitorKey())}`)
+      .then(data => { if (active) setAuthorName(data.displayName || ''); })
+      .catch(() => { if (active) setError('Не удалось загрузить профиль. Обновите страницу.'); });
+    return () => { active = false; };
+  }, []);
 
   const submit = async (event) => {
     event.preventDefault();
@@ -137,9 +119,8 @@ export default function CommentsSection({ bookId, chapterId = null, onCountChang
       await commentsApi('/api/comments', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ bookId, chapterId, parentId: replyingTo?.id || null, visitorKey: getVisitorKey(), authorName, body, isSpoiler, website }),
+        body: JSON.stringify({ bookId, chapterId: replyingTo?.chapterId || chapterId, parentId: replyingTo?.id || null, visitorKey: getVisitorKey(), body, isSpoiler, website }),
       });
-      rememberAuthor(authorName);
       setBody('');
       setIsSpoiler(false);
       setWebsite('');
@@ -170,6 +151,7 @@ export default function CommentsSection({ bookId, chapterId = null, onCountChang
           <header className="reader-comment-header">
             <strong>{comment.isAdmin ? 'BOOKNERD' : comment.authorName}</strong>{comment.isAdmin && <span style={{ color: '#a78bfa', fontWeight: 700 }}> · Администратор BOOKNERD</span>}
           </header>
+          {!chapterId && comment.chapterNumber != null && <small className="comment-chapter-label">Глава {comment.chapterNumber}</small>}
           <CommentBody comment={comment} />
           <div className="reader-comment-actions">
             <time dateTime={comment.createdAt}>{formatDate(comment.createdAt)}</time>
@@ -197,17 +179,7 @@ export default function CommentsSection({ bookId, chapterId = null, onCountChang
         <form className="reader-comment-form" id={formId} onSubmit={submit}>
           {replyingTo && <h3>Ответ для {replyingTo.authorName}</h3>}
           {replyingTo ? <div className="reader-comment-replying"><Reply size={15} /><span>“{replyingTo.body.slice(0, 120)}{replyingTo.body.length > 120 ? '…' : ''}”</span><button type="button" onClick={() => setReplyingTo(null)} aria-label="Отменить ответ"><X size={15} /></button></div> : null}
-          {savedAuthorName ? (
-            <div className="reader-comment-identity">
-              <span>Вы комментируете как <strong>{savedAuthorName}</strong></span>
-              <button type="button" onClick={changeAuthor}>Сменить</button>
-            </div>
-          ) : (
-            <>
-              <label><span>Имя или псевдоним</span><input value={authorName} onChange={(event) => setAuthorName(event.target.value)} onBlur={() => rememberAuthor(authorName)} maxLength={60} minLength={2} required /></label>
-              <p className="reader-comment-name-help">Введите один раз — сайт запомнит псевдоним на этом устройстве.</p>
-            </>
-          )}
+          <div className="reader-comment-identity">{authorName ? <span>Ваш профиль: <strong>{authorName}</strong></span> : <a href="/profile">Укажите имя в профиле, чтобы оставить комментарий</a>}</div>
           <label><span className="visually-hidden">Комментарий</span><textarea placeholder="Напишите комментарий…" value={body} onChange={(event) => setBody(event.target.value)} maxLength={2000} rows={6} required /></label>
           <label className="reader-comment-spoiler-toggle">
             <input type="checkbox" checked={isSpoiler} onChange={(event) => setIsSpoiler(event.target.checked)} />
@@ -218,7 +190,7 @@ export default function CommentsSection({ bookId, chapterId = null, onCountChang
           <small>{body.length} / 2000</small>
           {notice && <p className="reader-comment-notice">{notice}</p>}
           {error && <p className="reader-comment-error">{error}</p>}
-          <div className="reader-comment-submit"><span>Будьте уважительны</span><button type="submit" disabled={sending}>{sending ? <LoaderCircle className="spin" size={17} /> : <Send size={17} />} {sending ? 'Публикуем…' : 'Отправить'}</button></div>
+          <div className="reader-comment-submit"><span>Будьте уважительны</span><button type="submit" disabled={sending || !authorName}>{sending ? <LoaderCircle className="spin" size={17} /> : <Send size={17} />} {sending ? 'Публикуем…' : 'Отправить'}</button></div>
         </form>
         <div className="reader-comment-list" aria-live="polite">
           {loading ? <div className="reader-comments-empty"><LoaderCircle className="spin" size={22} /> Загружаем комментарии…</div>

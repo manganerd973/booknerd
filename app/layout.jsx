@@ -42,7 +42,8 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="ru">
+    <html lang="ru" suppressHydrationWarning>
+      <head><script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('booknerd-app-theme-v1')||'original';if(!['original','white','black','system'].includes(t))t='original';document.documentElement.dataset.appTheme=t;document.documentElement.style.colorScheme=t==='black'||((t==='system'||t==='original')&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';}catch(e){}})();` }} /></head>
       <body><PwaRegister><AppPreferences />{children}</PwaRegister></body>
     </html>
   );

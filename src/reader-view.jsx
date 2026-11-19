@@ -185,7 +185,6 @@ function ChapterFlow({
       <header className="reader-flow-intro">
         <span>{book.title}</span>
         <h1>{chapterTitle || `Глава ${chapter.chapterNumber}`}</h1>
-        {chapter.pointOfView ? <p className="reader-chapter-pov">От лица {chapter.pointOfView}</p> : null}
         {showDriveLink && chapter.driveUrl ? measuring ? (
           <span className="reader-flow-drive">Файл главы <ExternalLink size={14} /></span>
         ) : (
@@ -343,7 +342,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
     updateSetting('theme', readerThemeForApp(appTheme));
   }, [updateSetting]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
       const fontExists = FONT_OPTIONS.some((font) => font.id === saved.fontFamily);
@@ -355,7 +354,8 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
         ...saved,
         fontFamily: fontExists ? saved.fontFamily : DEFAULT_SETTINGS.fontFamily,
         theme: followsAppTheme ? readerThemeForApp(getStoredAppTheme()) : themeExists ? saved.theme : DEFAULT_SETTINGS.theme,
-        motion: motionExists && saved.motionChosen ? saved.motion : DEFAULT_SETTINGS.motion,
+        motion: saved.continuousReaderVersion === 1 && motionExists && saved.motionChosen ? saved.motion : 'scroll',
+        continuousReaderVersion: 1,
         fontSize: clamp(Number(saved.fontSize) || DEFAULT_SETTINGS.fontSize, 14, 30),
         lineHeight: clamp(Number(saved.lineHeight) || DEFAULT_SETTINGS.lineHeight, 1.35, 2.1),
         brightness: clamp(Number(saved.brightness) || DEFAULT_SETTINGS.brightness, 35, 100),
@@ -1354,6 +1354,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
           <a href={`/books/${book.slug}`}><BookOpen size={20} /> К книге</a>
           <button type="button" onClick={sharePage}><Share2 size={20} /> Поделиться</button>
         </div>
+      <CommentsSection bookId={book.id} chapterId={chapter.id} onCountChange={setCommentCount} key={chapter.id} />
         {[['Рекомендуем вам', recommendations], ['Похожие по жанрам', similar]].map(([title, items]) => items.length > 0 &&
           <section className="reader-chapter-recommendations" key={title}>
             <h2>{title}</h2><div className="shelf-row" tabIndex={0} role="region" aria-label={title}>
@@ -1368,11 +1369,11 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
           <div><small>ЗАМЕТКА КОМАНДЫ</small><p>{chapter.teamNote}</p></div>
         </aside>
       )}
-      <CommentsSection bookId={book.id} chapterId={chapter.id} onCountChange={setCommentCount} key={chapter.id} />
+
     </section>
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const page = document.querySelector('.reader-modern');
     if (!page) return;
     const color = getComputedStyle(page).getPropertyValue('--reader-page').trim();
@@ -1427,7 +1428,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
             }}
           >
             <div className={`reader-motion-surface reader-motion-${settings.motion}`} key={motionKey}>
-              <div className="reader-column-flow reader-visible-flow" style={{ ...flowStyle, transform: `translate3d(-${page * dimensions.width}px, 0, 0)` }}>
+              <div className="reader-column-flow reader-visible-flow" style={settings.motion === 'scroll' ? { width: '100%', height: 'auto', columnCount: 'auto', columnWidth: 'auto', transform: 'none' } : { ...flowStyle, transform: `translate3d(-${page * dimensions.width}px, 0, 0)` }}>
                 <ChapterFlow
                   book={book}
                   chapter={chapter}
@@ -1537,14 +1538,14 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
         <ReaderSheet title="Содержание" eyebrow={`Страница ${currentBookPage} из ${totalBookPages}`} onClose={() => setPanel(null)} wide>
           <div className="reader-contents-book">
             <div className="reader-contents-cover">{book.coverUrl ? <img src={book.coverUrl} alt="" /> : <span>B</span>}</div>
-            <div><small>{book.author}</small><strong>{book.title}</strong><span>{readerChapterTitle(chapter)}{chapter.pointOfView ? ` · От лица ${chapter.pointOfView}` : ''}</span></div>
+            <div><small>{book.author}</small><strong>{book.title}</strong><span>{readerChapterTitle(chapter)}</span></div>
           </div>
           <div className="reader-contents-list">
             {chapterList.map((item, index) => {
               const startsAt = pageCounts.slice(0, index).reduce((total, count) => total + count, 0) + 1;
               return (
                 <a className={item.id === chapter.id ? 'is-current' : ''} href={`/books/${book.slug}/chapters/${item.id}`} key={item.id}>
-                  <span>{item.pointOfView ? <small>От лица {item.pointOfView}</small> : null}<strong>{readerChapterTitle(item)}</strong></span>
+                  <span><strong>{readerChapterTitle(item)}</strong></span>
                   <em>{measurementReady ? startsAt : '—'}</em>
                 </a>
               );

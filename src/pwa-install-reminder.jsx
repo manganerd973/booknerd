@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Download, Share2, Smartphone, X } from 'lucide-react';
+import { Download, Share2, X } from 'lucide-react';
 
 const INSTALLED_KEY = 'booknerd-pwa-installed-v1';
 const SHOWN_AT_KEY = 'booknerd-pwa-install-reminder-shown-at-v1';
@@ -104,7 +104,7 @@ export default function PwaInstallReminder() {
   return (
     <aside className="pwa-install-reminder" aria-labelledby="pwa-install-title" aria-describedby="pwa-install-copy">
       <button className="pwa-install-close" type="button" onClick={dismiss} aria-label="Закрыть напоминание об установке"><X size={18} /></button>
-      <span className="pwa-install-icon" aria-hidden="true"><Smartphone size={23} /></span>
+      <span className="pwa-install-icon" aria-hidden="true"><img src="/booknerd-icon-v4-192.png" alt="" width="46" height="46" style={{ width: '100%', height: '100%', borderRadius: 'inherit', objectFit: 'cover' }} /></span>
       <div className="pwa-install-copy">
         <small>УДОБНОЕ ЧТЕНИЕ С ТЕЛЕФОНА</small>
         <strong id="pwa-install-title">Добавьте BOOKNERD на экран</strong>

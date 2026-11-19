@@ -1,4 +1,4 @@
-const SHELL_CACHE = 'booknerd-shell-v15';
+const SHELL_CACHE = 'booknerd-shell-v17';
 const OFFLINE_CACHE = 'booknerd-offline-books-v9';
 const SHELL_URLS = ['/', '/translations', '/library', '/calendar', '/manifest.webmanifest', '/booknerd-icon-v4-192.png'];
 
@@ -56,14 +56,14 @@ self.addEventListener('push', (event) => {
   let data = {};
   try { data = event.data?.json?.() || {}; } catch { data = { body: event.data?.text?.() || '' }; }
   const options = {
-    icon: data.icon || '/booknerd-icon-v4-192.png',
-    badge: data.badge || '/booknerd-icon-v4-192.png',
+    icon: '/booknerd-icon-v4-192.png',
+    badge: '/booknerd-icon-v4-192.png',
     data: { url: data.url || '/' },
     tag: data.topic ? `booknerd-${data.topic}` : data.chapterId ? `booknerd-${data.chapterId}` : 'booknerd-update',
     renotify: true,
   };
-  if (typeof data.body === 'string' && data.body.trim()) options.body = data.body.trim();
-  event.waitUntil(self.registration.showNotification(data.title || 'Новая глава в BOOKNERD ✦', options));
+  options.body = [typeof data.title === 'string' && data.title.trim() !== 'BOOKNERD' ? data.title.trim() : '', typeof data.body === 'string' ? data.body.trim() : ''].filter(Boolean).join('\n');
+  event.waitUntil(self.registration.showNotification('BOOKNERD', options));
 });
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();

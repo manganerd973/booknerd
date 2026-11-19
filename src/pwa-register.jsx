@@ -117,7 +117,7 @@ export default function PwaRegister({ children }) {
       {children}
       {device && !standalone && showOnPage && !dismissed && (
         <aside className="booknerd-install-banner" aria-label="Установка Booknerd">
-          <img src="/booknerd-icon-v2-192.png" width="42" height="42" alt="" />
+          <img src="/booknerd-icon-v4-192.png" width="42" height="42" alt="" />
           <div>
             <strong>Установите Booknerd на телефон</strong>
             <InstallInstructions />

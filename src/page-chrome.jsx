@@ -182,6 +182,7 @@ export function ProfileMenu() {
         <span className="profile-menu-divider" />
         <a href="/community" onClick={() => setOpen(false)}><Users size={17} /> Сообщество</a>
         <a href="/discovery" onClick={() => setOpen(false)}><BookOpen size={17} /> Рекомендации и подборки</a>
+        <a href="/reading-stats" onClick={() => setOpen(false)}><BookOpen size={17} /> Моя статистика · Wrapped</a>
         <a href="/discovery#book-records" onClick={() => setOpen(false)}><BookOpen size={17} /> Книжные рекорды</a>
       </nav>}
     </div>

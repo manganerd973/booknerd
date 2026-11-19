@@ -6,6 +6,8 @@ function mapComment(row) {
   return {
     id: row.id,
     parentId: row.parent_id || null,
+    chapterId: row.chapter_id || null,
+    chapterNumber: row.chapter_number ?? null,
     authorName: row.author_name,
     isAdmin: Boolean(row.is_admin),
     body: row.body,
@@ -38,17 +40,17 @@ export async function GET(request) {
 
     const db = await ensureDb();
     const statement = chapterId
-      ? db.prepare(`SELECT c.id, c.parent_id, c.is_admin, c.author_name, c.body, c.is_spoiler, c.created_at, COUNT(*) OVER () AS total,
+      ? db.prepare(`SELECT c.id, c.chapter_id, ch.chapter_number, c.parent_id, c.is_admin, c.author_name, c.body, c.is_spoiler, c.created_at, COUNT(*) OVER () AS total,
           SUM(CASE WHEN v.value = 1 THEN 1 ELSE 0 END) AS up_votes,
           SUM(CASE WHEN v.value = -1 THEN 1 ELSE 0 END) AS down_votes
-          FROM comments c LEFT JOIN comment_votes v ON v.comment_id = c.id
+          FROM comments c LEFT JOIN chapters ch ON ch.id = c.chapter_id LEFT JOIN comment_votes v ON v.comment_id = c.id
           WHERE c.book_id = ? AND c.chapter_id = ? AND c.status = 'approved'
           GROUP BY c.id ORDER BY c.created_at ASC LIMIT 100`).bind(bookId, chapterId)
-      : db.prepare(`SELECT c.id, c.parent_id, c.is_admin, c.author_name, c.body, c.is_spoiler, c.created_at, COUNT(*) OVER () AS total,
+      : db.prepare(`SELECT c.id, c.chapter_id, ch.chapter_number, c.parent_id, c.is_admin, c.author_name, c.body, c.is_spoiler, c.created_at, COUNT(*) OVER () AS total,
           SUM(CASE WHEN v.value = 1 THEN 1 ELSE 0 END) AS up_votes,
           SUM(CASE WHEN v.value = -1 THEN 1 ELSE 0 END) AS down_votes
-          FROM comments c LEFT JOIN comment_votes v ON v.comment_id = c.id
-          WHERE c.book_id = ? AND c.chapter_id IS NULL AND c.status = 'approved'
+          FROM comments c LEFT JOIN chapters ch ON ch.id = c.chapter_id LEFT JOIN comment_votes v ON v.comment_id = c.id
+          WHERE c.book_id = ? AND c.status = 'approved'
           GROUP BY c.id ORDER BY c.created_at ASC LIMIT 100`).bind(bookId);
     const result = await statement.all();
     return Response.json({ comments: (result.results || []).map(mapComment), total: Number(result.results?.[0]?.total || 0) });
@@ -66,16 +68,17 @@ export async function POST(request) {
     const chapterId = String(payload.chapterId || '').trim() || null;
     const parentId = String(payload.parentId || '').trim() || null;
     const visitorKey = normalizeVisitorKey(payload.visitorKey);
-    const authorName = String(payload.authorName || '').trim().replace(/\s+/g, ' ').slice(0, 60);
-    if (/админ|admin|booknerd|букнерд/i.test(authorName.normalize('NFKC').replace(/[^\p{L}\p{N}]/gu, '')) || payload.isAdmin || payload.asAdmin) return Response.json({ error: 'Официальные ответы BOOKNERD доступны только владелице через админку. Выберите свой псевдоним.' }, { status: 403 });
+    const db = await ensureDb();
+    const profile = await db.prepare('SELECT display_name FROM reader_profiles WHERE visitor_key = ?').bind(visitorKey).first();
+    const authorName = String(profile?.display_name || '').trim().replace(/\s+/g, ' ').slice(0, 60);
+    if ((authorName !== 'Читатель BOOKNERD' && /админ|admin|booknerd|букнерд/i.test(authorName.normalize('NFKC').replace(/[^\p{L}\p{N}]/gu, ''))) || payload.isAdmin || payload.asAdmin) return Response.json({ error: 'Официальные ответы BOOKNERD доступны только владелице через админку. Выберите свой псевдоним.' }, { status: 403 });
     const body = String(payload.body || '').trim().slice(0, 2000);
     const isSpoiler = payload.isSpoiler === true;
     if (payload.website) return Response.json({ ok: true }, { status: 201 });
     if (!bookId || !visitorKey || authorName.length < 2 || body.length < 3) {
-      return Response.json({ error: 'Укажите имя и напишите комментарий.' }, { status: 400 });
+      return Response.json({ error: 'Укажите имя в профиле и напишите комментарий (не менее 3 символов).' }, { status: 400 });
     }
 
-    const db = await ensureDb();
     const book = await db.prepare(`SELECT id FROM books WHERE id = ? AND published = 1 LIMIT 1`).bind(bookId).first();
     if (!book) return Response.json({ error: 'Книга не найдена.' }, { status: 404 });
     if (chapterId) {

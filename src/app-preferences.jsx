@@ -16,7 +16,7 @@ export const APP_THEME_OPTIONS = [
 function applyTheme(theme) {
   if (typeof document === 'undefined') return;
   document.documentElement.dataset.appTheme = theme;
-  document.documentElement.style.colorScheme = theme === 'black' ? 'dark' : theme === 'white' ? 'light' : '';
+  document.documentElement.style.colorScheme = theme === 'black' || (['system', 'original'].includes(theme) && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
 }
 
 export function setStoredAppTheme(theme) {

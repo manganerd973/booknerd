@@ -1,5 +1,5 @@
 import BookContentTabs from '../../../src/book-content-tabs.jsx';
-import { AlertTriangle, ArrowRight, BookOpen, Clock3, ExternalLink, FileText, Flame } from 'lucide-react';
+import { AlertTriangle, ArrowRight, BookOpen, Clock3, ExternalLink, FileText, Flame, Heart, MessageCircle } from 'lucide-react';
 import { notFound } from 'next/navigation';
 import { getBookBySlug, listChapterSummaries, listPublicBooks } from '../../../lib/books.js';
 import { listBookArtworks } from '../../../lib/artworks.js';
@@ -89,7 +89,7 @@ export default async function BookPage({ params }) {
               {chapters.map((chapter) => (
                 <a href={`/books/${book.slug}/chapters/${chapter.id}`} key={chapter.id}>
                   <span>{String(chapter.chapterNumber).padStart(2, '0')}</span>
-                  <div><strong>{chapter.title}</strong><small><FileText size={13} /> {chapter.pointOfView ? `От лица ${chapter.pointOfView}` : 'Опубликована'}</small></div>
+                  <div><strong>{chapter.title}</strong><small className="chapter-social-counts"><span aria-label="Сердечки"><Heart size={14} /> {chapter.likeCount || 0}</span><span aria-label="Комментарии"><MessageCircle size={14} /> {chapter.commentCount || 0}</span></small></div>
                   <ArrowRight size={18} />
                 </a>
               ))}

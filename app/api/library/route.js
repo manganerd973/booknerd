@@ -24,7 +24,9 @@ export async function GET(request) {
       `SELECT rl.visitor_key, rl.book_id, rl.status, rl.last_chapter_id, rl.last_page,
               rl.progress, rl.reading_seconds, rl.last_opened_at, rl.created_at, rl.updated_at,
               b.slug AS book_slug, b.title AS book_title, b.author AS book_author, b.cover_key,
-              c.chapter_number, c.title AS chapter_title
+              c.chapter_number, c.title AS chapter_title,
+              (SELECT COUNT(*) FROM chapters t WHERE t.book_id = rl.book_id AND t.status = 'published') AS chapter_total,
+              (SELECT COUNT(*) FROM chapters t WHERE t.book_id = rl.book_id AND t.status = 'published' AND t.chapter_number > c.chapter_number) AS chapters_left
        FROM reader_library rl
        JOIN books b ON b.id = rl.book_id
        LEFT JOIN chapters c ON c.id = rl.last_chapter_id
@@ -47,6 +49,8 @@ export async function GET(request) {
         coverUrl: row.cover_key ? `/api/covers/${String(row.cover_key).split('/').map(encodeURIComponent).join('/')}` : null,
         chapterNumber: row.chapter_number == null ? null : Number(row.chapter_number),
         chapterTitle: row.chapter_title || '',
+        chapterTotal: Number(row.chapter_total || 0),
+        chaptersLeft: Number(row.chapters_left || 0),
         createdAt: row.created_at,
         updatedAt: row.updated_at,
       })),

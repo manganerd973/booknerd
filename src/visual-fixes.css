@@ -61,9 +61,26 @@
 .install-steps summary { cursor: pointer; font-weight: 700; }
 .install-steps ol { padding-left: 22px; }
 .install-steps li { margin-block: 9px; }
-.loading-black-cat { display: block; position: relative; width: 220px; aspect-ratio: 5/4; margin: auto; filter: drop-shadow(0 0 2px #bda9e9); }
-.loading-black-cat img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
+.loading-black-cat { display: block; position: relative; width: 220px; height: 176px; flex: 0 0 176px; margin: auto; filter: drop-shadow(0 0 2px #bda9e9); }
+.loading-black-cat > span { display: block; position: absolute; inset: 0; width: 220px; height: 176px; background: url("/loading-black-cat.png") center / contain no-repeat; image-rendering: pixelated; }
 .loading-black-cat .cat-still { clip-path: polygon(0 0,100% 0,100% 33%,72% 33%,65% 55%,50% 70%,50% 100%,0 100%); }
 .loading-black-cat .cat-moving-tail { clip-path: polygon(50% 70%,65% 55%,72% 33%,100% 33%,100% 100%,50% 100%); transform-origin: 51% 79%; animation: booknerd-tail 1.8s ease-in-out infinite alternate; }
 @keyframes booknerd-tail { from { transform: rotate(-7deg); } to { transform: rotate(9deg); } }
 @media (prefers-reduced-motion: reduce) { .loading-black-cat .cat-moving-tail { animation: none; } }
+
+/* Compact chapter metadata and matching purple statistics in both themes. */
+.book-page-modern .chapter-social-counts { color: var(--muted) !important; display: flex; gap: 18px; margin-top: 8px; }
+.chapter-social-counts > span { display: inline-flex; align-items: center; gap: 5px; font: 500 13px/1.5 var(--sans); color: inherit !important; }
+.comment-chapter-label { display: block; color: var(--muted); margin-block: 8px; }
+.reader-modern .comment-chapter-label { color: var(--reader-soft-ink); }
+.reader-personal-stats { background: #392276; color: #fff; border-radius: 18px; margin: 24px auto; padding: 28px 20px; }
+.reader-personal-stats :is(h2, h2 em, .section-number, .reader-stat-grid article, .reader-stat-grid span, .reader-stat-grid svg) { color: #f2ebff !important; }
+.reader-personal-stats .reader-wrapped-card { background: #eee7ff; color: #30204f; }
+.reader-personal-stats .reader-wrapped-card span { color: #54416f; }
+.reader-modern .reader-motion-surface.reader-motion-scroll,
+.reader-modern .reader-motion-scroll .reader-visible-flow { min-height: 0 !important; height: auto !important; }
+.reader-modern .reader-motion-scroll .reader-flow-chapter { padding-bottom: 12px; }
+.reader-modern .reader-discussion-wrap { padding-top: 12px; }
+.home-continue-row progress { width: 100%; accent-color: var(--accent); }
+.home-continue-row .home-update-copy { min-width: 0; }
+.home-continue-row .home-update-copy small { white-space: normal; }

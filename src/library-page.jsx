@@ -2,7 +2,6 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Bookmark, BookOpen, Check, Grid3X3, Heart, Library, List, LoaderCircle, XCircle, Search, FolderPlus } from 'lucide-react';
-import { ReaderStatistics } from './home-reader-features.jsx';
 import { LIBRARY_STATUS, loadReaderLibrary, updateReaderLibrary } from './reader-library.jsx';
 import { SiteFooter, SiteHeader } from './page-chrome.jsx';
 import { ShelfBook } from './book-shelves.jsx';
@@ -194,7 +193,7 @@ export default function LibraryPage({ initialBooks = [] }) {
             </div>
           )}
 
-          <ReaderStatistics />
+
         </section>
       </main>
       <SiteFooter />
