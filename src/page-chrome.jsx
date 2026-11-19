@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import ContinueReadingDialog from './continue-reading-dialog.jsx';
 import {
   ArrowRight,
   Bell,
@@ -106,6 +107,7 @@ export function ThemeButton() {
 }
 
 export function ShelfNavigation({ active, continueHref = '/#continue-reading' }) {
+  const [resumeOpen, setResumeOpen] = useState(false);
   const items = [
     ['home', '/', 'Главная', Home],
     ['translations', '/translations', 'Каталог', Compass],
@@ -113,9 +115,9 @@ export function ShelfNavigation({ active, continueHref = '/#continue-reading' })
     ['library', '/library', 'Закладки', Bookmark],
     ['profile', '/profile', 'Профиль', UserRound],
   ];
-  return <nav className="home-bottom-nav" aria-label="Основные разделы">{items.map(([key, href, title, Icon]) =>
-    <a key={key} href={href} aria-current={active === key ? 'page' : undefined}><Icon size={21} />{title}</a>
-  )}</nav>;
+  return <><nav className="home-bottom-nav" aria-label="Основные разделы">{items.map(([key, href, title, Icon]) =>
+    <a key={key} href={href} onClick={key === 'continue' ? event => { event.preventDefault(); setResumeOpen(true); } : undefined} aria-current={active === key ? 'page' : undefined}><Icon size={21} />{title}</a>
+  )}</nav>{resumeOpen && <ContinueReadingDialog onClose={() => setResumeOpen(false)} />}</>;
 }
 
 export function ProfileMenu() {

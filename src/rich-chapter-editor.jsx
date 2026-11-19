@@ -1,5 +1,6 @@
 'use client';
 
+import { prepareChapterPaste } from './paste-chapter-images.js';
 import React, { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   AlignCenter,
@@ -28,13 +29,14 @@ import {
 } from 'lucide-react';
 import {
   normalizeRichDocument,
+  safeChapterImageUrl,
   richDocumentToEditorHtml,
   richDocumentToPlainText,
   serializeRichDocument,
 } from '../lib/rich-document.js';
 
 const BLOCK_TAGS = new Set(['P', 'DIV', 'H1', 'H2', 'H3', 'BLOCKQUOTE', 'LI']);
-const ALLOWED_PASTE_TAGS = new Set(['P', 'DIV', 'BR', 'STRONG', 'B', 'EM', 'I', 'U', 'S', 'STRIKE', 'BLOCKQUOTE', 'UL', 'OL', 'LI', 'H1', 'H2', 'H3', 'SPAN', 'FONT']);
+const ALLOWED_PASTE_TAGS = new Set(['P', 'DIV', 'BR', 'STRONG', 'B', 'EM', 'I', 'U', 'S', 'STRIKE', 'BLOCKQUOTE', 'UL', 'OL', 'LI', 'H1', 'H2', 'H3', 'SPAN', 'FONT', 'IMG']);
 const CHAT_EMOJI_CATEGORIES = [
   {
     id: 'faces',
@@ -182,6 +184,8 @@ function extractBlocks(root) {
     }
     if (node.nodeType !== Node.ELEMENT_NODE) return;
     const tag = node.tagName;
+    if (tag === 'IMG') { flushLooseRuns(); const src = safeChapterImageUrl(node.getAttribute('src')); if (src) blocks.push({ type: 'image', src, alt: node.getAttribute('alt') || '', runs: [] }); return; }
+    if (node.querySelector('img')) { flushLooseRuns(); node.childNodes.forEach(visit); flushLooseRuns(); return; }
     if (tag === 'UL' || tag === 'OL') {
       flushLooseRuns();
       let index = Math.max(1, Number(node.getAttribute('start')) || 1);
@@ -215,6 +219,12 @@ function sanitizePastedHtml(html) {
       return;
     }
     if (element === root) return;
+    if (element.tagName === 'IMG') {
+      const src = safeChapterImageUrl(element.getAttribute('src')), alt = element.getAttribute('alt') || '';
+      [...element.attributes].forEach(attribute => element.removeAttribute(attribute.name));
+      if (src) { element.setAttribute('src', src); element.setAttribute('alt', alt); } else element.remove();
+      return;
+    }
     const style = element.style;
     const kept = {
       fontWeight: style.fontWeight,
@@ -240,8 +250,10 @@ function sanitizePastedHtml(html) {
   return root.innerHTML;
 }
 
-const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbackText, onChange, onTextSelect, bookKey }, forwardedRef) {
+const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbackText, onChange, onTextSelect, bookKey, focusReport, onPasteBusy }, forwardedRef) {
   const editorRef = useRef(null);
+  const [pasteBusy, setPasteBusy] = useState(false);
+  const [pasteNotice, setPasteNotice] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchPosition, setSearchPosition] = useState({ current: 0, total: 0 });
   const [chatComposerOpen, setChatComposerOpen] = useState(false);
@@ -392,6 +404,15 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
     const haystack = editorRef.current?.textContent?.toLocaleLowerCase('ru-RU') || '';
     setSearchPosition({ current: 0, total: needle ? haystack.split(needle).length - 1 : 0 });
   };
+
+  useEffect(() => {
+    if (!focusReport || !editorRef.current) return;
+    updateSearch(focusReport.selectedText || '');
+    editorRef.current.scrollIntoView({ block: 'center' });
+  }, [focusReport?.token]);
+  useEffect(() => {
+    if (focusReport?.selectedText && searchQuery === focusReport.selectedText) selectMatch(1);
+  }, [focusReport?.token, searchQuery]);
 
   const clearSearch = () => {
     updateSearch('');
@@ -661,6 +682,7 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
 
   return (
     <div className="admin-rich-editor">
+      {focusReport && <aside className="admin-error-focus"><strong>Сообщение читателя</strong><p>{focusReport.details || 'Исправьте выделенный фрагмент и сохраните главу.'}</p><small>Фрагмент: «{focusReport.selectedText}». Если совпадений несколько, используйте стрелки поиска. Статус «Исправлено» меняется отдельно после сохранения.</small></aside>}
       <div className="admin-rich-toolbar" aria-label="Оформление текста">
         <div>{toolbarButton('Отменить последнее изменение — Ctrl+Z', <><Undo2 size={16} /><span>Отменить</span></>, () => command('undo'))}{toolbarButton('Вернуть отменённое изменение — Ctrl+Y', <><Redo2 size={16} /><span>Вернуть</span></>, () => command('redo'))}</div>
         <div>{toolbarButton('Жирный текст', <Bold size={17} />, () => command('bold'))}{toolbarButton('Курсив', <Italic size={17} />, () => command('italic'))}{toolbarButton('Подчёркивание', <Underline size={17} />, () => command('underline'))}</div>
@@ -816,7 +838,7 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
       <div
         ref={editorRef}
         className="admin-rich-content"
-        contentEditable
+        contentEditable={!pasteBusy}
         suppressContentEditableWarning
         role="textbox"
         aria-multiline="true"
@@ -828,14 +850,29 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
         onSelect={reportSelection}
         onKeyUp={reportSelection}
         onKeyDown={handleEditorShortcut}
-        onPaste={(event) => {
+        onPaste={async event => {
           const html = event.clipboardData.getData('text/html');
-          if (!html) return;
+          const text = event.clipboardData.getData('text/plain');
+          const files = [...event.clipboardData.items].filter(item => item.kind === 'file' && item.type.startsWith('image/')).map(item => item.getAsFile()).filter(Boolean);
+          if (!html && !files.length) return;
           event.preventDefault();
-          document.execCommand('insertHTML', false, sanitizePastedHtml(html));
-          emitChange();
+          const selection = window.getSelection();
+          const range = selection?.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
+          if (!files.length && !/<img\b/i.test(html)) { document.execCommand('insertHTML', false, sanitizePastedHtml(html)); emitChange(); return; }
+          setPasteBusy(true); onPasteBusy?.(true); setPasteNotice('Сохраняем изображения…');
+          try {
+            const escaped = text.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('\n','<br>');
+            const result = await prepareChapterPaste(html || escaped, files);
+            if (!editorRef.current?.isConnected) return;
+            editorRef.current.contentEditable = 'true'; editorRef.current.focus();
+            if (range && editorRef.current.contains(range.commonAncestorContainer)) { selection.removeAllRanges(); selection.addRange(range); }
+            document.execCommand('insertHTML', false, sanitizePastedHtml(result.html));
+            emitChange(); setPasteNotice(result.warning || 'Текст и изображения вставлены. Сохраните главу.');
+          } catch(error) { setPasteNotice(error.message || 'Вставка не выполнена. Повторите попытку.'); }
+          finally { setPasteBusy(false); onPasteBusy?.(false); }
         }}
       />
+      {pasteNotice && <p role="status" className="admin-rich-hint">{pasteNotice}</p>}
       <p className="admin-rich-hint"><strong>Переписка:</strong> можно сначала открыть «Переписку» и выбрать героя, а затем выделить сообщение в тексте и нажать «Применить». Панель останется открытой, а редактор — на том же месте. Для каждой книги хранится свой список героев. На iPhone эмодзи отображаются в стиле Apple. <strong>Случайно изменили текст?</strong> Нажмите «Отменить» или Ctrl+Z.</p>
     </div>
   );

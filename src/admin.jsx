@@ -262,6 +262,8 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
   const [books, setBooks] = useState([]);
   const [bookForm, setBookForm] = useState(blankBook);
   const [chapters, setChapters] = useState([]);
+  const [errorFocus, setErrorFocus] = useState(null);
+  const [pastingImages, setPastingImages] = useState(false);
   const [artworks, setArtworks] = useState([]);
   const [artworkCaption, setArtworkCaption] = useState('');
   const [chapterForm, setChapterForm] = useState(blankChapter);
@@ -427,6 +429,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
       ]);
       setChapters(chapterData.chapters || []);
       setArtworks(artworkData.artworks || []);
+      return chapterData;
     } catch (error) {
       flash(error.message, 'error');
     }
@@ -680,6 +683,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
 
   const saveChapter = async (event) => {
     event.preventDefault();
+    if (pastingImages) { flash('Дождитесь завершения вставки изображений.', 'error'); return; }
     if (!bookForm.id) {
       flash('Сначала сохраните книгу.', 'error');
       return;
@@ -1226,7 +1230,7 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
                     {chapterForm.workflowStatus === 'scheduled' ? (
                       <label className="admin-chapter-schedule"><span>Дата и время публикации</span><input type="datetime-local" value={localDateTimeInput(chapterForm.scheduledAt)} onChange={(event) => setChapterForm({ ...chapterForm, scheduledAt: event.target.value })} required /><small>BOOKNERD проверяет расписание каждую минуту, сам публикует главу и отправляет уведомления.</small></label>
                     ) : null}
-                    <div className="admin-chapter-body"><span>Текст главы с оформлением</span><RichChapterEditor key={`${bookForm.id || 'book'}-${chapterForm.id || 'new'}-${chapterForm.chapterNumber}`} bookKey={bookForm.id} ref={chapterBodyRef} value={chapterForm.bodyRich} fallbackText={chapterForm.body} onTextSelect={(text) => { chapterSelectionRef.current = text; }} onChange={({ body, bodyRich }) => setChapterForm((current) => ({ ...current, body, bodyRich }))} /></div>
+                    <div className="admin-chapter-body"><span>Текст главы с оформлением</span><RichChapterEditor key={`${bookForm.id || 'book'}-${chapterForm.id || 'new'}-${chapterForm.chapterNumber}`} bookKey={bookForm.id} onPasteBusy={setPastingImages} focusReport={errorFocus?.chapterId === chapterForm.id ? errorFocus : null} ref={chapterBodyRef} value={chapterForm.bodyRich} fallbackText={chapterForm.body} onTextSelect={(text) => { chapterSelectionRef.current = text; }} onChange={({ body, bodyRich }) => setChapterForm((current) => ({ ...current, body, bodyRich }))} /></div>
                     <section className="admin-footnotes-panel">
                       <header>
                         <div><span>СНОСКИ КОМАНДЫ</span><strong>Пояснения для читателей</strong><small>Выделите слово или короткую фразу в тексте выше и нажмите кнопку. Сноски могут создавать вы и выбранные участники команды.</small></div>
@@ -1268,7 +1272,18 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
           </section>
         )}
 
-        {view === 'errors' ? <AdminErrorReports onNotice={flash} /> : null}
+        {view === 'errors' ? <AdminErrorReports onNotice={flash} onEdit={async report => {
+          const book = books.find(item => item.slug === report.bookSlug);
+          if (!book) { flash('Книга не найдена в доступных книгах.', 'error'); return; }
+          const data = await openBook(book);
+          try {
+            if (!data) return;
+            const chapter = data.chapters?.find(item => item.id === report.chapterId);
+            if (!chapter) throw Error('Глава не найдена.');
+            setChapterForm({ ...blankChapter, ...chapter, footnotes: chapter.footnotes || [] });
+            setErrorFocus({ ...report, token: Date.now() });
+          } catch (error) { flash(error.message, 'error'); }
+        }} /> : null}
 
         {view === 'voting' ? <AdminVoting onNotice={flash} /> : null}
 

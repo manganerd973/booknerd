@@ -59,3 +59,23 @@ html:not([data-profile-available='true']) :is(nav, .header-actions, footer) a:is
 @media (max-width: 700px) {
   html:not([data-profile-available='true']) .home-bottom-nav { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
+
+/* The collapsed prompt stays small; instructions use the full card width. */
+.booknerd-install-banner { align-items: start; max-height: min(440px, calc(100dvh - 180px - env(safe-area-inset-top) - env(safe-area-inset-bottom))); overflow-y: auto; overscroll-behavior: contain; }
+.booknerd-install-heading { min-width: 0; align-self: center; }
+.booknerd-install-heading > strong { display: block; font-size: 14px; line-height: 1.35; }
+.booknerd-install-guide { grid-column: 1 / -1; min-width: 0; }
+.booknerd-install-guide > summary { min-height: 40px; padding: 10px 12px; border-radius: 9px; color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--paper)); font-size: 13px; font-weight: 700; cursor: pointer; }
+.booknerd-install-banner .install-steps { padding: 4px 3px 0; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.booknerd-install-banner .install-steps details { margin: 8px 0; border-top: 1px solid var(--line); }
+.booknerd-install-banner .install-steps details > summary { min-height: 44px; padding: 12px 0; color: var(--ink); }
+.booknerd-install-banner .install-steps ol { display: block; list-style: decimal outside; margin: 0 0 12px; padding-left: 24px; }
+.booknerd-install-banner .install-steps li { display: list-item; margin: 0 0 10px; padding-left: 3px; font-size: 13px; line-height: 1.5; color: var(--ink); }
+.booknerd-install-banner .install-steps :is(p,li) strong { color: var(--ink); font-size: inherit; }
+@media (max-width: 480px) {
+  .booknerd-install-banner { left: 12px; right: 12px; width: auto; gap: 8px; grid-template-columns: 36px minmax(0,1fr) 36px; padding: 12px; }
+  .booknerd-install-banner > img { width: 36px; height: 36px; }
+  .booknerd-profile-install { padding: 24px 16px; }
+  .booknerd-profile-install h1 { font-size: 24px; }
+  .booknerd-profile-install .install-steps { font-size: 14px; }
+}

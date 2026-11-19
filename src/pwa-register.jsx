@@ -32,14 +32,14 @@ export function InstallInstructions() {
   return <div className="install-steps">
     {installedHere && <p>Сайт добавлен. Найдите иконку BOOKNERD на главном экране телефона и откройте её.</p>}
     <p>BOOKNERD устанавливается из браузера — искать его в App Store или Google Play не нужно.</p>
-    <details open={device === 'ios'}><summary>iPhone / iPad — через Safari</summary><ol>
+    <details><summary>iPhone / iPad — через Safari</summary><ol>
       <li>Откройте <strong>booknerd.bknrd.workers.dev</strong> в Safari. Если вы внутри Telegram, откройте ссылку во внешнем браузере.</li>
       <li>Нажмите кнопку <strong>«Поделиться»</strong> (квадрат со стрелкой вверх). В некоторых версиях Safari она находится в меню «…».</li>
       <li>Прокрутите список действий и выберите <strong>«На экран „Домой“»</strong>.</li>
       <li>Если есть переключатель <strong>«Открывать как веб-приложение»</strong>, включите его. Нажмите <strong>«Добавить»</strong>.</li>
       <li>Вернитесь на домашний экран и запустите BOOKNERD с новой иконки.</li>
     </ol></details>
-    <details open={device === 'android'}><summary>Android — через Chrome</summary><ol>
+    <details><summary>Android — через Chrome</summary><ol>
       <li>Откройте <strong>booknerd.bknrd.workers.dev</strong> в Chrome.</li>
       <li>Нажмите <strong>⋮</strong> справа вверху → <strong>«Добавить на главный экран»</strong> или <strong>«Установить приложение»</strong>.</li>
       <li>Подтвердите установку, затем откройте BOOKNERD с иконки на телефоне.</li>
@@ -118,11 +118,15 @@ export default function PwaRegister({ children }) {
       {device && !standalone && showOnPage && !dismissed && (
         <aside className="booknerd-install-banner" aria-label="Установка Booknerd">
           <img src="/booknerd-icon-v4-192.png" width="42" height="42" alt="" />
-          <div>
-            <strong>Установите Booknerd на телефон</strong>
-            <InstallInstructions />
+          <div className="booknerd-install-heading">
+            <strong>BOOKNERD на телефоне</strong>
+            <p>Добавьте сайт на главный экран.</p>
           </div>
           <button type="button" className="booknerd-install-close" onClick={dismiss} aria-label="Закрыть подсказку"><X size={19} /></button>
+          <details className="booknerd-install-guide">
+            <summary>Как установить</summary>
+            <InstallInstructions />
+          </details>
         </aside>
       )}
     </InstallContext.Provider>

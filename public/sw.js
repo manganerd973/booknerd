@@ -1,4 +1,4 @@
-const SHELL_CACHE = 'booknerd-shell-v17';
+const SHELL_CACHE = 'booknerd-shell-v22';
 const OFFLINE_CACHE = 'booknerd-offline-books-v9';
 const SHELL_URLS = ['/', '/translations', '/library', '/calendar', '/manifest.webmanifest', '/booknerd-icon-v4-192.png'];
 

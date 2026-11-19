@@ -203,6 +203,7 @@ function ChapterFlow({
       <div className="reader-flow-copy">
         {blocks.map((block, index) => {
           const text = block.runs.map((run) => run.text).join('');
+          if (block.type === 'image') return <figure className="reader-inline-image" key={index}><img src={block.src} alt={block.alt || ''} onLoad={() => window.dispatchEvent(new Event('resize'))} /></figure>;
           const element = block.chatSide ? 'p' : block.type === 'heading' ? 'h2' : block.type === 'subheading' ? 'h3' : block.type === 'blockquote' ? 'blockquote' : 'p';
           const listMarker = block.type === 'list-item' ? block.listType === 'number' ? `${block.listIndex || index + 1}.` : '•' : '';
           return <AnnotatedParagraph
@@ -536,7 +537,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
 
   useEffect(() => {
     if (!initialPositionApplied.current) return;
-    try { localStorage.setItem(`booknerd-reader-position:${book.id}:${chapter.id}`, String(page)); } catch { /* optional */ }
+    try { localStorage.setItem('booknerd-last-reading-v1', JSON.stringify({ bookId: book.id, bookSlug: book.slug, bookTitle: book.title, coverUrl: book.coverUrl, lastChapterId: chapter.id, chapterNumber: chapter.chapterNumber, chapterTitle: chapter.title, lastPage: page, lastOpenedAt: new Date().toISOString() })); localStorage.setItem(`booknerd-reader-position:${book.id}:${chapter.id}`, String(page)); } catch { /* optional */ }
   }, [book.id, chapter.id, chapterIndex, chapterList.length, currentChapterPages, page]);
 
   const bookPageOffset = useMemo(

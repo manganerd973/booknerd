@@ -12,14 +12,14 @@
   border-radius:19px;
   color:var(--ink);
   background:linear-gradient(135deg,color-mix(in srgb,var(--paper) 94%,var(--yellow) 6%),var(--paper));
-  box-shadow:0 22px 65px rgba(8,33,29,.24);
+  box-shadow:0 22px 65px rgba(18,8,33,.24);
   transform:translateX(-50%);
   animation:pwa-reminder-in .28s ease both;
 }
 .pwa-install-reminder::before { position:absolute; inset:10px auto 10px 0; width:3px; border-radius:0 4px 4px 0; content:''; background:var(--yellow); }
 .pwa-install-close { position:absolute; top:8px; right:8px; display:grid; width:36px; height:36px; place-items:center; border:0; border-radius:50%; color:var(--muted); background:transparent; cursor:pointer; }
 .pwa-install-close:hover { color:var(--ink); background:color-mix(in srgb,var(--paper) 72%,var(--line) 28%); }
-.pwa-install-icon { display:grid; width:46px; height:46px; place-items:center; border-radius:14px; color:var(--yellow); background:var(--navy); box-shadow:0 8px 18px rgba(10,36,31,.14); }
+.pwa-install-icon { display:grid; width:46px; height:46px; place-items:center; border-radius:14px; color:var(--yellow); background:var(--navy); box-shadow:0 8px 18px rgba(20,10,36,.14); }
 .pwa-install-copy { display:grid; min-width:0; gap:5px; }
 .pwa-install-copy > small { color:var(--coral); font-size:7px; font-weight:900; letter-spacing:.13em; }
 .pwa-install-copy > strong { padding-right:4px; font:600 20px/1.12 var(--serif); }

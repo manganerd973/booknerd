@@ -51,7 +51,7 @@ function formatDate(value) {
   }
 }
 
-export function AdminErrorReports({ onNotice }) {
+export function AdminErrorReports({ onNotice, onEdit }) {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const reload = () => {
@@ -88,6 +88,7 @@ export function AdminErrorReports({ onNotice }) {
             <article className={report.status === 'resolved' ? 'is-resolved' : ''} key={report.id}>
               <header><span>{ERROR_LABELS[report.category] || ERROR_LABELS.other}</span><time>{formatDate(report.createdAt)}</time></header>
               <blockquote>“{report.selectedText}”</blockquote>
+              <button type="button" className="admin-primary" onClick={() => onEdit(report)}>Открыть в редакторе и исправить</button>
               {report.details ? <p>{report.details}</p> : null}
               <div><small>«{report.bookTitle}» · глава {report.chapterNumber} · страница {report.page + 1}</small><a href={`/books/${report.bookSlug}/chapters/${report.chapterId}?page=${report.page + 1}`} target="_blank" rel="noreferrer">Открыть место <ArrowRight size={14} /></a></div>
               <button className={report.status === 'resolved' ? 'admin-secondary' : 'admin-primary'} onClick={() => toggle(report)}>{report.status === 'resolved' ? <RotateCcw size={16} /> : <Check size={16} />}{report.status === 'resolved' ? 'Вернуть в работу' : 'Исправлено'}</button>

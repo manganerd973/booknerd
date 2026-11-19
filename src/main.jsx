@@ -17,6 +17,7 @@ import {
 import { loadReaderLibrary } from './reader-library.jsx';
 import { ContinueReading } from './home-reader-features.jsx';
 import { SiteLogo as Logo, ProfileMenu, ShelfNavigation, ThemeButton } from './page-chrome.jsx';
+import ReadingLeaders from './reading-leaders.jsx';
 import { HomeShelves } from './book-shelves.jsx';
 
 function HeroBookCover({ book, className, onSelect }) {
@@ -247,6 +248,7 @@ function App({ initialBooks = [], initialChapters = [], initialQuoteOfDay = null
 
           <HomeShelves books={books} libraryByBook={libraryByBook} />
 
+          <ReadingLeaders />
           {initialQuoteOfDay && <QuoteOfDay quote={initialQuoteOfDay} />}
         </main>
 
