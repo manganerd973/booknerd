@@ -720,6 +720,9 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
   return (
     <div className="admin-rich-editor">
       {focusReport && <aside className="admin-error-focus"><strong>Сообщение читателя</strong><p>{focusReport.details || 'Исправьте выделенный фрагмент и сохраните главу.'}</p><small>Фрагмент: «{focusReport.selectedText}». Если совпадений несколько, используйте стрелки поиска. Статус «Исправлено» меняется отдельно после сохранения.</small></aside>}
+      <section className="admin-chapter-photos" aria-label="Фото в тексте главы">
+        <h3><ImagePlus size={20} /> Фото</h3>
+        <p>Поставьте курсор в тексте и добавьте фото в нужное место.</p>
       <label className="admin-chapter-image-size">
         <span>Размер фото после сжатия</span>
         <select value={imageSize} onChange={event => setImageSize(event.target.value)} disabled={pasteBusy}>
@@ -730,8 +733,9 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
         <small>Для новых фото и вставки из буфера. Маленький экономит место, большой сохраняет больше деталей.</small>
       </label>
       <input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={insertChapterImage} />
+      <button type="button" disabled={pasteBusy} onPointerDown={event => event.preventDefault()} onClick={chooseChapterImage} title="Добавить фото в текст главы"><ImagePlus size={17} /><span>{pasteBusy ? 'Загрузка…' : 'Добавить фото'}</span></button>
+      </section>
       <div className="admin-rich-toolbar" aria-label="Оформление текста">
-        <div><button type="button" disabled={pasteBusy} onPointerDown={event => event.preventDefault()} onClick={chooseChapterImage} title="Добавить фото в текст главы"><ImagePlus size={17} /><span>{pasteBusy ? 'Загрузка…' : 'Добавить фото'}</span></button></div>
         <div>{toolbarButton('Отменить последнее изменение — Ctrl+Z', <><Undo2 size={16} /><span>Отменить</span></>, () => command('undo'))}{toolbarButton('Вернуть отменённое изменение — Ctrl+Y', <><Redo2 size={16} /><span>Вернуть</span></>, () => command('redo'))}</div>
         <div>{toolbarButton('Жирный текст', <Bold size={17} />, () => command('bold'))}{toolbarButton('Курсив', <Italic size={17} />, () => command('italic'))}{toolbarButton('Подчёркивание', <Underline size={17} />, () => command('underline'))}</div>
         <div>{toolbarButton('Оформить сообщение из переписки', <><Smartphone size={16} /><span>Переписка</span></>, openChatComposer)}</div>
