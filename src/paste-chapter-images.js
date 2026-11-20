@@ -1,11 +1,5 @@
-const IMAGE_SIZES = {
-  small: { edge: 800, bytes: 100 * 1024 },
-  medium: { edge: 1200, bytes: 200 * 1024 },
-  large: { edge: 1600, bytes: 300 * 1024 },
-};
-
-export async function compressChapterImage(blob, size = 'medium') {
-  const preset = IMAGE_SIZES[size] || IMAGE_SIZES.medium;
+export async function compressChapterImage(blob) {
+  const preset = { edge: 1600, bytes: 300 * 1024 };
   if (blob.size > 20 * 1024 * 1024) throw Error('Изображение слишком большое (более 20 МБ).');
   const bitmap = await createImageBitmap(blob);
   const canvas = document.createElement('canvas');
@@ -17,18 +11,18 @@ export async function compressChapterImage(blob, size = 'medium') {
     compressed = await new Promise(resolve => canvas.toBlob(resolve,'image/webp',quality));
     if (compressed && compressed.size <= preset.bytes) break;
   }
-  if (!compressed || compressed.size > preset.bytes) throw Error(`Не удалось сжать изображение до ${preset.bytes / 1024} КБ. Выберите больший размер или уменьшите исходное фото.`);
+  if (!compressed || compressed.size > preset.bytes) throw Error(`Не удалось сжать изображение до ${preset.bytes / 1024} КБ. Уменьшите исходное фото и повторите загрузку.`);
   return compressed;
 }
 
-async function uploadImage(blob, size) {
-  const compressed = await compressChapterImage(blob, size);
+async function uploadImage(blob) {
+  const compressed = await compressChapterImage(blob);
   const form = new FormData(); form.append('image',compressed,'chapter.webp');
   const response = await fetch('/api/admin/chapter-images',{method:'POST',body:form});
   const data = await response.json(); if (!response.ok) throw Error(data.error || 'Не удалось сохранить изображение.');
   return data.imageUrl;
 }
-export async function prepareChapterPaste(html, files, size = 'medium') {
+export async function prepareChapterPaste(html, files) {
   const doc = new DOMParser().parseFromString(html || '', 'text/html');
   const images = [...doc.querySelectorAll('img')];
   let warning = '';
@@ -47,12 +41,12 @@ export async function prepareChapterPaste(html, files, size = 'medium') {
         if (!response.ok) throw Error(); blob = await response.blob();
       } else if (files.length === 1 && images.length === 1) blob = files[0];
       else throw Error();
-      const url = await uploadImage(blob, size); uploaded.set(src,url); img.src = url;
+      const url = await uploadImage(blob); uploaded.set(src,url); img.src = url;
     } catch (error) {
       if (/^https:\/\//.test(src)) warning = 'Часть фото осталась внешними ссылками: источник не разрешил копирование. Для надёжного хранения вставьте эти фото отдельно.';
       else throw Error(error.message || 'Фото недоступно в буфере. Скопируйте само изображение и вставьте отдельно.');
     }
   }
-  if (!images.length) for (const file of files) { const img = doc.createElement('img'); img.src = await uploadImage(file, size); doc.body.append(img); }
+  if (!images.length) for (const file of files) { const img = doc.createElement('img'); img.src = await uploadImage(file); doc.body.append(img); }
   return { html: doc.body.innerHTML, warning };
 }

@@ -203,7 +203,7 @@ function ChapterFlow({
       <div className="reader-flow-copy">
         {blocks.map((block, index) => {
           const text = block.runs.map((run) => run.text).join('');
-          if (block.type === 'image') return <figure className="reader-inline-image" key={index}><img src={block.src} alt={block.alt || ''} onLoad={() => window.dispatchEvent(new Event('resize'))} /></figure>;
+          if (block.type === 'image') return <figure className={`reader-inline-image is-${block.size || 'small'} align-${block.align || 'center'}`} key={index}><img src={block.src} alt={block.alt || ''} onLoad={() => window.dispatchEvent(new Event('resize'))} /></figure>;
           const element = block.chatSide ? 'p' : block.type === 'heading' ? 'h2' : block.type === 'subheading' ? 'h3' : block.type === 'blockquote' ? 'blockquote' : 'p';
           const listMarker = block.type === 'list-item' ? block.listType === 'number' ? `${block.listIndex || index + 1}.` : '•' : '';
           return <AnnotatedParagraph

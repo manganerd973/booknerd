@@ -205,3 +205,11 @@
 .reader-modern .reader-book-glossary :is(p,small) { color: var(--reader-soft-ink); }
 .reader-modern .reader-book-glossary .book-glossary-heading > svg { color: var(--reader-accent); background: var(--reader-control); }
 .admin-error-focus { padding: 12px; margin-bottom: 12px; color: var(--admin-ink); background: var(--admin-card); border: 1px solid var(--admin-line); border-left: 3px solid #9b7bea; border-radius: 8px; }
+
+.reader-inline-image.is-small { width: min(100%,220px); }
+.reader-inline-image.is-medium { width: min(100%,420px); }
+.reader-inline-image.is-wide { width: 100%; }
+.reader-inline-image.align-left { margin-left: 0; margin-right: auto; }
+.reader-inline-image.align-center { margin-left: auto; margin-right: auto; }
+.reader-inline-image.align-right { margin-left: auto; margin-right: 0; }
+.reader-inline-image img { width: 100%; }

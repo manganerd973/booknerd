@@ -1,4 +1,4 @@
-const SHELL_CACHE = 'booknerd-shell-v22';
+const SHELL_CACHE = 'booknerd-shell-v23';
 const OFFLINE_CACHE = 'booknerd-offline-books-v9';
 const SHELL_URLS = ['/', '/translations', '/library', '/calendar', '/manifest.webmanifest', '/booknerd-icon-v4-192.png'];
 
@@ -15,9 +15,22 @@ self.addEventListener('message', (event) => {
   event.waitUntil((async () => {
     try {
       const cache = await caches.open(OFFLINE_CACHE);
+      const savedImages = new Set();
       for (const url of urls) {
         const response = await fetch(new Request(url, { credentials: 'include' }));
-        if (response.ok) await cache.put(url, response.clone());
+        if (!response.ok || response.redirected) throw new Error('Не удалось скачать страницу книги. Попробуйте ещё раз.');
+        await cache.put(url, response.clone());
+        if ((response.headers.get('content-type') || '').includes('text/html')) {
+          const html = await response.text();
+          const imageUrls = html.match(/\/api\/covers\/chapter-images\/[a-zA-Z0-9._%-]+/g) || [];
+          for (const imageUrl of new Set(imageUrls)) {
+            if (savedImages.has(imageUrl)) continue;
+            savedImages.add(imageUrl);
+            const imageResponse = await fetch(imageUrl);
+            if (!imageResponse.ok) throw new Error('Не удалось скачать фото главы. Повторите сохранение книги.');
+            await cache.put(imageUrl, imageResponse);
+          }
+        }
       }
       event.ports?.[0]?.postMessage({ ok: true, saved: urls.length });
     } catch (error) {
@@ -32,12 +45,13 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin || url.pathname.startsWith('/admin') || url.pathname.startsWith('/api/admin')) return;
   // APIs are live data; do not search the entire offline cache for every poll.
-  if (url.pathname.startsWith('/api/')) return;
+  const chapterImage = url.pathname.startsWith('/api/covers/chapter-images/');
+  if (url.pathname.startsWith('/api/') && !chapterImage) return;
   event.respondWith((async () => {
     const cached = await caches.match(request, { ignoreSearch: request.mode === 'navigate' });
     // Versioned bundles and fonts are immutable. Reuse them immediately.
     const immutableAsset = url.pathname.startsWith('/_next/static/') || request.destination === 'font';
-    if (immutableAsset && cached) return cached;
+    if ((immutableAsset || chapterImage) && cached) return cached;
     try {
       const response = await fetch(request);
       if (response.ok && !response.redirected && (request.mode === 'navigate' || ['style', 'script', 'font', 'image'].includes(request.destination))) {

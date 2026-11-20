@@ -962,14 +962,28 @@ html[data-admin-theme='black'] :is(.admin-shell,.admin-access-page,.admin-login-
 .admin-support-form input { width: 100%; margin-top: 8px; padding: 12px; background: var(--admin-card); color: var(--admin-ink); border: 1px solid var(--admin-line); border-radius: 8px; }
 .admin-support-form button { background: #6c4ee0; color: white; border: 0; border-radius: 10px; padding: 14px; cursor: pointer; }
 
-.admin-chapter-image-size { display: grid; gap: 7px; padding: 12px; color: var(--admin-ink); }
-.admin-chapter-image-size > span { font-size: 13px; font-weight: 650; }
-.admin-chapter-image-size select { width: 100%; max-width: 340px; min-width: 0; min-height: 44px; padding: 8px 10px; border: 1px solid var(--admin-line); border-radius: 8px; background: var(--admin-paper, #fff); color: var(--admin-ink); font-size: 14px; }
-.admin-chapter-image-size small { font-size: 12px; line-height: 1.5; font-weight: 400; }
-
-.admin-chapter-photos { padding: 16px; border-bottom: 1px solid var(--admin-line); color: var(--admin-ink); background: var(--admin-card); }
-.admin-chapter-photos h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 18px; font-weight: 700; line-height: 1.3; }
-.admin-chapter-photos p { margin: 0 0 12px; font-size: 13px; line-height: 1.5; }
-.admin-chapter-photos .admin-chapter-image-size { padding: 0 0 12px; }
-.admin-chapter-photos > button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 16px; border: 0; border-radius: 8px; background: #6945cd; color: #fff; cursor: pointer; font-size: 14px; }
-.admin-chapter-photos > button:disabled { opacity: .65; cursor: wait; }
+.admin-rich-image-input { display: none; }
+.admin-rich-image-notice { margin: 0; padding: 8px 12px; border-bottom: 1px solid var(--admin-line); color: var(--admin-ink-soft); background: rgba(255,212,59,.14); font-size: 9px; line-height: 1.45; }
+.admin-rich-image-settings { display: grid; grid-template-columns: minmax(160px,.75fr) minmax(240px,1.6fr) auto auto auto; align-items: end; gap: 10px; padding: 12px; border-bottom: 1px solid var(--admin-line); background: linear-gradient(135deg,rgba(117,85,169,.12),rgba(255,212,59,.11)); }
+.admin-rich-image-settings > div:first-child { display: grid; gap: 3px; align-self: center; }
+.admin-rich-image-settings strong { color: var(--admin-ink); font-family: Georgia,serif; font-size: 16px; font-weight: 600; }
+.admin-rich-image-settings small { color: var(--admin-ink-soft); font-size: 8px; line-height: 1.4; }
+.admin-rich-image-settings label { display: grid; gap: 5px; }
+.admin-rich-image-settings label > span,.admin-rich-image-options > span { color: var(--admin-ink-soft); font-size: 8px; font-weight: 850; letter-spacing: .04em; text-transform: uppercase; }
+.admin-rich-image-settings input { width: 100%; min-width: 0; height: 36px; padding: 0 10px; border: 1px solid var(--admin-line); color: var(--admin-ink); background: var(--admin-card); font: inherit; font-size: 11px; outline: 0; }
+.admin-rich-image-settings input:focus { border-color: var(--admin-mint); box-shadow: 0 0 0 2px rgba(117,85,169,.14); }
+.admin-rich-image-options { display: flex; flex-wrap: wrap; gap: 4px; }
+.admin-rich-image-options > span { width: 100%; }
+.admin-rich-image-options button,.admin-rich-image-remove { min-height: 36px; padding: 0 9px; border: 1px solid var(--admin-line); color: var(--admin-ink); background: var(--admin-card); font: inherit; font-size: 8px; font-weight: 850; cursor: pointer; }
+.admin-rich-image-options button.is-active { border-color: var(--admin-mint); box-shadow: inset 0 0 0 1px var(--admin-mint); background: var(--admin-paper); }
+.admin-rich-image-remove { display: inline-flex; align-items: center; justify-content: center; gap: 6px; color: #8f3030; }
+.admin-rich-content .admin-chapter-image { position: relative; display: block; width: min(100%,220px); max-width: 100%; break-inside: avoid; margin-top: 16px; margin-bottom: 16px; padding: 7px; border: 1px solid transparent; background: rgba(117,85,169,.05); cursor: pointer; }
+.admin-rich-content .admin-chapter-image.is-medium { width: min(100%,420px); }
+.admin-rich-content .admin-chapter-image.is-wide { width: 100%; }
+.admin-rich-content .admin-chapter-image.align-left { margin-right: auto; margin-left: 0; }
+.admin-rich-content .admin-chapter-image.align-center { margin-right: auto; margin-left: auto; }
+.admin-rich-content .admin-chapter-image.align-right { margin-right: 0; margin-left: auto; }
+.admin-rich-content .admin-chapter-image:focus,.admin-rich-content .admin-chapter-image:hover { border-color: var(--admin-mint); outline: 0; box-shadow: 0 0 0 2px rgba(117,85,169,.14); }
+.admin-rich-content .admin-chapter-image img { display: block; width: 100%; max-width: 100%; height: auto; object-fit: contain; }
+.admin-rich-content .admin-chapter-image figcaption { margin-top: 5px; color: var(--admin-ink-soft); font-family: Onest,sans-serif; font-size: 8px; line-height: 1.35; text-align: center; }
+@media(max-width: 900px) { .admin-rich-image-settings { grid-template-columns: 1fr; } }
