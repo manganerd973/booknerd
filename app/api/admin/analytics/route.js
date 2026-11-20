@@ -1,3 +1,4 @@
+import { cachedRead } from '../../../../lib/read-cache.js';
 import { authorizeAdminRequest } from '../../../../lib/admin-auth.js';
 import { ensureDb } from '../../../../lib/runtime.js';
 
@@ -5,6 +6,7 @@ export async function GET(request) {
   const auth = await authorizeAdminRequest(request, { ownerOnly: true });
   if (auth.response) return auth.response;
   try {
+    const data = await cachedRead('owner-analytics:economy-v1', 300000, async () => {
     const db = await ensureDb();
     const activeSince = new Date(Date.now() - 90 * 1000).toISOString();
     const [online, installs, notificationSubscribers, telegram, libraryTotals, libraryByBook, retentionByChapter, notificationReturns, waitingByBook] = await Promise.all([
@@ -68,7 +70,7 @@ export async function GET(request) {
          ORDER BY readers DESC`
       ).all(),
     ]);
-    return Response.json({
+    return {
       onlineReaders: Number(online?.count || 0),
       installs: Number(installs?.count || 0),
       notificationSubscribers: Number(notificationSubscribers?.count || 0),
@@ -118,7 +120,9 @@ export async function GET(request) {
         })),
       },
       updatedAt: new Date().toISOString(),
+    };
     });
+    return Response.json(data, { headers: { 'cache-control': 'private, no-store' } });
   } catch (error) {
     return Response.json({ error: error.message || 'Статистика временно недоступна.' }, { status: 503 });
   }

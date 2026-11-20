@@ -38,12 +38,16 @@ export async function POST(request) {
       return Response.json({ error: 'Файл не похож на настоящее изображение.' }, { status: 400 });
     }
 
-    await checkImageStorageBudget(await ensureDb(), file.size);
-    const key = `chapter-images/${crypto.randomUUID()}.${extensionFor(file.type)}`;
-    await (await ensureDb()).prepare(
-      `INSERT INTO book_covers (key, content_type, data, created_at, uploaded_by) VALUES (?, ?, ?, ?, ?)`,
-    ).bind(key, file.type, data, new Date().toISOString(), auth.email || auth.displayName || '').run();
+    const db = await ensureDb();
+    const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', data))].map(byte => byte.toString(16).padStart(2, '0')).join('');
+    const key = `chapter-images/sha256-${hash}.${extensionFor(file.type)}`;
     const imageUrl = `/api/covers/${key.split('/').map(encodeURIComponent).join('/')}`;
+    const existing = await db.prepare('SELECT key FROM book_covers WHERE key = ? LIMIT 1').bind(key).first();
+    if (existing) return Response.json({ key, imageUrl, sizeBytes: file.size, reused: true }, { headers: { 'cache-control': 'no-store' } });
+    await checkImageStorageBudget(db, file.size);
+    await db.prepare(
+      `INSERT INTO book_covers (key, content_type, data, created_at, uploaded_by) VALUES (?, ?, ?, ?, ?) ON CONFLICT(key) DO NOTHING`,
+    ).bind(key, file.type, data, new Date().toISOString(), auth.email || auth.displayName || '').run();
     return Response.json({ key, imageUrl, sizeBytes: file.size }, {
       status: 201,
       headers: { 'cache-control': 'no-store' },

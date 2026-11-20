@@ -68,7 +68,14 @@ export async function PUT(request, { params }) {
       : null;
     const publishedExpression = publishedAt === undefined ? 'published_at' : '?';
     const footnotes = JSON.stringify(normalizeFootnotes(input.footnotes));
-    await db.prepare(
+    const versionChanged = [
+      [current.title, payload.title], [current.point_of_view || '', payload.pointOfView],
+      [current.body || '', payload.body], [current.body_rich || '', payload.bodyRich],
+      [current.footnotes || '[]', footnotes], [current.team_note || '', payload.teamNote],
+      [current.workflow_status || (current.status === 'published' ? 'published' : 'draft'), payload.workflowStatus],
+      [current.scheduled_at || null, payload.scheduledAt],
+    ].some(([before, after]) => before !== after);
+    if (versionChanged) await db.prepare(
       `INSERT INTO chapter_versions
        (id, chapter_id, title, point_of_view, body, body_rich, footnotes, team_note, workflow_status, scheduled_at, saved_by, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`

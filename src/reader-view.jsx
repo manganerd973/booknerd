@@ -302,7 +302,7 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       if (document.visibilityState !== 'hidden') trackReaderPresence(book.id, chapter.id);
     };
     ping();
-    const timer = window.setInterval(ping, 30000);
+    const timer = window.setInterval(ping, 60000);
     document.addEventListener('visibilitychange', ping);
     return () => {
       window.clearInterval(timer);
@@ -593,11 +593,11 @@ export default function ReaderView({ book, chapter, chapters = [], previous, nex
       const now = Date.now();
       const seconds = visible ? Math.min(120, Math.floor((now - lastRecordedAt) / 1000)) : 0;
       lastRecordedAt = now;
-      if (visible) record(seconds, false);
+      if (visible && seconds > 0) record(seconds, false);
     };
     const visibility = () => { flush(); visible = !document.hidden; lastRecordedAt = Date.now(); };
     record(0, false);
-    const timer = window.setInterval(flush, 60000);
+    const timer = window.setInterval(flush, 120000);
     document.addEventListener('visibilitychange', visibility);
     window.addEventListener('pagehide', flush);
     return () => {

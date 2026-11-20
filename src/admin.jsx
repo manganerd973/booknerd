@@ -369,8 +369,9 @@ export default function AdminDashboard({ currentUser, signOutHref }) {
   useEffect(() => { loadBooks(); }, [loadBooks]);
   useEffect(() => {
     if (currentUser.role !== 'owner') return undefined;
-    loadAudience();
-    const timer = window.setInterval(loadAudience, 30000);
+    const refresh = () => { if (!document.hidden) loadAudience(); };
+    refresh();
+    const timer = window.setInterval(refresh, 300000);
     return () => window.clearInterval(timer);
   }, [currentUser.role, loadAudience]);
 

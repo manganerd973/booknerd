@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ChevronUp,
   Eraser,
+  ImagePlus,
   IndentDecrease,
   IndentIncrease,
   Italic,
@@ -252,7 +253,10 @@ function sanitizePastedHtml(html) {
 
 const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbackText, onChange, onTextSelect, bookKey, focusReport, onPasteBusy }, forwardedRef) {
   const editorRef = useRef(null);
+  const imageInputRef = useRef(null);
+  const imageRangeRef = useRef(null);
   const [pasteBusy, setPasteBusy] = useState(false);
+  const [imageSize, setImageSize] = useState('medium');
   const [pasteNotice, setPasteNotice] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchPosition, setSearchPosition] = useState({ current: 0, total: 0 });
@@ -656,6 +660,39 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
     emitChange();
   };
 
+  const chooseChapterImage = () => {
+    if (pasteBusy) return;
+    const selection = window.getSelection();
+    const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+    imageRangeRef.current = range && editorRef.current?.contains(range.commonAncestorContainer)
+      ? range.cloneRange() : null;
+    imageInputRef.current?.click();
+  };
+
+  const insertChapterImage = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || pasteBusy) return;
+    const root = editorRef.current;
+    const range = imageRangeRef.current;
+    setPasteBusy(true); onPasteBusy?.(true); setPasteNotice('Сохраняем фото…');
+    try {
+      const result = await prepareChapterPaste('', [file], imageSize);
+      if (!root?.isConnected || editorRef.current !== root) return;
+      root.contentEditable = 'true'; root.focus();
+      const selection = window.getSelection();
+      const target = range && root.contains(range.commonAncestorContainer) ? range : document.createRange();
+      if (target !== range) { target.selectNodeContents(root); target.collapse(false); }
+      selection.removeAllRanges(); selection.addRange(target);
+      document.execCommand('insertHTML', false, sanitizePastedHtml(result.html + '<p><br></p>'));
+      emitChange(); setPasteNotice('Фото добавлено в текст. Сохраните главу.');
+    } catch (error) {
+      setPasteNotice(error.message || 'Не удалось добавить фото. Повторите попытку.');
+    } finally {
+      setPasteBusy(false); onPasteBusy?.(false); imageRangeRef.current = null;
+    }
+  };
+
   const toolbarButton = (label, icon, action) => (
     <button
       type="button"
@@ -683,7 +720,18 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
   return (
     <div className="admin-rich-editor">
       {focusReport && <aside className="admin-error-focus"><strong>Сообщение читателя</strong><p>{focusReport.details || 'Исправьте выделенный фрагмент и сохраните главу.'}</p><small>Фрагмент: «{focusReport.selectedText}». Если совпадений несколько, используйте стрелки поиска. Статус «Исправлено» меняется отдельно после сохранения.</small></aside>}
+      <label className="admin-chapter-image-size">
+        <span>Размер фото после сжатия</span>
+        <select value={imageSize} onChange={event => setImageSize(event.target.value)} disabled={pasteBusy}>
+          <option value="small">Маленький — до 100 КБ</option>
+          <option value="medium">Средний — до 200 КБ</option>
+          <option value="large">Большой — до 300 КБ</option>
+        </select>
+        <small>Для новых фото и вставки из буфера. Маленький экономит место, большой сохраняет больше деталей.</small>
+      </label>
+      <input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={insertChapterImage} />
       <div className="admin-rich-toolbar" aria-label="Оформление текста">
+        <div><button type="button" disabled={pasteBusy} onPointerDown={event => event.preventDefault()} onClick={chooseChapterImage} title="Добавить фото в текст главы"><ImagePlus size={17} /><span>{pasteBusy ? 'Загрузка…' : 'Добавить фото'}</span></button></div>
         <div>{toolbarButton('Отменить последнее изменение — Ctrl+Z', <><Undo2 size={16} /><span>Отменить</span></>, () => command('undo'))}{toolbarButton('Вернуть отменённое изменение — Ctrl+Y', <><Redo2 size={16} /><span>Вернуть</span></>, () => command('redo'))}</div>
         <div>{toolbarButton('Жирный текст', <Bold size={17} />, () => command('bold'))}{toolbarButton('Курсив', <Italic size={17} />, () => command('italic'))}{toolbarButton('Подчёркивание', <Underline size={17} />, () => command('underline'))}</div>
         <div>{toolbarButton('Оформить сообщение из переписки', <><Smartphone size={16} /><span>Переписка</span></>, openChatComposer)}</div>
@@ -862,7 +910,7 @@ const RichChapterEditor = forwardRef(function RichChapterEditor({ value, fallbac
           setPasteBusy(true); onPasteBusy?.(true); setPasteNotice('Сохраняем изображения…');
           try {
             const escaped = text.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('\n','<br>');
-            const result = await prepareChapterPaste(html || escaped, files);
+            const result = await prepareChapterPaste(html || escaped, files, imageSize);
             if (!editorRef.current?.isConnected) return;
             editorRef.current.contentEditable = 'true'; editorRef.current.focus();
             if (range && editorRef.current.contains(range.commonAncestorContainer)) { selection.removeAllRanges(); selection.addRange(range); }
